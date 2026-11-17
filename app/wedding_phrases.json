@@ -1,0 +1,135 @@
+{
+ "schema": 1,
+ "note": "Kho cụm từ key của lễ cưới, bản đầu (khung chat soạn 04/11/2026 23:31, người dựng sẽ sửa). Chỉ có cụm từ chung, KHÔNG có tên người. So khớp không phân biệt hoa thường và dấu câu; có phân biệt dấu thanh tiếng Việt. Bản dùng thật: <data_root>/learn/wedding_phrases.json (chép từ file này nếu chưa có). 05/11/2026: thêm nhóm tiec_nha_hang, gộp nhóm tiec_nang_ly cũ vào.",
+ "prompt": "Lễ cưới, nhà trai, nhà gái, lễ gia tiên, xin dâu, rước dâu, ngày lành tháng tốt, cô dâu, chú rể, trao quà, của hồi môn, trăm năm hạnh phúc, ba mẹ, ông bà, tổ tiên.",
+ "groups": {
+  "nghi_thuc_nha_trai": [
+   "nhà trai",
+   "đoàn nhà trai",
+   "đại diện nhà trai",
+   "xin phép",
+   "lễ vật",
+   "mâm quả",
+   "trầu cau",
+   "sính lễ",
+   "rước dâu",
+   "đón dâu",
+   "xin dâu"
+  ],
+  "gia_tien": [
+   "nhà gái",
+   "lễ gia tiên",
+   "gia tiên",
+   "thắp hương",
+   "thắp nhang",
+   "tổ tiên",
+   "ông bà",
+   "chứng giám",
+   "trình báo",
+   "ra mắt",
+   "bàn thờ"
+  ],
+  "ngay_gio": [
+   "ngày lành tháng tốt",
+   "giờ lành",
+   "ngày vui",
+   "hôm nay"
+  ],
+  "trao_qua": [
+   "trao quà",
+   "của hồi môn",
+   "trao nhẫn",
+   "nhẫn cưới",
+   "vòng",
+   "kiềng",
+   "bông tai",
+   "dây chuyền",
+   "lì xì"
+  ],
+  "loi_chuc": [
+   "trăm năm hạnh phúc",
+   "hạnh phúc",
+   "bách niên giai lão",
+   "đầu bạc răng long",
+   "sớm sinh quý tử",
+   "con đàn cháu đống",
+   "thuận vợ thuận chồng",
+   "chúc mừng",
+   "viên mãn",
+   "sắt son",
+   "yêu thương nhau"
+  ],
+  "ba_me_cam_on": [
+   "cảm ơn ba mẹ",
+   "cảm ơn bố mẹ",
+   "công ơn",
+   "nuôi dạy",
+   "sinh thành",
+   "con gái",
+   "con dâu",
+   "con rể",
+   "gả con",
+   "về làm dâu",
+   "ba mẹ",
+   "bố mẹ",
+   "má"
+  ],
+  "co_dau_chu_re": [
+   "cô dâu",
+   "chú rể",
+   "quen nhau",
+   "lần đầu gặp",
+   "yêu nhau",
+   "kỷ niệm",
+   "lời hứa",
+   "mãi mãi",
+   "bên nhau",
+   "vợ chồng"
+  ],
+  "tiec_nha_hang": [
+   "xin trân trọng kính mời",
+   "trân trọng kính mời",
+   "cô dâu chú rể tiến vào",
+   "tiến vào lễ đường",
+   "cắt bánh",
+   "rót rượu",
+   "tháp ly",
+   "tháp champagne",
+   "khai tiệc",
+   "cảm ơn quý khách",
+   "quý quan khách",
+   "đại diện gia đình",
+   "phát biểu",
+   "lời cảm ơn",
+   "chung vui",
+   "mời cô dâu chú rể",
+   "kính mời",
+   "xin mời",
+   "nâng ly",
+   "trăm phần trăm",
+   "một hai ba dô"
+  ]
+ },
+ "variants": {
+  "cảm ơn": [
+   "cám ơn"
+  ],
+  "ba mẹ": [
+   "ba má",
+   "cha mẹ"
+  ],
+  "thắp hương": [
+   "thắp nhang"
+  ],
+  "kỷ niệm": [
+   "kỉ niệm"
+  ],
+  "lì xì": [
+   "lì-xì"
+  ],
+  "champagne": [
+   "sâm banh",
+   "sâm panh"
+  ]
+ }
+}
