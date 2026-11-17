@@ -100,9 +100,13 @@ class TrolyApi(object):
                 n, created = data
                 msg = "Đã đưa %d clip có sao ★ vào %s của DaVinci." % (n, "timeline mới" if created else "timeline hiện tại")
                 self._emit("status", {"text": msg, "kind": "ok"})
+            elif kind == "renamed":
+                self._on_renamed(*data)
             elif kind == "error":
                 self._busy = False
                 job, msg = data
+                if job == "rename_bin":
+                    msg += " Tên mới đã lưu trong panel; bấm “Áp dụng vào Media Pool” để chuyển nốt clip về bin tên mới."
                 self._emit("status", {"text": "Lỗi (%s): %s" % (job, msg), "kind": "error"})
 
     def _save_soon(self):
@@ -190,7 +194,9 @@ class TrolyApi(object):
                                 cams.most_common()],
                     "template": self._plan.get("template") or tc.DEFAULT_TEMPLATE,
                     "templates": list(tc.templates(self._root)),
-                    "moves": [{"at": m.get("at", "")[:16].replace("T", " "), "n": len(m["log"])} for m in moves],
+                    "moves": [{"at": m.get("at", "")[:16].replace("T", " "), "n": len(m["log"]),
+                               "rename": ("%s → %s" % (m["rename"]["old"], m["rename"]["new"])) if m.get("rename") else None}
+                              for m in moves],
                     "busy": self._busy,
                     "thumbs": {"done": sum(1 for v in self._thumb_done.values() if v[0]),
                                "bad": sum(1 for v in self._thumb_done.values() if not v[0])}}
@@ -516,6 +522,12 @@ class TrolyApi(object):
             moves = self._plan.get("moves") or []
             if self._busy or not moves or not self._clips:
                 return False
+            if moves[-1].get("rename"):
+                ok = self._undo_rename(moves[-1])
+                if ok:
+                    self._emit("status", {"text": "Đang hoàn tác đổi tên...", "kind": "info"})
+                    self._emit("state", self.state())
+                return ok
             self._busy = True
             self._worker.jobs.put(("undo", [tuple(x) for x in moves[-1]["log"]]))
         self._emit("status", {"text": "Đang hoàn tác...", "kind": "info"})
@@ -619,6 +631,97 @@ class TrolyApi(object):
             self._worker.jobs.put(("append_timeline", uids))
         self._emit("status", {"text": "Đang đưa %d clip có sao ★ vào Timeline DaVinci..." % len(uids), "kind": "info"})
         return {"ok": True, "count": len(uids)}
+
+    # ------------------------------------------------------------------ ĐỔI TÊN GIAI ĐOẠN / BIN CON (ADR-0015)
+    def _rename_siblings(self, kind, i):
+        if kind == "stage":
+            return [s["name"] for s in self._stages], self._stages[i]["name"]
+        return list(self._stages[i]["bins"]), None
+
+    def rename_check(self, kind, i, old, new):
+        """Kiểm tên mới trước khi đổi (chưa ghi gì). Trả {'error'} hoặc {'ok', 'name', 'same', 'n_clips'}: n_clips = số clip đang
+        nằm trong bin đó ở Media Pool (cho hộp xác nhận)."""
+        with self._lock:
+            if kind not in ("stage", "bin") or not (0 <= i < len(self._stages)):
+                return {"error": "Không thấy giai đoạn."}
+            if kind == "bin" and (old not in self._stages[i]["bins"] or old == tc.OTHER_BIN):
+                return {"error": "Bin “%s” không đổi tên được." % old}
+            sibs, cur = self._rename_siblings(kind, i)
+            cur = cur if kind == "stage" else old
+            n, err = tc.check_new_name(new, sibs, cur)
+            if err:
+                return {"error": err}
+            s = self._stages[i]
+            src = self._plan.get("source_bin") or ""
+            pre = tc.bin_prefix(src, i, s["name"], old if kind == "bin" else None)
+            n_clips = sum(1 for c in self._clips if (c.bin_path or "") == pre or (c.bin_path or "").startswith(pre + "/"))
+            return {"ok": True, "name": n, "same": n == cur, "n_clips": n_clips}
+
+    def rename(self, kind, i, old, new):
+        """Đổi tên giai đoạn (kind='stage') hoặc bin con (kind='bin'): nhãn clip đi theo tên mới, rồi đổi bin trong Media Pool
+        (tạo bin mới, chuyển clip, xóa bin cũ đã rỗng). CHỈ gọi sau khi người dựng đồng ý ở hộp xác nhận."""
+        with self._lock:
+            chk = self.rename_check(kind, i, old, new)
+            if chk.get("error"):
+                return chk
+            if chk["same"]:
+                return {"ok": True, "same": True}
+            if self._busy:
+                return {"error": "Trợ lý đang bận, thử lại sau giây lát."}
+            self._recount()
+            cur = self._stages[i]["name"] if kind == "stage" else old
+            keys = {c.rel or c.name for c in self._clips if self._assign.get(c.uid) == i}
+            p_old, p_new = tc.rename_in_plan(self._plan, kind, i, cur, chk["name"], keys)
+            for c in self._clips:                       # đường bin trong bộ nhớ đi theo tên mới
+                bp = c.bin_path or ""
+                if bp == p_old or bp.startswith(p_old + "/"):
+                    c.bin_path = p_new + bp[len(p_old):]
+            src = self._plan.get("source_bin") or ""
+            po, pn = p_old[len(src) + 1:].split("/"), p_new[len(src) + 1:].split("/")
+            self._plan.setdefault("moves", []).append({
+                "at": datetime.datetime.now().isoformat(timespec="seconds"), "bin": src, "log": [],
+                "rename": {"kind": kind, "i": i, "old": cur, "new": chk["name"], "parts_old": po, "parts_new": pn}})
+            self._busy = True
+            self._save_now()
+            self._worker.jobs.put(("rename_bin", (src, po, pn)))
+        self._emit("state", self.state())
+        self._emit("status", {"text": "Đang đổi tên bin trong Media Pool...", "kind": "info"})
+        return {"ok": True, "name": chk["name"]}
+
+    def _undo_rename(self, entry):
+        """Hoàn tác một lần đổi tên: đổi ngược tên trong kế hoạch và trong Media Pool."""
+        r = entry["rename"]
+        i = r["i"]
+        if not (0 <= i < len(self._stages)):
+            return False
+        sibs, _cur = self._rename_siblings(r["kind"], i)
+        n, err = tc.check_new_name(r["old"], sibs, r["new"])
+        if err:
+            self._emit("status", {"text": "Không hoàn tác được: %s" % err, "kind": "warn"})
+            return False
+        self._recount()
+        keys = {c.rel or c.name for c in self._clips if self._assign.get(c.uid) == i}
+        p_old, p_new = tc.rename_in_plan(self._plan, r["kind"], i, r["new"], r["old"], keys)
+        for c in self._clips:
+            bp = c.bin_path or ""
+            if bp == p_old or bp.startswith(p_old + "/"):
+                c.bin_path = p_new + bp[len(p_old):]
+        self._plan["moves"].pop()
+        self._busy = True
+        self._save_now()
+        self._worker.jobs.put(("rename_bin", (entry["bin"], r["parts_new"], r["parts_old"])))
+        return True
+
+    def _on_renamed(self, arg, n_clips, n_subs, how):
+        self._busy = False
+        msg = {"deleted": "Đã đổi tên bin trong Media Pool: chuyển %d clip và %d bin con sang bin mới, đã xóa bin cũ (rỗng)." % (n_clips, n_subs),
+               "kept": "Đã tạo bin mới và chuyển clip, nhưng bin cũ còn thứ khác nên được GIỮ nguyên (không xóa).",
+               "delete_failed": "Đã chuyển clip sang bin mới; DaVinci không xóa được bin cũ (đã rỗng), anh xóa tay giúp.",
+               "absent": "Đã đổi tên trong panel. Bin này chưa có trong Media Pool nên chưa cần đổi ở đó.",
+               "same": "Tên không đổi."}.get(how, "Xong.")
+        self._emit("state", self.state())
+        self._emit("status", {"text": msg, "kind": "warn" if how in ("kept", "delete_failed") else "ok"})
+        self._worker.jobs.put(("bins", None))
 
     # ------------------------------------------------------------------ LỜI NÓI (bước 4, ADR-0014)
     def _speech_cfg(self):

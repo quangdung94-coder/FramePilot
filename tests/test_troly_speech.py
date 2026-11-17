@@ -212,11 +212,12 @@ class TestRunner(unittest.TestCase):
         self.assertEqual((c["err_pre"], c["err_whisper"]), (1, 1))
 
     def test_tep_tam_bi_xoa_va_file_goc_khong_doi(self):
+        tmp0 = {f for f in os.listdir(tempfile.gettempdir()) if f.startswith("troly_run_")}      # lượt chép thật đang chạy (nếu có) không tính
         before = {n: (os.path.getsize(p), os.path.getmtime(p)) for n, p in self.files.items()}
         self._run(lambda y: [[0.5, 3.0]])
         after = {n: (os.path.getsize(p), os.path.getmtime(p)) for n, p in self.files.items()}
         self.assertEqual(before, after)
-        left = [f for f in os.listdir(tempfile.gettempdir()) if f.startswith("troly_run_")]
+        left = [f for f in os.listdir(tempfile.gettempdir()) if f.startswith("troly_run_") and f not in tmp0]
         self.assertEqual(left, [])
         self.assertEqual([f for f in os.listdir(self.tmp) if f.endswith((".wav", ".srt"))], [])
 

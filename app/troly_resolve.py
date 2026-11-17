@@ -200,6 +200,46 @@ class TrolyWorker(threading.Thread):
                     back.append(u)
         self.post("undone", (back, failed))
 
+    def do_rename_bin(self, arg):
+        """Đổi tên bin trong Media Pool (ADR-0015, phương án (b) do người dựng chọn vì DaVinci 21.1.1 không có hàm đổi tên bin):
+        tạo bin tên mới cùng cấp, chuyển clip và bin con của bin cũ sang, rồi XÓA bin cũ CHỈ KHI đã rỗng hoàn toàn.
+        KHÔNG bao giờ xóa clip hay timeline; bin cũ còn thứ gì thì giữ nguyên. arg = (bin nguồn, [phần đường cũ], [phần đường mới]).
+        Bin cũ chưa có trong Media Pool thì không làm gì."""
+        src_path, old_parts, new_parts = arg[0], list(arg[1]), list(arg[2])
+        root = self.pool.GetRootFolder()
+        old_path = src_path + "/" + "/".join(old_parts)
+        parent_path = src_path + ("/" + "/".join(old_parts[:-1]) if len(old_parts) > 1 else "")
+        if find_folder(root, src_path) is None:
+            raise RuntimeError("Không thấy bin nguồn %s." % src_path)
+        parent = find_folder(root, parent_path)
+        if parent is None:                                    # bin giai đoạn chưa được tạo trong Media Pool
+            self.post("renamed", (arg, 0, 0, "absent"))
+            return
+        old = find_folder(root, old_path)
+        if old is None:
+            self.post("renamed", (arg, 0, 0, "absent"))
+            return
+        new_name = new_parts[-1]
+        if new_name == old_parts[-1]:
+            self.post("renamed", (arg, 0, 0, "same"))
+            return
+        new = ensure_sub(self.pool, parent, new_name)
+        if new is None:
+            raise RuntimeError("Không tạo được bin %s." % new_name)
+        clips = list(old.GetClipList() or [])
+        subs = list(old.GetSubFolderList() or [])
+        if clips and not self.pool.MoveClips(clips, new):
+            raise RuntimeError("DaVinci không chuyển được clip sang bin %s; bin cũ giữ nguyên." % new_name)
+        if subs and not self.pool.MoveFolders(subs, new):
+            raise RuntimeError("DaVinci không chuyển được bin con sang bin %s; bin cũ giữ nguyên." % new_name)
+        left = bool(old.GetClipList() or []) or bool(old.GetSubFolderList() or [])
+        how = "kept" if left else ("deleted" if self.pool.DeleteFolders([old]) else "delete_failed")
+        new_path = parent_path + "/" + new_name
+        for uid, (bp, mpi) in list(self.items.items()):
+            if bp == old_path or bp.startswith(old_path + "/"):
+                self.items[uid] = (new_path + bp[len(old_path):], mpi)
+        self.post("renamed", (arg, len(clips), len(subs), how))
+
     def do_reveal(self, uid):
         """Mở bin chứa clip và chọn clip đó trong media pool (để anh xem ngay trong DaVinci)."""
         if uid not in self.items:
