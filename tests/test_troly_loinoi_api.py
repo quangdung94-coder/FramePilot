@@ -20,7 +20,9 @@ def res(lines, speech, dur):
     return {"dur": dur, "gain_db": 0.0, "speech": [list(s) for s in speech], "lines": lines}
 
 
-class TestApiLoiNoi(unittest.TestCase):
+class ApiFixture(object):
+    """Media Pool giả + kho lời nói nạp sẵn dữ liệu giả (không phải TestCase, để dùng chung cho nhiều bộ kiểm thử)."""
+
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.kho = tempfile.mkdtemp()
@@ -72,6 +74,9 @@ class TestApiLoiNoi(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
         shutil.rmtree(self.kho, ignore_errors=True)
 
+
+
+class TestApiLoiNoi(ApiFixture, unittest.TestCase):
     def rows(self, **kw):
         d = self.api.speech_clips(**kw)
         return {r["name"]: r for r in d["rows"]}, d

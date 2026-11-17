@@ -42,7 +42,8 @@ class TabsLoiNoi(unittest.TestCase):
         self.assertIn("if (page === 4) { lnKey(e); return; }", self.js)
 
     def test_phan_sau_hien_mo_ghi_sap_co(self):
-        self.assertRegex(self.html, r'id="lnExport" disabled[^>]*>[^<]*sắp có')
+        self.assertNotRegex(self.html, r'id="lnExport" disabled')                   # xuất SRT đã chạy được (A4)
+        self.assertIn("Xuất SRT theo giai đoạn", self.html)
         self.assertRegex(self.html, r'class="btn ln-deep" disabled[^>]*>[^<]*sắp có')
         self.assertRegex(self.html, r'class="seg-off" disabled[^>]*>Tầng 2')
 

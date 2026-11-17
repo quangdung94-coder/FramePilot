@@ -64,6 +64,7 @@ Quy trình:
 - app/troly_core.py: logic thuần (giờ quay, giai đoạn, nhãn, sao, gợi ý In/Out suggest_inout, lưu kế hoạch).
 - app/troly_resolve.py: luồng nền duy nhất gọi DaVinci (đọc clip, chuyển bin, hoàn tác, tạo timeline).
 - app/troly_thumbs.py: làm thumbnail bằng ffmpeg (proxy + LUT, 4 luồng, cache).
+- app/troly_speech.py (kéo âm lượng, VAD, Whisper, câu nghi bịa), troly_speech_store.py (kho SQLite mỗi project), troly_speech_run.py (chạy cả bin nền), troly_speech_srt.py (xuất/đọc lại SRT), do_loi_noi.py (đo). Giao diện bước 4: app/troly_web/speech.js. Quyết định: docs/adr/0014.
 - app/troly_env.py: đọc config.json, kết nối DaVinci, hộp báo lỗi.
 - install.py: cài mục menu "VideoAI Trợ lý File Quay" vào Workspace > Scripts. Sửa code trong app\ không cần cài lại,
   chỉ đóng và mở lại cửa sổ Trợ lý.

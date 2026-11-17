@@ -2,7 +2,7 @@
    Python (troly_api.speech_*). Dùng chung $, api, S, esc, status, setState, page từ app.js. Chữ chép lời chỉ hiện trên màn hình. */
 "use strict";
 
-const LN = { rows: [], all: [], summary: null, info: null, sel: null, stage: "all", onlyKey: false, min20: false, find: "",
+const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", onlyKey: false, min20: false, find: "",
   detail: null, edit: null, run: null, lastRefresh: 0, timer: null };
 const mmss = (s) => Math.floor((s || 0) / 60) + ":" + String(Math.round((s || 0) % 60)).padStart(2, "0");
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -108,7 +108,7 @@ function renderRows() {
   box.innerHTML = rows.map((r) => {
     const hl = r.silent ? '<span class="ln-text none">Không có tiếng nói</span>'
       : `${r.suspect ? '<span class="ln-flag">có thể sai</span>' : ""}<span class="ln-text${r.headline ? (r.n_keys ? "" : " dim") : " none"}">${esc(r.headline || "Có tiếng nhưng chưa ra chữ")}</span>`;
-    return `<button class="ln-row${r.uid === LN.sel ? " on" : ""}" data-uid="${esc(r.uid)}">
+    return `<button class="ln-row${r.uid === LN.sel ? " on" : ""}${LN.pick.has(r.uid) ? " pk" : ""}" data-uid="${esc(r.uid)}">
       <span class="ln-id"><b${r.star ? ' class="star"' : ""}>${esc(r.name)}</b><span>${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · nói ${Math.round(r.spoken_s)}s</span></span>
       <span class="ln-bar">${barHtml(r, false)}</span>
       <span class="ln-hl">${hl}</span>
@@ -129,7 +129,7 @@ function renderRight() {
   const r = curRow(), d = LN.detail;
   if (!r) {
     $("lnName").textContent = "Chọn một clip"; $("lnMeta").textContent = ""; $("lnBar").innerHTML = ""; $("lnDurEnd").textContent = "";
-    $("lnSugg").classList.add("hidden"); $("lnLines").innerHTML = ""; return;
+    $("lnSugg").classList.add("hidden"); $("lnLines").innerHTML = ""; renderExportBtns(); return;
   }
   const fps = (d && d.fps) || r.fps || 25;
   $("lnName").textContent = r.name;
@@ -161,6 +161,14 @@ function renderRight() {
     }).join("")
     : `<span class="dim13" style="padding:8px">${r.silent ? "Clip này không có tiếng nói, chỉ có tiếng nền." : "Có tiếng nói nhưng Whisper không ra chữ."}</span>`;
   $("lnStar").textContent = ((d ? d.star : r.star) ? "Bỏ sao (J)" : "Gắn sao (J)");
+  renderExportBtns();
+}
+
+function renderExportBtns() {
+  const n = LN.pick.size;
+  $("lnExpSel").textContent = `SRT phần đã chọn (${n})`;
+  $("lnExpSel").disabled = !n;
+  $("lnExpOne").disabled = !curRow() || curRow().silent;
 }
 
 /* ------------------------------------------------------------------ thao tác */
@@ -191,7 +199,18 @@ $("lnStage").onchange = (e) => {
 $("lnKey").onclick = () => { LN.onlyKey = !LN.onlyKey; lnRefresh(); };
 $("lnMin").onclick = () => { LN.min20 = !LN.min20; lnRefresh(); };
 $("lnFind").oninput = (e) => { clearTimeout(LN.timer); LN.find = e.target.value; LN.timer = setTimeout(lnRefresh, 250); };
-$("lnRows").onclick = (e) => { const b = e.target.closest(".ln-row"); if (b) lnSelect(b.dataset.uid); };
+$("lnRows").onclick = (e) => {
+  const b = e.target.closest(".ln-row"); if (!b) return;
+  const uid = b.dataset.uid, rows = LN.rows.filter(inStage).map((r) => r.uid);
+  if (e.shiftKey && LN.anchor && rows.includes(LN.anchor)) {                 // Shift + bấm: chọn một dải
+    const a = rows.indexOf(LN.anchor), z = rows.indexOf(uid);
+    LN.pick = new Set(rows.slice(Math.min(a, z), Math.max(a, z) + 1));
+  } else if (e.ctrlKey || e.metaKey) {                                      // Ctrl + bấm: thêm/bớt một clip
+    if (LN.pick.has(uid)) LN.pick.delete(uid); else LN.pick.add(uid);
+    LN.anchor = uid;
+  } else { LN.pick = new Set(); LN.anchor = uid; }
+  lnSelect(uid);
+};
 
 async function lnToggleStar() {
   const r = curRow(); if (!r) return;
@@ -230,6 +249,7 @@ $("lnBar").addEventListener("mousedown", (ev) => {
 
 function lnKey(e) {
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.ctrlKey && e.code === "KeyA") { e.preventDefault(); LN.pick = new Set(LN.rows.filter(inStage).map((r) => r.uid)); renderRows(); renderExportBtns(); return; }
   if (e.code === "KeyJ" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleStar(); return; }
   const dir = { ArrowUp: -1, ArrowDown: 1 }[e.key];
   if (!dir) return;
@@ -254,3 +274,16 @@ function lnDone(s) {
   status(msg, s.ok ? "ok" : "error");
   lnRefresh();
 }
+
+/* ------------------------------------------------------------------ xuất SRT (mục A4) */
+async function lnExport(scope, uids) {
+  status("Chọn thư mục để lưu file SRT...", "info");
+  const r = await api().speech_export(scope, uids || [], null);
+  if (r && r.cancel) return status("Đã hủy xuất SRT.", "info");
+  if (r && r.error) return status(r.error, "warn");
+  const lines = r.files.reduce((a, f) => a + f.lines, 0);
+  status(`Đã xuất ${r.files.length} file SRT (${lines} dòng${r.skipped_lines ? `, bỏ ${r.skipped_lines} dòng nghi bịa` : ""}) vào ${r.dir}.`, "ok");
+}
+$("lnExport").onclick = () => lnExport("stages");
+$("lnExpOne").onclick = () => { const r = curRow(); if (r) lnExport("clip", [r.uid]); };
+$("lnExpSel").onclick = () => lnExport("selection", [...LN.pick]);

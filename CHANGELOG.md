@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 2026-11-17 (khuya) – Lời nói A, mục A4: xuất SRT + ADR-0014
+- Mới app/troly_speech_srt.py và TrolyApi.speech_export: SRT theo giai đoạn (mỗi giai đoạn một file, giờ nối tiếp liên tục qua các clip, mã [clip#số dòng] trong dòng chữ), theo phần đã chọn, hoặc một clip; dòng nghi bịa không xuất; không ghi đè file cũ; không xuất vào thư mục mã. Hàm read_back ghép SRT (kể cả đã dịch) về đúng clip và giờ gốc.
+- Giao diện: nút "Xuất SRT theo giai đoạn" đã bật, thêm "SRT clip này" và "SRT phần đã chọn"; chọn nhiều clip bằng Ctrl/Shift + bấm, Ctrl+A.
+- ADR-0014 (docs/adr). Dọn: TRANG_THAI bỏ mục đang dở (nút đưa clip sao lên timeline đã chạy đúng), đổi tên mẫu trong design/. Kiểm thử 94 bài đạt.
+
 ## 2026-11-17 (đêm, tiếp) – Lời nói A, bước 3: giao diện bản đồ lời nói
 - Tab mới "4 · Lời nói" (tầng 1: bản đồ) theo demo 4a: thanh màu mỗi clip (xanh lá có cụm key, xanh dương có người nói, vàng có thể sai, trống im lặng, khung trắng gợi ý In/Out), câu tiêu biểu, cột Key và Ngữ, bộ lọc "Chỉ clip có cụm key", "Tiếng nói từ 20 giây", ô "Tìm chữ" cả project, dòng "Hiện X / Y clip", chọn giai đoạn, cột phải (thanh lớn, In/Out theo timecode file gốc, chữ clip, câu có key tô đậm).
 - Gắn sao (phím J, event.code), kéo mép khung trắng, "Đặt In / Out" chỉ lưu vào kế hoạch panel (không ghi DaVinci). Nút "Chép lời cả bin", chọn thư mục kho, ngôn ngữ mặc định, đổi ngôn ngữ từng clip. "Xuất SRT", "Tầng 2", "Đọc kỹ từng câu" hiện mờ ghi "sắp có".

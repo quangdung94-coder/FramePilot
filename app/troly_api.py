@@ -809,6 +809,76 @@ class TrolyApi(object):
             self._save_now()
         return {"ok": True}
 
+    def speech_export(self, scope, uids=None, dest=None):
+        """Xuất SRT (mục A4). scope: 'stages' = mỗi giai đoạn một file (giờ nối tiếp liên tục qua các clip); 'selection' = một
+        file cho các clip uids; 'clip' = SRT riêng một clip (giờ gốc của clip). dest = thư mục người dựng chọn (None: mở hộp chọn).
+        File đã có thì KHÔNG ghi đè: thêm giờ vào tên. Chữ chỉ đi từ kho ra thư mục này."""
+        import datetime as _dt
+        import troly_speech_srt as sx
+        with self._lock:
+            st = self._speech_store()
+        if st is None:
+            return {"error": "Chưa chọn thư mục kho lời nói, hoặc chưa chép lời."}
+        if scope not in ("stages", "selection", "clip"):
+            return {"error": "Kiểu xuất không hợp lệ."}
+        if not dest:
+            fn = getattr(self, "pick_dir_fn", None)
+            if fn is None:
+                return {"error": "Không mở được hộp chọn thư mục ở chế độ này."}
+            dest = fn()
+            if not dest:
+                return {"cancel": True}
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).lower()
+        dest = os.path.abspath(dest)
+        if dest.lower() == root or dest.lower().startswith(root + os.sep):
+            return {"error": "Thư mục xuất SRT không được nằm trong thư mục mã của Trợ lý (chữ chép lời không vào git). Chọn thư mục khác."}
+        with self._lock:
+            rows = {r["key"]: r for r in st.clip_rows() if r["status"] == "done" and r["n_lines"]}
+            codes = sx.clip_codes([r["key"] for r in st.clip_rows()])
+            order = sorted([c for c in self._clips if c.rel in rows], key=lambda c: (c.t_start or _dt.datetime.min, c.rel))
+            want = set(uids or [])
+
+            def pack(c):
+                return {"key": c.rel, "code": codes[c.rel], "dur": rows[c.rel]["dur"], "lines": st.lines_of(c.rel)}
+            jobs = []
+            if scope == "stages":
+                groups = {}
+                for c in order:
+                    groups.setdefault(self._assign.get(c.uid), []).append(c)
+                for i, s in enumerate(self._stages):
+                    if i in groups:
+                        jobs.append(("%02d %s.srt" % (i + 1, sx.safe_name(s["name"])), groups[i], True))
+                if None in groups:
+                    jobs.append(("99 Ngoài giai đoạn.srt", groups[None], True))
+            elif scope == "selection":
+                cs = [c for c in order if c.uid in want]
+                if cs:
+                    jobs.append(("Phần đã chọn (%d clip).srt" % len(cs), cs, True))
+            else:
+                cs = [c for c in order if c.uid in want][:1]
+                if cs:
+                    jobs.append(("%s.srt" % sx.safe_name(codes[cs[0].rel]), cs, False))
+            if not jobs:
+                return {"error": "Không có clip nào đã chép lời để xuất (chọn clip có chữ)."}
+            os.makedirs(dest, exist_ok=True)
+            files, skipped = [], 0
+            stamp = _dt.datetime.now().strftime("%Y-%m-%d %H%M%S")
+            for name, cs, cont in jobs:
+                text, n, sk, _ = sx.build_srt([pack(c) for c in cs], continuous=cont)
+                skipped += sk
+                if not n:
+                    continue
+                path = os.path.join(dest, name)
+                if os.path.exists(path):
+                    path = os.path.join(dest, "%s (%s).srt" % (name[:-4], stamp))
+                with open(path + ".tmp", "w", encoding="utf-8", newline="\r\n") as f:
+                    f.write(text + "\n")
+                os.replace(path + ".tmp", path)
+                files.append({"name": os.path.basename(path), "clips": len(cs), "lines": n})
+            if not files:
+                return {"error": "Các clip này chỉ có dòng nghi bịa, không có gì để xuất."}
+            return {"ok": True, "dir": dest, "files": files, "skipped_lines": skipped}
+
     def speech_lines(self, key):
         with self._lock:
             st = self._speech_store()

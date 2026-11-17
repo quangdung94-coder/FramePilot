@@ -177,7 +177,7 @@
         <h1 class="h20" id="lnTitle">Lời nói</h1>
         <span class="dim13" id="lnSummary">Chưa chép lời.</span>
       </div>
-      <button class="btn" id="lnExport" disabled title="Sắp có (bước xuất SRT)">Xuất SRT theo giai đoạn · sắp có</button>
+      <button class="btn" id="lnExport" title="Mỗi giai đoạn một file SRT, giờ nối tiếp liên tục qua các clip, mã clip + số dòng nằm trong dòng chữ">Xuất SRT theo giai đoạn</button>
     </div>
     <div class="ln-store dim12"><span class="ln-storeinfo" id="lnStore"></span><button class="btn" id="lnRun" title="Chép lời mọi clip của bin đang đọc; chạy tiếp được nếu bị ngắt">Chép lời cả bin</button></div>
     <div class="ln-filters">
@@ -217,6 +217,10 @@
     <div class="v6 ln-lines-wrap">
       <span class="dim12">Chữ của clip · câu có cụm key tô đậm</span>
       <div class="ln-lines" id="lnLines"></div>
+    </div>
+    <div class="ln-exp">
+      <button class="btn" id="lnExpOne" title="SRT riêng của clip đang chọn, giờ gốc của clip">SRT clip này</button>
+      <button class="btn" id="lnExpSel" title="Ctrl + bấm hoặc Shift + bấm để chọn nhiều clip">SRT phần đã chọn (0)</button>
     </div>
     <div class="inline8">
       <button class="btn btn-44 flex1" id="lnStar">Gắn sao (J)</button>

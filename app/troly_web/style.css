@@ -355,3 +355,7 @@ button, input, select { font-family: inherit; }
 .ln-deep { white-space: normal; line-height: 1.25; height: auto; min-height: 40px; padding: 6px 10px; }
 .ln-sugg .row-between { flex-wrap: wrap; gap: 4px 12px; }
 @media (max-width: 1250px) { .ln-id span { white-space: normal; line-height: 1.3; } .ln-find { width: 150px; } .ln-sugg .row-between { font-size: 12px !important; } }
+.ln-exp { display: flex; gap: 8px; }
+.ln-exp .btn { flex: 1; height: 36px; font-size: 12px; padding: 0 8px; min-width: 0; }
+.ln-row.pk { background: #2A2A30; }
+.ln-row.pk:not(.on) { border-color: #5A4A2C; }
