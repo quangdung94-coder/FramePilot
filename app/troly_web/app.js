@@ -69,6 +69,7 @@ window.onEvent = function (kind, data) {
     s.innerHTML = data.bins.map((b) => `<option value="${esc(b.path)}"${b.path === data.pick ? " selected" : ""}>${esc(b.path)}  (${b.n})</option>`).join("");
   } else if (kind === "speech_progress") lnProgress(data);
   else if (kind === "speech_done") lnDone(data);
+  else if (kind.indexOf("analyze_") === 0) anEvent(kind, data);
   else if (kind === "state") setState(data);
   else if (kind === "status") status(data.text, data.kind);
   else if (kind === "progress") { status(data.text, "info"); $("progBar").style.width = (data.frac * 100) + "%"; }

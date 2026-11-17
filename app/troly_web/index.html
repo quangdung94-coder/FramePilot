@@ -195,6 +195,11 @@
       <button class="btn" id="lnExport" title="Mỗi giai đoạn một file SRT, giờ nối tiếp liên tục qua các clip, mã clip + số dòng nằm trong dòng chữ">Xuất SRT theo giai đoạn</button>
     </div>
     <div class="ln-store dim12"><span class="ln-storeinfo" id="lnStore"></span><button class="btn" id="lnRun" title="Chép lời mọi clip của bin đang đọc; chạy tiếp được nếu bị ngắt">Chép lời cả bin</button></div>
+    <div class="ln-analyze">
+      <span class="dim12" id="anText">Phân tích cả project = chép lời cả bin rồi làm sẵn thumbnail.</span>
+      <label class="chk" title="Mặc định TẮT. Khi bật: xong thì Trợ lý lưu project DaVinci, đếm ngược 2 phút (có nút Huỷ) rồi tắt máy. Bị dừng giữa chừng hoặc lưu lỗi thì KHÔNG tắt máy."><input type="checkbox" id="anShut"> Tắt máy khi xong</label>
+      <button class="btn" id="anRun" title="Chép lời cả bin, rồi làm sẵn thumbnail cho mọi clip">Phân tích cả project</button>
+    </div>
     <div class="ln-filters">
       <select id="lnStage" class="sel" title="Giai đoạn"></select>
       <button class="pill" id="lnKey" aria-pressed="false">Chỉ clip có cụm key</button>
@@ -256,6 +261,15 @@
     </div>
   </section>
 </main>
+
+<!-- Đếm ngược tắt máy (chỉ hiện khi đã tick "Tắt máy khi xong" và phân tích xong) -->
+<div class="shut hidden" id="shut" role="alertdialog" aria-live="assertive">
+  <div class="shut-box">
+    <b class="shut-t">Máy sẽ TẮT sau <span id="shutSec">120</span> giây</b>
+    <span class="dim13">Phân tích xong, project DaVinci đã được lưu. Bấm Huỷ nếu chưa muốn tắt máy.</span>
+    <button class="btn-accent btn-lg" id="shutCancel">Huỷ tắt máy</button>
+  </div>
+</div>
 
 <footer class="status" id="status"><span id="statusText">Đang kết nối DaVinci...</span><span class="progress"><i id="progBar"></i></span><span id="thumbText"></span></footer>
 

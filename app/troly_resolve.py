@@ -77,6 +77,7 @@ class TrolyWorker(threading.Thread):
         self.project_name, self.out_q = project_name, out_q
         self.jobs = queue.Queue()
         self.project = None
+        self.pm = None
         self.project_uid = ""
         self.items = {}                   # uid -> (đường bin, MediaPoolItem) của lần đọc gần nhất
         self._factory = resolve_factory
@@ -92,9 +93,11 @@ class TrolyWorker(threading.Thread):
         else:
             import troly_env
             resolve = troly_env.connect_resolve()
-        p = resolve.GetProjectManager().GetCurrentProject()
+        pm = resolve.GetProjectManager()
+        p = pm.GetCurrentProject()
         if not p or p.GetName() != self.project_name:
             raise RuntimeError("DaVinci đang mở project khác. Hãy mở project %s." % self.project_name)
+        self.pm = pm
         self.project = p
         try:                                          # id bền của project (không đổi khi đổi tên project)
             self.project_uid = str(p.GetUniqueId() or "")
@@ -200,6 +203,23 @@ class TrolyWorker(threading.Thread):
                     self.items[u] = (old, self.items[u][1])
                     back.append(u)
         self.post("undone", (back, failed))
+
+    def do_save_project(self, box):
+        """Lưu project DaVinci đang mở (ProjectManager.SaveProject). CHỈ gọi từ "Phân tích cả project" khi người dựng tick tắt máy
+        (quy tắc ADR-0017). box = {'event': threading.Event, 'ok': bool}; luôn đặt event để bên gọi không treo."""
+        try:
+            self.connect()
+            p = self.pm.GetCurrentProject()
+            if not p or p.GetName() != self.project_name:
+                raise RuntimeError("DaVinci đang mở project khác, không lưu.")
+            box["ok"] = bool(self.pm.SaveProject())
+            if not box["ok"]:
+                self.post("error", ("save_project", "DaVinci trả False khi lưu project."))
+        except Exception as e:                                # noqa: BLE001
+            box["ok"] = False
+            self.post("error", ("save_project", str(e)))
+        finally:
+            box["event"].set()
 
     def do_reveal(self, uid):
         """Mở bin chứa clip và chọn clip đó trong media pool (để anh xem ngay trong DaVinci)."""

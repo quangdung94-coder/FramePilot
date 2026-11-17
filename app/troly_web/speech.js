@@ -294,3 +294,42 @@ async function lnExport(scope, uids) {
 $("lnExport").onclick = () => lnExport("stages");
 $("lnExpOne").onclick = () => { const r = curRow(); if (r) lnExport("clip", [r.uid]); };
 $("lnExpSel").onclick = () => lnExport("selection", [...LN.pick]);
+
+/* ------------------------------------------------------------------ PHÂN TÍCH CẢ PROJECT + TẮT MÁY (ADR-0017) */
+const AN = { running: false, text: "" };
+function renderAnalyze() {
+  $("anRun").textContent = AN.running ? "Dừng phân tích" : "Phân tích cả project";
+  $("anShut").disabled = AN.running;                              // không đổi ý giữa chừng bằng ô tick (muốn dừng thì bấm Dừng)
+  if (AN.text) $("anText").textContent = AN.text;
+}
+$("anRun").onclick = async () => {
+  if (AN.running) { await api().analyze_stop(); status("Đang dừng phân tích. Máy sẽ KHÔNG tắt.", "info"); return; }
+  if (!LN.info || !LN.info.dir) { await lnPick(); if (!LN.info || !LN.info.dir) return; }
+  if (!S || !S.n) return status("Chưa có clip. Hãy sang bước 1 và bấm “Đọc clip” trước.", "warn");
+  const sd = $("anShut").checked;
+  const body = `<p>Trợ lý sẽ chép lời cả bin rồi làm sẵn thumbnail cho <b>${S.n}</b> clip. Có thể mất vài giờ. Clip đã chép mà file không đổi được bỏ qua. Không ghi gì vào DaVinci và không đụng file quay.</p>` +
+    (sd ? `<p><b>Khi xong máy sẽ TẮT.</b> Trợ lý lưu project DaVinci, rồi đếm ngược 2 phút (có nút Huỷ) trước khi tắt. Nếu bị dừng giữa chừng, chép lời lỗi hoặc lưu lỗi thì KHÔNG tắt máy.</p>`
+      : `<p>Máy sẽ không tự tắt.</p>`);
+  if (!(await ask("Phân tích cả project", body, sd ? "Bắt đầu, tắt máy khi xong" : "Bắt đầu"))) return;
+  const r = await api().analyze_start(sd);
+  if (r && r.error) return status(r.error, "warn");
+  AN.running = true; AN.text = "Đang chép lời cả bin..."; renderAnalyze();
+  status(`Bắt đầu phân tích ${r.count} clip` + (sd ? ", sẽ tắt máy khi xong." : "."), "info");
+};
+$("shutCancel").onclick = async () => { await api().analyze_cancel_shutdown(); $("shut").classList.add("hidden"); status("Đã huỷ tắt máy.", "ok"); };
+function anEvent(kind, d) {
+  if (kind === "analyze_phase") { AN.text = d.text; AN.running = d.phase !== "done"; renderAnalyze(); status(d.text, "info"); }
+  else if (kind === "analyze_thumbs") { AN.text = `Đang làm sẵn thumbnail ${d.n}/${d.total}...`; renderAnalyze(); }
+  else if (kind === "analyze_countdown") { $("shutSec").textContent = d.remaining; $("shut").classList.remove("hidden"); }
+  else if (kind === "analyze_shutdown") {
+    $("shut").classList.add("hidden");
+    if (d.state === "skipped") status(d.reason, "warn"); else if (d.state === "cancelled") status("Đã huỷ tắt máy.", "ok"); else if (d.state === "sent") status("Đang tắt máy...", "warn");
+  } else if (kind === "analyze_done") {
+    AN.running = false; renderAnalyze();
+    const s = d.speech || {};
+    AN.text = d.ok ? `Phân tích xong: ${s.done || 0} clip đã chép, ${s.silent || 0} im lặng, ${s.errors || 0} lỗi.` : `Phân tích dừng: ${d.reason || "có lỗi"}.`;
+    $("anText").textContent = AN.text;
+    if (d.shutdown !== "sent" && d.shutdown !== "cancelled") status(AN.text + (d.shutdown === "skipped" ? " Máy KHÔNG tắt." : ""), d.ok ? "ok" : "warn");
+    if (page === 4) lnRefresh();
+  }
+}

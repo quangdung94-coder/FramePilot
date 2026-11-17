@@ -40,6 +40,11 @@
 - CHƯA chạy thật: bấm phát trong cửa sổ panel pywebview thật (mới đo bằng cửa sổ WebView2 thử cùng máy chủ phát), chụp màn hình panel thật, ghi In/Out vào DaVinci thật, proxy khác độ dài bản gốc.
 - Chưa làm (đúng đề bài): công tắc PSC/Truyền thống, trang Bước 3 đầy đủ, quy tắc tự tính In/Out vẫn hoãn.
 
+## Phân tích cả project + tắt máy an toàn (đề bài 18/11, ADR-0017) - CHỜ NGƯỜI DỰNG THỬ
+- Đã làm: nút "Phân tích cả project" ở tab Lời nói (chép lời cả bin rồi chờ thumbnail mọi clip), ô "Tắt máy khi xong" mặc định TẮT; khi tick: lưu project DaVinci (SaveProject) -> đếm ngược 2 phút có nút Huỷ -> lưu lần cuối -> tắt. KHÔNG tắt nếu bị dừng, chép lời lỗi/lệch, thumbnail chưa xong, lưu lỗi, ngoại lệ, đóng cửa sổ hoặc bấm Huỷ. Quy tắc SaveProject đã ghi vào CLAUDE.md.
+- Kiểm thử: 163 bài đạt, toàn bộ dùng lệnh tắt máy/lưu GIẢ; lệnh tắt máy thật bị chặn bằng biến TROLY_NO_SHUTDOWN. Đã thử giao diện bằng bản giả: tick, hộp xác nhận, đếm ngược, Huỷ (không tắt), để chạy hết (chỉ gọi bản giả).
+- CHƯA thử thật: SaveProject trên DaVinci thật, lệnh shutdown thật, cả lượt chạy thật vài giờ. Anh nên thử lần đầu với tick tắt máy rồi bấm Huỷ lúc đếm ngược.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: thanh In/Out kéo tay (chuột + phím I/O, mũi tên từng frame), sóng âm (waveform từ proxy bằng ffmpeg),
    bảng quy tắc từng bin chỉnh được, trang Bước 3 riêng (hiện dùng chung màn hình Bước 2), (trình phát proxy đã làm, ADR-0016). In/Out người dựng đặt tay luôn thắng gợi ý. Đọc In/Out đặt trong Media Pool về panel (đã đọc được).

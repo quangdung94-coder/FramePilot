@@ -38,6 +38,7 @@ Quy trình:
 - KHÔNG BAO GIỜ: xóa clip, đổi tên file, đụng file trên ổ đĩa, sửa/xóa timeline đang có, render.
   c) ghi In/Out của clip nguồn (SetMarkInOut/ClearMarkInOut), CHỈ khi người dựng bấm nút trong panel + hộp xác nhận nói rõ số clip; TRƯỚC khi ghi phải sao lưu In/Out cũ của từng clip (file riêng có ngày giờ trong <data_root>\troly\inout_backup), ghi xong đọc lại đối chiếu, có nút Hoàn tác khôi phục đúng bản sao lưu. In/Out người dựng đặt tay luôn thắng gợi ý; gợi ý tự động không bao giờ được ghi. Chỉ ghi In/Out, không đụng gì khác (ADR-0016). Số frame tính từ đầu file, không cộng Start TC.
 - Đã đo: MoveClips không làm đổi timeline (2 timeline, 338 clip giữ nguyên).
+- Lưu project (SaveProject, ADR-0017): người dựng đã đồng ý (18/11/2026) cho panel gọi `ProjectManager.SaveProject()`, CHỈ trong "Phân tích cả project" khi ô "Tắt máy khi xong" được tick, trước khi đếm ngược và ngay trước khi tắt. Lưu lỗi thì KHÔNG tắt máy. Ô tắt máy mặc định TẮT; không bao giờ tắt máy nếu bị dừng giữa chừng, chép lời lỗi hoặc người dựng bấm Huỷ. Kiểm thử chỉ dùng lệnh tắt máy GIẢ (biến môi trường TROLY_NO_SHUTDOWN chặn lệnh thật).
 - Tên timeline mới không chứa ký tự `: & / \ * ? " < > |`.
 
 ## Dữ liệu

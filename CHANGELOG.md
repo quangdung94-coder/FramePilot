@@ -1,5 +1,8 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Phân tích cả project + tắt máy an toàn (ADR-0017)
+- Nút "Phân tích cả project" (chép lời cả bin rồi thumbnail), ô "Tắt máy khi xong" mặc định tắt, lưu project DaVinci rồi đếm ngược 2 phút có Huỷ, không tắt khi dừng/lỗi/lưu lỗi. Worker mới do_save_project; app/troly_batch.py. Quy tắc SaveProject trong CLAUDE.md. 23 bài kiểm thử mới (bản giả), tổng 163.
+
 ## 2026-11-18 – Đo proxy thật, sửa trình phát
 - Đo 5 proxy ở 5 project (chỉ đọc): 4 mẫu H.264 + PCM trong MOV phát được trong WebView2 (0 khung rớt, lướt 20-165 ms); 1 mẫu HEVC không có hình mà không báo lỗi (ADR-0016).
 - Sửa: trình phát tự chuyển sang bản xem nhẹ khi videoWidth = 0; bản xem nhẹ ffmpeg trước đây không bao giờ tạo được (file tạm .part thiếu -f mp4), nay chạy thật và giữ tiếng (AAC). Kiểm thử 140 bài đạt.

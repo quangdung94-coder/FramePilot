@@ -15,6 +15,7 @@ import os
 import queue
 import sys
 import threading
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -60,6 +61,10 @@ class TrolyApi(object):
         self._want = []                   # uid ưu tiên làm thumbnail trước (đang thấy trên màn hình)
         self._save_timer = None
         self._speech_st, self._speech_run, self._speech_last = None, None, None
+        self._analyze = None
+        import troly_batch as _tb
+        self._shutdown_fn = _tb.system_shutdown     # kiểm thử thay bằng bản giả
+        self._analyze_countdown, self._analyze_sleep = _tb.COUNTDOWN_S, time.sleep      # kiểm thử rút ngắn
         self._closed = False
         self._started = start_worker
         if start_worker:
@@ -862,7 +867,7 @@ class TrolyApi(object):
             if st is None:
                 return {"error": "Chưa chọn thư mục kho lời nói."}
             cfg = self._speech_cfg()
-            items = [{"key": c.rel, "uid": c.uid, "name": c.name, "path": c.path, "tc": c.tc} for c in self._clips if c.rel]
+            items = self._speech_items()
             name, vad = sp.load_vad()
             if vad is None:
                 return {"error": "Thiếu thư viện silero-vad."}
@@ -1081,10 +1086,118 @@ class TrolyApi(object):
                 st.set_lang(key, lang)
         return {"ok": True}
 
+    # ------------------------------------------------------------------ PHÂN TÍCH CẢ PROJECT + TẮT MÁY (ADR-0017)
+    def _speech_items(self):
+        return [{"key": c.rel, "uid": c.uid, "name": c.name, "path": c.path, "tc": c.tc} for c in self._clips if c.rel]
+
+    def _analyze_speech(self, stop_check):
+        """Chép lời cả bin cho lượt "Phân tích cả project" (chạy ở luồng riêng, trả số liệu của SpeechRun)."""
+        import troly_speech as sp
+        import troly_speech_run as sr
+        with self._lock:
+            st = self._speech_store()
+            cfg = self._speech_cfg()
+            items = self._speech_items()
+        if stop_check():
+            return {"ok": False, "stopped": True, "message": "Đã dừng trước khi chép lời."}
+        name, vad = sp.load_vad()
+        if vad is None:
+            return {"ok": False, "message": "Thiếu thư viện silero-vad."}
+        phr = sp.load_phrases()
+        run = sr.SpeechRun(st, vad_run=vad, index=sp.build_index(phr), prompt=phr.get("prompt"),
+                           log_path=os.path.join(cfg["dir"], "loinoi.log"),
+                           on_progress=lambda n, t: self._emit("speech_progress", {"n": n, "total": t}))
+        with self._lock:
+            self._speech_run = run
+        try:
+            return run.run(items, cfg.get("lang", "vi"))
+        finally:
+            with self._lock:
+                self._speech_run = None
+
+    def _wait_thumbs(self, stop_check, on_progress, stall_s=300):
+        """Chờ thumbnail của MỌI clip xong (thumbnail tự chạy nền sau khi đọc clip). Trả (xong?, số đã xử lý, tổng).
+        Dừng thì xong? = False; không có tiến triển quá stall_s giây cũng False."""
+        last, t_last = -1, time.time()
+        while True:
+            self._pump_thumbs()
+            with self._lock:
+                total, done = len(self._clips), len(self._thumb_done)
+            on_progress(done, total)
+            if done >= total:
+                return True, done, total
+            if stop_check():
+                return False, done, total
+            if done != last:
+                last, t_last = done, time.time()
+            elif time.time() - t_last > stall_s:
+                return False, done, total
+            time.sleep(1.0)
+
+    def _save_project(self):
+        """SaveProject qua luồng DaVinci duy nhất; True chỉ khi DaVinci báo đã lưu."""
+        box = {"event": threading.Event(), "ok": False}
+        self._worker.jobs.put(("save_project", box))
+        return bool(box["event"].wait(90) and box["ok"])
+
+    def analyze_start(self, shutdown=False):
+        """Nút "Phân tích cả project": chép lời cả bin -> làm sẵn thumbnail -> (nếu tick) lưu project DaVinci và tắt máy sau 2 phút
+        đếm ngược có nút Huỷ. shutdown mặc định False. Báo qua sự kiện analyze_phase / analyze_countdown / analyze_done."""
+        import troly_batch as tb
+        with self._lock:
+            if self._analyze is not None:
+                return {"error": "Đang phân tích rồi."}
+            if self._speech_run is not None:
+                return {"error": "Đang chép lời rồi, hãy chờ hoặc dừng trước."}
+            if not self._clips:
+                return {"error": "Chưa có clip. Hãy bấm 'Đọc clip' trước."}
+            if self._speech_store() is None:
+                return {"error": "Chưa chọn thư mục kho lời nói."}
+            an = tb.AnalyzeAll(self._analyze_speech, self._wait_thumbs, self._save_project, self._shutdown_fn, emit=self._emit,
+                              countdown_s=self._analyze_countdown, sleep=self._analyze_sleep)
+            self._analyze = an
+            flag = bool(shutdown)
+            n = len(self._speech_items())
+
+        def go():
+            try:
+                an.run(flag)
+            except Exception as e:                      # noqa: BLE001
+                self._emit("analyze_done", {"ok": False, "error": str(e), "shutdown": "skipped", "reason": str(e)})
+            finally:
+                with self._lock:
+                    self._analyze = None
+        threading.Thread(target=go, daemon=True).start()
+        return {"ok": True, "count": n, "shutdown": flag}
+
+    def analyze_stop(self):
+        """Dừng phân tích (và huỷ tắt máy): KHÔNG bao giờ tắt máy sau khi dừng."""
+        with self._lock:
+            if self._analyze is not None:
+                self._analyze.stop = True
+                self._analyze.cancel_shutdown = True
+            if self._speech_run is not None:
+                self._speech_run.stop = True
+        return {"ok": True}
+
+    def analyze_cancel_shutdown(self):
+        """Nút Huỷ trong lúc đếm ngược: phân tích đã xong, chỉ huỷ việc tắt máy."""
+        with self._lock:
+            if self._analyze is not None:
+                self._analyze.cancel_shutdown = True
+        return {"ok": True}
+
+    def analyze_state(self):
+        with self._lock:
+            return {"running": self._analyze is not None, "phase": self._analyze.phase if self._analyze else "idle"}
+
     def close(self):
         if self._play is not None:
             self._play.close()
         self._closed = True
+        if self._analyze is not None:                    # đóng cửa sổ giữa chừng: dừng và KHÔNG tắt máy
+            self._analyze.stop = True
+            self._analyze.cancel_shutdown = True
         if self._speech_run is not None:
             self._speech_run.stop = True
         if self._save_timer:
