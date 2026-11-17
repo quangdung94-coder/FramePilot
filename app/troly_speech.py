@@ -116,7 +116,8 @@ def compute_gain(stats, target=TARGET_DB, max_gain=MAX_GAIN_DB, peak_ceil=PEAK_C
     if stats["peak"] > 0:
         import math
         g = min(g, 20 * math.log10(peak_ceil / stats["peak"]) if peak_ceil > stats["peak"] else 0.0)
-    return round(max(0.0, min(g, max_gain)), 1)
+    import math
+    return math.floor(max(0.0, min(g, max_gain)) * 10) / 10.0       # làm tròn XUỐNG để không vượt trần đỉnh sóng
 
 
 def apply_gain(x, gain_db):
@@ -255,41 +256,96 @@ def suspect_reasons(sents, speech):
 
 
 # ---------------------------------------------------------------------------
-# CHÉP MỘT CLIP
+# CHÉP MỘT CLIP: chuẩn bị (trích, kéo, VAD, ghép) -> Whisper -> hoàn tất (đổi mốc, cụm key, câu nghi bịa)
 # ---------------------------------------------------------------------------
+EN_WORDS = set("the and you your to of is are it that this for with we our was have has be on in at all so but they "
+               "thank thanks today here there what just very like love married happy wedding".split())
+
+
+def english_ratio(lines):
+    """Tỉ lệ từ tiếng Anh thông dụng trong chữ chép (0..1) và số từ. Dùng để nghi file là tiếng Anh."""
+    words = [w for l in lines for w in normalize(l["text"] if isinstance(l, dict) else l[2]).split()]
+    if not words:
+        return 0.0, 0
+    return sum(1 for w in words if w in EN_WORDS) / float(len(words)), len(words)
+
+
+def prepare_clip(path, vad_run, tmp, tag="a", ffmpeg="ffmpeg", max_gain=MAX_GAIN_DB):
+    """Trích + kéo âm lượng + lọc khoảng lặng. Trả về dict 'prep'; prep['wav'] là file ghép các đoạn có tiếng
+    (None nếu không có tiếng người). WAV trung gian xóa ngay, chỉ giữ file ghép trong thư mục tmp."""
+    raw = os.path.join(tmp, "%s_raw.wav" % tag)
+    try:
+        extract_wav(path, raw, ffmpeg)
+        x, rate = read_wav(raw)
+    finally:
+        if os.path.isfile(raw):
+            os.remove(raw)
+    dur = len(x) / float(rate)
+    st = level_stats(x, rate)
+    gain = compute_gain(st, max_gain=max_gain)
+    y = apply_gain(x, gain)
+    speech = vad_run(y) if vad_run else []
+    prep = {"dur": round(dur, 2), "gain_db": gain, "p95_db": round(st["p95_db"], 1), "med_db": round(st["med_db"], 1),
+            "peak": round(st["peak"], 3), "speech": speech, "wav": None, "map": None, "audio_s": 0.0}
+    chunks = join_chunks([tuple(c) for c in speech], total=dur)
+    if chunks:
+        joined = concat_audio(y, chunks)
+        prep["audio_s"] = round(len(joined) / float(rate), 2)
+        prep["wav"] = os.path.join(tmp, "%s_j.wav" % tag)
+        write_wav(prep["wav"], joined, rate)
+        prep["map"] = concat_map(chunks)
+    return prep
+
+
+def finish_clip(prep, sents, index=None, took=0.0):
+    """Gắn mốc về file gốc, đánh dấu câu nghi bịa, gắn cụm key. Trả về dict kết quả (CHỮ nằm trong 'lines')."""
+    res = {k: prep[k] for k in ("dur", "gain_db", "p95_db", "med_db", "peak", "speech", "audio_s")}
+    res["took_s"] = round(took, 2)
+    m = prep.get("map")
+    sents = [(round(map_time(a, m), 2), round(map_time(b, m), 2), t) for a, b, t in sents]
+    why = suspect_reasons(sents, prep["speech"])
+    res["lines"] = []
+    for (a, b, t), w in zip(sents, why):
+        keys = [] if w else [p for _, p in find_keys(t, index or [])]
+        res["lines"].append({"t0": a, "t1": b, "text": t, "keys": keys, "why": w})
+    return res
+
+
+def whisper_batch(cfg, wavs, lang="vi", prompt=None):
+    """Chép NHIỀU WAV trong một lần gọi (nạp mô hình một lần). Trả về ({wav: [(t0, t1, text)]}, giây chạy).
+    Const-me ghi <tên wav>.srt cạnh từng file; mọi SRT bị xóa. File thiếu SRT thì không có trong kết quả."""
+    cmd = [cfg["exe"], "-m", cfg["model"], "-l", lang, "-osrt", "-nc"]
+    if prompt and lang == "vi":
+        cmd += ["--prompt", prompt]
+    cmd += list(wavs)
+    t = time.time()
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
+    took = time.time() - t
+    out = {}
+    for w in wavs:
+        srt = os.path.splitext(w)[0] + ".srt"
+        try:
+            if os.path.isfile(srt):
+                with open(srt, "r", encoding="utf-8-sig", errors="replace") as f:
+                    out[w] = parse_srt(f.read())
+        finally:
+            if os.path.isfile(srt):
+                os.remove(srt)
+    if r.returncode != 0 and not out:
+        raise RuntimeError("Whisper lỗi (mã %s): %s" % (r.returncode, (r.stderr or r.stdout or "")[-200:]))
+    return out, took
+
+
 def transcribe_clip(path, cfg, vad_run, lang="vi", prompt=None, index=None, ffmpeg="ffmpeg", tmp_dir=None,
                     max_gain=MAX_GAIN_DB):
-    """Chép lời một file source. Trả về dict (CHỮ nằm trong 'lines', còn lại là số liệu):
-      dur, gain_db, p95_db, med_db, peak, speech (đoạn nói VAD), lines [{t0,t1,text,keys,why}], took_s, audio_s
-    File gốc chỉ được đọc bởi ffmpeg. WAV tạm xóa khi xong, kể cả khi lỗi."""
-    import numpy as np
+    """Chép lời MỘT file source (dùng cho đo và thử). WAV tạm xóa khi xong, kể cả khi lỗi."""
     tmp = tempfile.mkdtemp(prefix="troly_sp_", dir=tmp_dir)
     try:
-        wav = extract_wav(path, os.path.join(tmp, "a.wav"), ffmpeg)
-        x, rate = read_wav(wav)
-        dur = len(x) / float(rate)
-        st = level_stats(x, rate)
-        gain = compute_gain(st, max_gain=max_gain)
-        y = apply_gain(x, gain)
-        speech = vad_run(y) if vad_run else []
-        res = {"dur": round(dur, 2), "gain_db": gain, "p95_db": round(st["p95_db"], 1), "med_db": round(st["med_db"], 1),
-               "peak": round(st["peak"], 3), "speech": speech, "lines": [], "took_s": 0.0, "audio_s": 0.0}
-        chunks = join_chunks([tuple(c) for c in speech], total=dur)
-        if not chunks:
-            return res
-        joined = concat_audio(y, chunks)
-        res["audio_s"] = round(len(joined) / float(rate), 2)
-        jw = os.path.join(tmp, "j.wav")
-        write_wav(jw, joined, rate)
-        sents, took = whisper_run(cfg, jw, lang, prompt)
-        res["took_s"] = round(took, 2)
-        m = concat_map(chunks)
-        sents = [(round(map_time(a, m), 2), round(map_time(b, m), 2), t) for a, b, t in sents]
-        why = suspect_reasons(sents, speech)
-        for (a, b, t), w in zip(sents, why):
-            keys = [] if w else [p for _, p in find_keys(t, index or [])]
-            res["lines"].append({"t0": a, "t1": b, "text": t, "keys": keys, "why": w})
-        return res
+        prep = prepare_clip(path, vad_run, tmp, "a", ffmpeg, max_gain)
+        sents, took = [], 0.0
+        if prep["wav"]:
+            sents, took = whisper_run(cfg, prep["wav"], lang, prompt)
+        return finish_clip(prep, sents, index, took)
     finally:
         for f in os.listdir(tmp):
             try:
@@ -300,3 +356,17 @@ def transcribe_clip(path, cfg, vad_run, lang="vi", prompt=None, index=None, ffmp
             os.rmdir(tmp)
         except OSError:
             pass
+
+
+def load_whisper_cfg():
+    """Cấu hình Whisper: khóa "whisper" trong config.json của dự án; thiếu thì dùng mặc định đã thử 04/11/2026."""
+    p = os.path.join(os.path.dirname(HERE), "config.json")
+    cfg = {}
+    try:
+        with open(p, "r", encoding="utf-8-sig") as f:
+            cfg = dict(json.load(f).get("whisper") or {})
+    except (OSError, ValueError):
+        pass
+    cfg.setdefault("exe", r"D:\VideoAI\tools\whisper\constme\cli\main.exe")
+    cfg.setdefault("model", r"E:\Kho dữ liệu\Tài nguyên\WhisperDesktop_SUB_AUTO\ggml-medium.bin")
+    return cfg

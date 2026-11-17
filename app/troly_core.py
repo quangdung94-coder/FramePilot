@@ -148,7 +148,7 @@ class Clip(object):
     """Một clip trong media pool, chỉ giữ những gì Trợ lý cần."""
 
     __slots__ = ("uid", "name", "path", "proxy", "lut", "dur", "fps", "frames", "t_start", "t_src", "camera",
-                 "bin_path", "clip_color", "rel", "mark_in", "mark_out")
+                 "bin_path", "clip_color", "rel", "mark_in", "mark_out", "tc")
 
     def __init__(self, **kw):
         for k in self.__slots__:
@@ -168,7 +168,7 @@ class Clip(object):
                    dur=clip_duration_s(props), fps=float(props.get("FPS") or 0) or None,
                    frames=int(float(props.get("Frames") or 0)), t_start=t, t_src=src, camera=camera_key(props),
                    bin_path=bin_path, clip_color=props.get("Clip Color") or "", rel=rel_path(path),
-                   mark_in=mark_in, mark_out=mark_out)
+                   mark_in=mark_in, mark_out=mark_out, tc=props.get("Start TC") or "")
 
 
 def suggest_inout(dur, label=None):

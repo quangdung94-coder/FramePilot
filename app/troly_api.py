@@ -56,6 +56,7 @@ class TrolyApi(object):
         self._inflight = set()
         self._want = []                   # uid ưu tiên làm thumbnail trước (đang thấy trên màn hình)
         self._save_timer = None
+        self._speech_st, self._speech_run, self._speech_last = None, None, None
         self._closed = False
         self._started = start_worker
         if start_worker:
@@ -619,8 +620,143 @@ class TrolyApi(object):
         self._emit("status", {"text": "Đang đưa %d clip có sao ★ vào Timeline DaVinci..." % len(uids), "kind": "info"})
         return {"ok": True, "count": len(uids)}
 
+    # ------------------------------------------------------------------ LỜI NÓI (bước 4, ADR-0014)
+    def _speech_cfg(self):
+        return self._plan.setdefault("speech", {"dir": None, "lang": "vi"})
+
+    def _speech_store(self):
+        import troly_speech_run as sr
+        import troly_speech_store as ss
+        d = self._speech_cfg().get("dir")
+        if not d:
+            return None
+        if self._speech_st is None or self._speech_st.path != sr.store_path(d, self._project):
+            self._speech_st = ss.Store(sr.store_path(d, self._project))
+        return self._speech_st
+
+    def speech_set_dir(self, path, lang=None):
+        """Chọn thư mục kho lời nói (nhớ theo project). KHÔNG cho nằm trong thư mục mã (chữ chép lời không vào git)."""
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).lower()
+        p = os.path.abspath(path or "")
+        if not p or p.lower() == root or p.lower().startswith(root + os.sep):
+            return {"error": "Thư mục kho lời nói không được nằm trong thư mục mã của Trợ lý. Hãy chọn thư mục khác."}
+        with self._lock:
+            os.makedirs(p, exist_ok=True)
+            cfg = self._speech_cfg()
+            cfg["dir"] = p
+            if lang in ("vi", "en"):
+                cfg["lang"] = lang
+            self._speech_st = None
+            self._save_now()
+        return {"ok": True, "dir": p}
+
+    def speech_info(self):
+        """Số liệu cho tab Lời nói: thư mục kho, ngôn ngữ mặc định, đang chạy không, số đối chiếu của cả kho."""
+        with self._lock:
+            cfg = self._speech_cfg()
+            st = self._speech_store()
+            keys = [c.rel for c in self._clips]
+            return {"dir": cfg.get("dir"), "lang": cfg.get("lang", "vi"), "running": self._speech_run is not None,
+                    "counts": st.counts(keys) if st else None, "last": self._speech_last}
+
+    def speech_start(self):
+        """Chép lời mọi clip của bin đang đọc. Chạy nền, chạy tiếp được; xong báo qua sự kiện 'speech_done'."""
+        import troly_speech as sp
+        import troly_speech_run as sr
+        with self._lock:
+            if self._speech_run is not None:
+                return {"error": "Đang chép lời rồi."}
+            if not self._clips:
+                return {"error": "Chưa có clip. Hãy bấm 'Đọc clip' trước."}
+            st = self._speech_store()
+            if st is None:
+                return {"error": "Chưa chọn thư mục kho lời nói."}
+            cfg = self._speech_cfg()
+            items = [{"key": c.rel, "uid": c.uid, "name": c.name, "path": c.path, "tc": c.tc} for c in self._clips if c.rel]
+            name, vad = sp.load_vad()
+            if vad is None:
+                return {"error": "Thiếu thư viện silero-vad."}
+            phr = sp.load_phrases()
+            run = sr.SpeechRun(st, vad_run=vad, index=sp.build_index(phr), prompt=phr.get("prompt"),
+                               log_path=os.path.join(cfg["dir"], "loinoi.log"),
+                               on_progress=lambda n, t: self._emit("speech_progress", {"n": n, "total": t}))
+            self._speech_run = run
+            self._speech_last = None
+            lang = cfg.get("lang", "vi")
+
+        def go():
+            try:
+                s = run.run(items, lang)
+            except Exception as e:                      # noqa: BLE001
+                s = {"ok": False, "message": "Lỗi: %s" % e}
+            with self._lock:
+                self._speech_run, self._speech_last = None, s
+            self._emit("speech_done", s)
+        threading.Thread(target=go, daemon=True).start()
+        return {"ok": True, "count": len(items)}
+
+    def speech_stop(self):
+        with self._lock:
+            if self._speech_run is not None:
+                self._speech_run.stop = True
+        return {"ok": True}
+
+    def speech_clips(self, only_keys=False, min_speech=0.0, text=""):
+        """Bản đồ lời nói: mỗi clip một dòng (không có chữ từng câu) + bộ lọc. Trả về cả 'shown' và 'total' cho dòng đếm."""
+        with self._lock:
+            st = self._speech_store()
+            if st is None:
+                return {"rows": [], "shown": 0, "total": 0}
+            by_rel = {c.rel: c for c in self._clips}
+            hits = st.search(text) if (text or "").strip() else None
+            rows = []
+            for r in st.clip_rows():
+                if r["status"] != "done" or r["key"] not in by_rel:
+                    continue
+                spoken = sum(b - a for a, b in r["speech"])
+                r["spoken_s"] = round(spoken, 1)
+                if (only_keys and not r["n_keys"]) or spoken < float(min_speech or 0) or (hits is not None and r["key"] not in hits):
+                    continue
+                c = by_rel[r["key"]]
+                r["time"] = c.t_start.strftime("%H:%M:%S") if c.t_start else None
+                r["span"] = self._inout_from_text(st, r, c)
+                rows.append(r)
+            rows.sort(key=lambda r: (by_rel[r["key"]].t_start or datetime.datetime.min, r["key"]))
+            total = sum(1 for r in st.clip_rows() if r["status"] == "done" and r["key"] in by_rel)
+            return {"rows": rows, "shown": len(rows), "total": total}
+
+    def _inout_from_text(self, st, row, clip):
+        """Khung gợi ý In/Out chỉ theo chữ: từ câu có cụm key đầu tiên tới câu có cụm key cuối cùng, đệm 1 giây hai đầu.
+        Giây tính từ đầu file; In/Out người dựng đặt tay (mark_in/mark_out) thắng. None nếu không có câu có cụm key."""
+        import troly_speech_store as ss
+        ln = [l for l in st.lines_of(row["key"]) if l["keys"] and not l["why"]]
+        if not ln:
+            return None
+        dur = row["dur"] or 0
+        a, b = max(0.0, ln[0]["t0"] - 1.0), min(dur, ln[-1]["t1"] + 1.0)
+        out = {"in_s": round(a, 2), "out_s": round(b, 2), "manual": False}
+        if clip.mark_in is not None and clip.mark_out is not None and clip.fps:
+            out = {"in_s": round(clip.mark_in / clip.fps, 2), "out_s": round(clip.mark_out / clip.fps, 2), "manual": True}
+        out["tc_in"], out["tc_out"] = ss.add_timecode(row.get("tc"), out["in_s"], clip.fps), \
+            ss.add_timecode(row.get("tc"), out["out_s"], clip.fps)
+        return out
+
+    def speech_lines(self, key):
+        with self._lock:
+            st = self._speech_store()
+            return st.lines_of(key) if st else []
+
+    def speech_set_lang(self, key, lang):
+        with self._lock:
+            st = self._speech_store()
+            if st and lang in ("vi", "en"):
+                st.set_lang(key, lang)
+        return {"ok": True}
+
     def close(self):
         self._closed = True
+        if self._speech_run is not None:
+            self._speech_run.stop = True
         if self._save_timer:
             self._save_timer.cancel()
         self._save_now()

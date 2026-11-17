@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Đọc kỹ một clip</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#F2B256}a:hover{color:#FFD08A}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #18181B; color: #E7E7EA; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
+
+<!-- Thanh trên cùng -->
+<div style="height: 64px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #1F1F23; border-bottom: 1px solid #2E2E34">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 32px; height: 32px; border-radius: 8px; background: #F2A33A; display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M3 12h12M3 17h8"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 15px; font-weight: 700">Trợ lý File Quay</span>
+<span style="font-size: 12px; color: #A1A1AA">Cưới Yến Nhi – Anh Vũ · 10/10/2026 · 248 file</span>
+</div>
+</div>
+<nav style="display: flex; gap: 6px" aria-label="Các bước">
+<span style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">1 · Giai đoạn</span>
+<span style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">2 · Phân loại bin</span>
+<span style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">3 · In / Out</span>
+<a href="Main.dc.html" style="text-decoration: none; padding: 10px 16px; border-radius: 8px; background: #F2A33A; color: #18181B; font-size: 13px; font-weight: 600">4 · Lời nói</a>
+<span style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">5 · Thời lượng</span>
+</nav>
+<div style="display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; background: #26262B" role="group" aria-label="Tầng hiển thị">
+<a href="Main.dc.html" style="height: 36px; padding: 0 14px; border-radius: 8px; color: #C4C4CC; font-size: 13px; text-decoration: none; display: flex; align-items: center">Tầng 1 · Bản đồ</a>
+<span style="height: 36px; padding: 0 14px; border-radius: 8px; background: #3A3A42; color: #E7E7EA; font-size: 13px; font-weight: 600; display: flex; align-items: center">Tầng 2 · Đọc kỹ</span>
+</div>
+</div>
+
+<div style="flex: 1; display: flex; min-height: 0">
+
+<!-- Cột trái: xem, thanh âm lượng, đoạn đã chọn -->
+<div style="width: 560px; flex-shrink: 0; border-right: 1px solid #2E2E34; padding: 20px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; min-height: 0">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 700">C0219.MP4 · Lời thề</h1>
+<span style="font-size: 13px; color: #A1A1AA">Bin Vows, giờ quay 10:22:40, dài 2:40, tiếng Việt</span>
+</div>
+<a href="Main.dc.html" style="font-size: 13px; text-decoration: none">Về bản đồ lời nói</a>
+</div>
+
+<div style="height: 250px; border-radius: 10px; background: #2C3550; display: flex; align-items: center; justify-content: center; color: #C4C4CC; font-size: 12px; position: relative">
+[Xem trước clip, phát tại {{playL}}]
+<span style="position: absolute; left: 10px; bottom: 10px; font-size: 11px; background: #000000B3; color: #FFFFFF; padding: 2px 8px; border-radius: 4px">Bản proxy, xem nhanh</span>
+</div>
+
+<!-- Thanh âm lượng cả clip -->
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #A1A1AA">Âm lượng cả clip · vùng cam là đoạn đã chọn · vạch trắng là chỗ đang phát</span>
+<div style="position: relative; height: 64px; border-radius: 6px; background: #26262B; border: 1px solid #2E2E34; box-sizing: border-box; overflow: hidden">
+<sc-for list="{{chosen}}" as="s" hint-placeholder-count="2">
+<span style="position: absolute; top: 0; bottom: 0; left: {{s.left}}; width: {{s.w}}; background: #F2A33A33; border-left: 2px solid #F2A33A; border-right: 2px solid #F2A33A; box-sizing: border-box"></span>
+</sc-for>
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="60">
+<span style="position: absolute; bottom: 50%; transform: translateY(50%); left: {{b.left}}; width: 3px; height: {{b.h}}; background: {{b.color}}; border-radius: 1px"></span>
+</sc-for>
+<span style="position: absolute; top: 0; bottom: 0; left: {{playPos}}; width: 2px; background: #FFFFFF"></span>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 11px; color: #A1A1AA"><span>0:00</span><span>0:40</span><span>1:20</span><span>2:00</span><span>2:40</span></div>
+</div>
+
+<!-- Đoạn đã chọn -->
+<div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">Đoạn đã chọn · {{chosenCount}} đoạn</h2>
+<span style="font-size: 12px; color: #A1A1AA">Các dòng liền nhau tự gộp thành một đoạn</span>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{chosen}}" as="s" hint-placeholder-count="2">
+<div style="padding: 12px 14px; border-radius: 10px; background: #222226; border: 1px solid #2E2E34; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; font-size: 13px">
+<span style="color: #F2B256; font-weight: 600">In {{s.tcIn}}</span>
+<span style="color: #C4C4CC">Giữ {{s.hold}}</span>
+<span style="color: #F2B256; font-weight: 600">Out {{s.tcOut}}</span>
+</div>
+<span style="font-size: 12px; color: #A1A1AA; line-height: 1.45">{{s.preview}}</span>
+</div>
+</sc-for>
+<sc-if value="{{noneChosen}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #A1A1AA; padding: 8px 0">Chưa chọn câu nào. Bấm ngôi sao bên phải để đánh dấu câu hay.</span>
+</sc-if>
+</div>
+<div style="display: flex; gap: 8px">
+<button style="flex: 1; height: 44px; border-radius: 10px; border: 1px solid #3A3A42; background: #26262B; color: #E7E7EA; font-family: inherit; font-size: 13px">Xuất chữ clip này</button>
+<button style="flex: 1; height: 44px; border-radius: 10px; border: 0; background: #F2A33A; color: #18181B; font-family: inherit; font-size: 13px; font-weight: 600">Đưa lên timeline mới</button>
+</div>
+</div>
+</div>
+
+<!-- Cột phải: chữ chia đoạn -->
+<div style="flex: 1; min-width: 0; padding: 20px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; min-height: 0; background: #1C1C20">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Chữ chia theo chỗ người nói ngưng</h2>
+<span style="font-size: 13px; color: #A1A1AA">Bấm vào câu để nghe lại đúng chỗ đó. Bấm ngôi sao để chọn câu hay, chọn được nhiều đoạn rời nhau.</span>
+</div>
+<div style="display: flex; gap: 14px; font-size: 12px; color: #C4C4CC; align-items: center; flex-shrink: 0">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 18px; height: 6px; border-radius: 3px; background: #E0B860"></span>Nhỏ giọng, nói chậm</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 18px; height: 6px; border-radius: 3px; background: #5B9BF5"></span>Giọng bình thường</span>
+</div>
+</div>
+<div style="padding: 10px 14px; border-radius: 8px; background: #26221A; border: 1px solid #5A4A2A; font-size: 12px; line-height: 1.5; color: #E0B860">Thanh màu chỉ là gợi ý vì chỗ nhỏ giọng thường là chỗ xúc động, chưa đo độ đúng. Tiếng nghẹn, tiếng khóc Whisper hay chép sai, câu nào quyết định dùng thì nghe lại bằng tai.</div>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding-right: 4px">
+<sc-for list="{{paras}}" as="p" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{p.lines}}" as="l" hint-placeholder-count="3">
+<div style="display: flex; gap: 6px; align-items: stretch; border-radius: 8px; background: {{l.bg}}; border-left: 3px solid {{l.edge}}">
+<button onClick="{{ l.play }}" style="flex: 1; min-width: 0; display: grid; grid-template-columns: 48px 56px minmax(0, 1fr); gap: 12px; align-items: center; padding: 9px 8px; border: 0; background: transparent; color: #E7E7EA; font-family: inherit; text-align: left; cursor: pointer">
+<span style="font-size: 12px; color: #A1A1AA">{{l.tL}}</span>
+<span style="height: 6px; border-radius: 3px; background: #2E2E34; position: relative; overflow: hidden"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: {{l.volW}}; background: {{l.volColor}}; border-radius: 3px"></span></span>
+<span style="font-size: 15px; line-height: 1.5; font-weight: {{l.weight}}; color: {{l.color}}">{{l.text}}</span>
+</button>
+<button onClick="{{ l.star }}" aria-pressed="{{ l.starred }}" aria-label="Đánh dấu câu hay" style="width: 44px; flex-shrink: 0; border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="{{l.starFill}}" stroke="{{l.starStroke}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"></path></svg>
+</button>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const stars = st.stars || { 7: true, 8: true, 11: true };
+    const playIdx = st.play === undefined ? 3 : st.play;
+    const TOTAL = 160;
+    const BASE = [10, 22, 40];
+    const pad = (n) => String(n).padStart(2, '0');
+    const mmss = (s) => Math.floor(s / 60) + ':' + pad(s % 60);
+    const tc = (add) => {
+      const t = BASE[0] * 3600 + BASE[1] * 60 + BASE[2] + add;
+      return pad(Math.floor(t / 3600) % 24) + ':' + pad(Math.floor(t / 60) % 60) + ':' + pad(t % 60) + ':00';
+    };
+    // [giây bắt đầu, âm lượng 0-100, có cụm key, chữ]
+    const raw = [
+      [6, 62, false, 'Em ơi, hôm nay anh đứng đây trước mặt ba mẹ hai bên.'],
+      [12, 48, false, 'Anh run lắm, anh chuẩn bị bài này cả tuần mà giờ quên sạch.'],
+      [19, 55, false, 'Nên anh xin nói thật lòng thôi.'],
+      [31, 58, false, 'Lần đầu mình gặp nhau, anh đâu nghĩ em sẽ là người anh đi cùng cả đời.'],
+      [40, 60, false, 'Em hay cười, hay quên chìa khóa, và hay giận anh vì mấy chuyện nhỏ xíu.'],
+      [51, 44, false, 'Vậy mà anh nhớ từng chuyện nhỏ ấy hơn bất cứ điều gì khác.'],
+      [65, 40, false, 'Có hôm anh về trễ, em vẫn để đèn chờ anh.'],
+      [73, 28, true, 'Anh chưa nói cảm ơn em cho tử tế bao giờ.'],
+      [82, 24, true, 'Hôm nay anh xin nói: cảm ơn em đã chọn anh.'],
+      [100, 52, true, 'Anh hứa sẽ nắm tay em những lúc em mệt.'],
+      [108, 56, true, 'Anh hứa sẽ cùng em đi qua những ngày không dễ dàng.'],
+      [117, 68, true, 'Anh hứa yêu em hôm nay, ngày mai và mãi về sau.'],
+      [132, 35, true, 'Cảm ơn ba mẹ đã cho phép con chăm sóc con gái của ba mẹ.'],
+      [141, 30, true, 'Con xin hứa sẽ không để em buồn một mình.']
+    ];
+    const groups = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11], [12, 13]];
+    const n = raw.length;
+    const dur = raw.map((r, i) => (i + 1 < n ? Math.min(8, raw[i + 1][0] - r[0] - 1) : 7));
+    const toggle = (i) => this.setState({ stars: { ...stars, [i]: !stars[i] } });
+    const lineOf = (i) => {
+      const r = raw[i];
+      const starred = !!stars[i];
+      const playing = i === playIdx;
+      const quiet = r[1] <= 35;
+      return {
+        tL: mmss(r[0]), text: r[3], weight: r[2] ? 600 : 400, color: r[2] ? '#E7E7EA' : '#B4B4BC',
+        volW: r[1] + '%', volColor: quiet ? '#E0B860' : '#5B9BF5',
+        bg: starred ? '#2E2519' : (playing ? '#26262B' : 'transparent'),
+        edge: starred ? '#F2A33A' : (playing ? '#FFFFFF' : 'transparent'),
+        starred, starFill: starred ? '#F2A33A' : 'none', starStroke: starred ? '#F2A33A' : '#8A8A93',
+        play: () => this.setState({ play: i }),
+        star: () => toggle(i)
+      };
+    };
+    const paras = groups.map((g) => ({ lines: g.map(lineOf) }));
+    // gộp các dòng được sao liền nhau thành đoạn
+    const chosen = [];
+    let i = 0;
+    while (i < n) {
+      if (stars[i]) {
+        let j = i;
+        while (j + 1 < n && stars[j + 1]) j++;
+        const a = raw[i][0];
+        const b = raw[j][0] + dur[j];
+        chosen.push({
+          left: (a / TOTAL * 100).toFixed(2) + '%', w: ((b - a) / TOTAL * 100).toFixed(2) + '%',
+          tcIn: tc(a), tcOut: tc(b), hold: (b - a) + ' giây',
+          preview: raw[i][3] + (j > i ? ' … ' + raw[j][3] : '')
+        });
+        i = j + 1;
+      } else i++;
+    }
+    const bars = [];
+    for (let k = 0; k < 80; k++) {
+      const t = k / 80 * TOTAL;
+      let idx = 0;
+      for (let q = 0; q < n; q++) if (raw[q][0] <= t) idx = q;
+      const inLine = t >= raw[idx][0] && t <= raw[idx][0] + dur[idx];
+      const base = inLine ? raw[idx][1] : 6;
+      const h = Math.max(6, Math.min(92, base * 0.9 + Math.abs(Math.sin(k * 1.3)) * 14));
+      bars.push({ left: (k / 80 * 100).toFixed(2) + '%', h: h.toFixed(0) + '%', color: inLine ? (raw[idx][1] <= 35 ? '#E0B860' : '#5B9BF5') : '#4A4A52' });
+    }
+    return {
+      paras, chosen, bars, chosenCount: chosen.length, noneChosen: chosen.length === 0,
+      playL: mmss(raw[playIdx][0]), playPos: (raw[playIdx][0] / TOTAL * 100).toFixed(2) + '%'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bản đồ lời nói</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#F2B256}a:hover{color:#FFD08A}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #18181B; color: #E7E7EA; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
+
+<!-- Thanh trên cùng -->
+<div style="height: 64px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #1F1F23; border-bottom: 1px solid #2E2E34">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 32px; height: 32px; border-radius: 8px; background: #F2A33A; display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M3 12h12M3 17h8"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 15px; font-weight: 700">Trợ lý File Quay</span>
+<span style="font-size: 12px; color: #A1A1AA">Cưới Yến Nhi – Anh Vũ · 10/10/2026 · 248 file</span>
+</div>
+</div>
+<nav style="display: flex; gap: 6px" aria-label="Các bước">
+<span style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">1 · Giai đoạn</span>
+<span style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">2 · Phân loại bin</span>
+<span style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">3 · In / Out</span>
+<a href="Main.dc.html" style="text-decoration: none; padding: 10px 16px; border-radius: 8px; background: #F2A33A; color: #18181B; font-size: 13px; font-weight: 600">4 · Lời nói</a>
+<span style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">5 · Thời lượng</span>
+</nav>
+<div style="display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; background: #26262B" role="group" aria-label="Tầng hiển thị">
+<span style="height: 36px; padding: 0 14px; border-radius: 8px; background: #3A3A42; color: #E7E7EA; font-size: 13px; font-weight: 600; display: flex; align-items: center">Tầng 1 · Bản đồ</span>
+<a href="DocKy.dc.html" style="height: 36px; padding: 0 14px; border-radius: 8px; color: #C4C4CC; font-size: 13px; text-decoration: none; display: flex; align-items: center">Tầng 2 · Đọc kỹ</a>
+</div>
+</div>
+
+<div style="flex: 1; display: flex; min-height: 0">
+
+<!-- Cột trái: danh sách clip -->
+<div style="flex: 1; min-width: 0; padding: 20px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 700">Lời nói · Gia tiên · 08:00 – 09:45</h1>
+<span style="font-size: 13px; color: #A1A1AA">Cả project: 318 clip có tiếng, đã chép 314, lỗi 4, 9 clip có thể sai. Chữ lưu trong một kho trên máy.</span>
+</div>
+<button style="height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #3A3A42; background: #26262B; color: #E7E7EA; font-family: inherit; font-size: 13px; font-weight: 500; white-space: nowrap">Xuất SRT theo giai đoạn</button>
+</div>
+
+<!-- Bộ lọc -->
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+<button onClick="{{ toggleKey }}" aria-pressed="{{ onlyKey }}" style="height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid {{keyBorder}}; background: {{keyBg}}; color: {{keyFg}}; font-family: inherit; font-size: 13px; font-weight: 500">Chỉ clip có cụm key</button>
+<button onClick="{{ toggleMin }}" aria-pressed="{{ min20 }}" style="height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid {{minBorder}}; background: {{minBg}}; color: {{minFg}}; font-family: inherit; font-size: 13px; font-weight: 500">Tiếng nói từ 20 giây</button>
+<label for="tim" style="font-size: 12px; color: #A1A1AA; margin-left: 6px">Tìm chữ</label>
+<input id="tim" placeholder="trong tất cả clip của project" style="width: 240px; height: 36px; border-radius: 8px; border: 1px solid #3A3A42; background: #222226; color: #E7E7EA; font-family: inherit; font-size: 13px; padding: 0 12px; box-sizing: border-box">
+<span style="margin-left: auto; font-size: 13px; color: #C4C4CC">Hiện {{shown}} / {{total}} clip</span>
+</div>
+
+<!-- Chú thích -->
+<div style="display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: #C4C4CC; align-items: center">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 18px; height: 10px; border-radius: 2px; background: #A9CF62"></span>Có cụm key lễ cưới</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 18px; height: 10px; border-radius: 2px; background: #5B9BF5"></span>Có người nói</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 18px; height: 10px; border-radius: 2px; background: #E0B860"></span>Tiếng méo, kết quả có thể sai</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 18px; height: 10px; border-radius: 2px; background: #26262B; border: 1px solid #3A3A42; box-sizing: border-box"></span>Im lặng</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 18px; height: 10px; border-radius: 2px; border: 2px solid #FFFFFF; box-sizing: border-box"></span>Đoạn gợi ý In / Out</span>
+</div>
+
+<!-- Bảng clip -->
+<div style="flex: 1; min-height: 0; border-radius: 12px; background: #1F1F23; border: 1px solid #2E2E34; display: flex; flex-direction: column; overflow: hidden">
+<div style="display: grid; grid-template-columns: 130px 280px minmax(0, 1fr) 44px 36px; gap: 14px; padding: 10px 16px; font-size: 12px; color: #A1A1AA; border-bottom: 1px solid #2E2E34">
+<span>Clip</span><span>Bản đồ lời nói (cả độ dài clip)</span><span>Câu tiêu biểu</span><span>Key</span><span>Ngữ</span>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{rows}}" as="c" hint-placeholder-count="8">
+<button onClick="{{ c.pick }}" style="display: grid; grid-template-columns: 130px 280px minmax(0, 1fr) 44px 36px; gap: 14px; align-items: center; width: 100%; padding: 9px 8px; border-radius: 8px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: #E7E7EA; font-family: inherit; text-align: left; cursor: pointer; box-sizing: border-box">
+<span style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 13px; font-weight: 600">{{c.id}}.MP4</span>
+<span style="font-size: 11px; color: #A1A1AA">{{c.time}} · {{c.durL}} · nói {{c.speechL}}</span>
+</span>
+<span style="position: relative; height: 24px; border-radius: 4px; background: #26262B; border: 1px solid #2E2E34; box-sizing: border-box; overflow: hidden">
+<sc-for list="{{c.segs}}" as="g" hint-placeholder-count="3">
+<span style="position: absolute; top: 3px; bottom: 3px; left: {{g.left}}; width: {{g.w}}; background: {{g.color}}; border-radius: 2px"></span>
+</sc-for>
+<sc-if value="{{c.hasSugg}}" hint-placeholder-val="{{ false }}">
+<span style="position: absolute; top: 0; bottom: 0; left: {{c.suggLeft}}; width: {{c.suggW}}; border: 2px solid #FFFFFF; border-radius: 3px; box-sizing: border-box"></span>
+</sc-if>
+</span>
+<span style="display: flex; align-items: center; gap: 8px; min-width: 0">
+<sc-if value="{{c.flag}}" hint-placeholder-val="{{ false }}">
+<span style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid #E0B860; color: #E0B860">có thể sai</span>
+</sc-if>
+<span style="font-size: 13px; color: {{c.textColor}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.text}}</span>
+</span>
+<span style="font-size: 13px; font-weight: 700; color: {{c.keyColor}}">{{c.keys}}</span>
+<span style="font-size: 12px; color: #C4C4CC">{{c.lang}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</div>
+
+<!-- Cột phải: chi tiết clip -->
+<div style="width: 440px; flex-shrink: 0; border-left: 1px solid #2E2E34; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; background: #1C1C20; min-height: 0">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">{{sel.id}}.MP4</h2>
+<span style="font-size: 12px; color: #A1A1AA">{{sel.time}} · {{sel.durL}} · {{sel.lang}}</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="position: relative; height: 40px; border-radius: 6px; background: #26262B; border: 1px solid #2E2E34; box-sizing: border-box; overflow: hidden">
+<sc-for list="{{sel.segs}}" as="g" hint-placeholder-count="4">
+<span style="position: absolute; top: 5px; bottom: 5px; left: {{g.left}}; width: {{g.w}}; background: {{g.color}}; border-radius: 3px"></span>
+</sc-for>
+<sc-if value="{{sel.hasSugg}}" hint-placeholder-val="{{ true }}">
+<span style="position: absolute; top: 0; bottom: 0; left: {{sel.suggLeft}}; width: {{sel.suggW}}; border: 2px solid #FFFFFF; border-radius: 4px; box-sizing: border-box"></span>
+</sc-if>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 11px; color: #A1A1AA"><span>0:00</span><span>{{sel.durL}}</span></div>
+</div>
+
+<sc-if value="{{sel.hasSugg}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 12px 14px; border-radius: 10px; background: #222226; border: 1px solid #2E2E34; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #A1A1AA">Đoạn gợi ý, giờ theo timecode của file gốc</span>
+<div style="display: flex; justify-content: space-between; font-size: 13px">
+<span style="color: #F2B256; font-weight: 600">In {{sel.tcIn}}</span>
+<span style="color: #C4C4CC">Giữ {{sel.hold}}</span>
+<span style="color: #F2B256; font-weight: 600">Out {{sel.tcOut}}</span>
+</div>
+<span style="font-size: 12px; color: #A1A1AA; line-height: 1.5">Anh kéo mép khung trắng để chỉnh. Anh đặt tay thì lấy theo anh.</span>
+</div>
+</sc-if>
+
+<div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #A1A1AA">Chữ của clip · câu có cụm key tô đậm</span>
+<div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{sel.lines}}" as="l" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; padding: 7px 8px; border-radius: 6px; background: {{l.bg}}; border-left: 3px solid {{l.bar}}">
+<span style="font-size: 12px; color: #A1A1AA">{{l.t}}</span>
+<span style="font-size: 13px; line-height: 1.45; font-weight: {{l.weight}}; color: {{l.color}}">{{l.text}}</span>
+</div>
+</sc-for>
+<sc-if value="{{sel.noLines}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #A1A1AA; padding: 8px">Clip này không có tiếng nói, chỉ có tiếng nền.</span>
+</sc-if>
+</div>
+</div>
+
+<div style="display: flex; gap: 8px">
+<button style="flex: 1; height: 44px; border-radius: 10px; border: 1px solid #3A3A42; background: #26262B; color: #E7E7EA; font-family: inherit; font-size: 13px">Gắn sao (J)</button>
+<button style="flex: 1; height: 44px; border-radius: 10px; border: 0; background: #F2A33A; color: #18181B; font-family: inherit; font-size: 13px; font-weight: 600">Đặt In / Out</button>
+</div>
+<a href="DocKy.dc.html" style="height: 40px; border-radius: 10px; border: 1px solid #3A3A42; color: #F2B256; font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center">Đọc kỹ từng câu (vows, phát biểu dài)</a>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const onlyKey = st.onlyKey === true;
+    const min20 = st.min20 === true;
+    const selId = st.sel || 'C0142';
+    const C = { key: '#A9CF62', sp: '#5B9BF5', dist: '#E0B860' };
+    const mmss = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    const pad = (n) => String(n).padStart(2, '0');
+    const tc = (clock, add) => {
+      const p = clock.split(':').map(Number);
+      let t = p[0] * 3600 + p[1] * 60 + p[2] + add;
+      return pad(Math.floor(t / 3600) % 24) + ':' + pad(Math.floor(t / 60) % 60) + ':' + pad(t % 60) + ':00';
+    };
+    const data = [
+      { id: 'C0131', time: '08:09:05', dur: 72, lang: 'vi', keys: 3, speech: 38, flag: false, text: 'Con xin mời hai bên gia đình cùng thắp nhang trước bàn thờ gia tiên.', segs: [[8, 10, 'sp'], [22, 30, 'key'], [58, 18, 'sp']], sugg: [20, 36] },
+      { id: 'C0133', time: '08:14:52', dur: 47, lang: 'vi', keys: 0, speech: 6, flag: false, text: 'Ừ, đứng qua bên này một chút nữa.', segs: [[40, 12, 'sp']], sugg: null },
+      { id: 'C0138', time: '08:26:18', dur: 52, lang: 'vi', keys: 1, speech: 22, flag: true, text: 'Xin cảm ơn ba mẹ đã đến chung vui cùng hai con.', segs: [[10, 25, 'dist'], [40, 14, 'key'], [62, 12, 'dist']], sugg: [36, 22] },
+      { id: 'C0140', time: '08:31:44', dur: 29, lang: '–', keys: 0, speech: 0, flag: false, text: '', segs: [], sugg: null },
+      { id: 'C0142', time: '08:37:02', dur: 84, lang: 'vi', keys: 4, speech: 74, flag: false, text: 'Con xin cảm ơn ba mẹ hai bên đã nuôi dạy tụi con nên người.', segs: [[4, 8, 'sp'], [16, 16, 'key'], [34, 14, 'sp'], [50, 12, 'key'], [66, 10, 'key'], [78, 8, 'sp']], sugg: [16, 55],
+        lines: [
+          ['00:00:03', 'Dạ, con xin chào cả nhà.', false],
+          ['00:00:08', 'Hôm nay là ngày vui của hai đứa con.', false],
+          ['00:00:14', 'Con xin cảm ơn ba mẹ hai bên đã nuôi dạy tụi con nên người.', true],
+          ['00:00:27', 'Mong hai bên gia đình luôn mạnh khỏe, hạnh phúc.', true],
+          ['00:00:38', 'Con xin hứa sẽ yêu thương và chăm sóc cho vợ con suốt đời.', true],
+          ['00:00:52', 'Xin mời ba mẹ, mời họ hàng cùng nâng ly.', true],
+          ['00:01:04', 'Cho con xin ly nước.', false]
+        ] },
+      { id: 'C0145', time: '08:44:15', dur: 58, lang: 'en', keys: 2, speech: 31, flag: false, text: 'Thank you all for coming today, it means everything to us.', segs: [[12, 22, 'sp'], [40, 18, 'key'], [64, 16, 'sp']], sugg: [36, 28] },
+      { id: 'C0147', time: '08:49:33', dur: 40, lang: 'vi', keys: 0, speech: 12, flag: false, text: 'Mọi người nhìn qua bên này giúp em nhé.', segs: [[30, 28, 'sp']], sugg: null },
+      { id: 'C0150', time: '08:55:09', dur: 33, lang: '–', keys: 0, speech: 0, flag: false, text: '', segs: [], sugg: null },
+      { id: 'C0152', time: '09:01:27', dur: 58, lang: 'vi', keys: 4, speech: 52, flag: false, text: 'Cảm ơn hai bác đã tin tưởng gả con gái cho con.', segs: [[6, 12, 'sp'], [22, 24, 'key'], [50, 14, 'sp'], [68, 16, 'key']], sugg: [20, 50] },
+      { id: 'C0155', time: '09:06:50', dur: 36, lang: 'vi', keys: 0, speech: 9, flag: false, text: 'Máy đang quay rồi anh.', segs: [[44, 14, 'sp']], sugg: null },
+      { id: 'C0158', time: '09:12:03', dur: 64, lang: 'en', keys: 0, speech: 45, flag: false, text: 'We drove all night to be here, honestly it was worth every minute.', segs: [[8, 30, 'sp'], [44, 34, 'sp']], sugg: null },
+      { id: 'C0161', time: '09:20:41', dur: 47, lang: 'vi', keys: 1, speech: 18, flag: true, text: 'Chúc mừng hai con trăm năm hạnh phúc.', segs: [[18, 30, 'dist'], [56, 10, 'key']], sugg: [52, 18] }
+    ];
+    const total = data.length;
+    const list = data.filter((c) => (!onlyKey || c.keys > 0) && (!min20 || c.speech >= 20));
+    const mkSegs = (c) => c.segs.map(([l, w, t]) => ({ left: l + '%', w: w + '%', color: C[t] }));
+    const rows = list.map((c) => {
+      const selected = c.id === selId;
+      return {
+        id: c.id, time: c.time, durL: mmss(c.dur), speechL: c.speech + 's', lang: c.lang,
+        keys: c.keys > 0 ? c.keys : '·', keyColor: c.keys > 0 ? '#A9CF62' : '#6A6A72',
+        flag: c.flag, text: c.text || 'Không có tiếng nói', textColor: c.text ? (c.keys > 0 ? '#E7E7EA' : '#A1A1AA') : '#6A6A72',
+        segs: mkSegs(c), hasSugg: !!c.sugg,
+        suggLeft: c.sugg ? c.sugg[0] + '%' : '0%', suggW: c.sugg ? c.sugg[1] + '%' : '0%',
+        bg: selected ? '#2A2A30' : 'transparent', border: selected ? '#F2A33A' : 'transparent',
+        pick: () => this.setState({ sel: c.id })
+      };
+    });
+    const cur = data.find((c) => c.id === selId) || data[4];
+    let tcIn = '', tcOut = '', hold = '';
+    if (cur.sugg) {
+      const a = Math.round(cur.sugg[0] / 100 * cur.dur);
+      const b = Math.round((cur.sugg[0] + cur.sugg[1]) / 100 * cur.dur);
+      tcIn = tc(cur.time, a); tcOut = tc(cur.time, b); hold = (b - a) + ' giây';
+    }
+    let lines = [];
+    if (cur.lines) {
+      const a = cur.sugg ? Math.round(cur.sugg[0] / 100 * cur.dur) : -1;
+      const b = cur.sugg ? Math.round((cur.sugg[0] + cur.sugg[1]) / 100 * cur.dur) : -1;
+      lines = cur.lines.map(([t, text, key]) => {
+        const p = t.split(':').map(Number); const s = p[1] * 60 + p[2];
+        const inside = s >= a && s <= b;
+        return { t, text, weight: key ? 600 : 400, color: key ? '#E7E7EA' : '#8A8A93', bar: key ? '#A9CF62' : 'transparent', bg: inside ? '#26262B' : 'transparent' };
+      });
+    } else if (cur.text) {
+      lines = [{ t: '00:00:04', text: cur.text, weight: cur.keys > 0 ? 600 : 400, color: cur.keys > 0 ? '#E7E7EA' : '#8A8A93', bar: cur.keys > 0 ? '#A9CF62' : 'transparent', bg: 'transparent' }];
+    }
+    const sel = {
+      id: cur.id, time: cur.time, durL: mmss(cur.dur), lang: cur.lang,
+      segs: mkSegs(cur), hasSugg: !!cur.sugg,
+      suggLeft: cur.sugg ? cur.sugg[0] + '%' : '0%', suggW: cur.sugg ? cur.sugg[1] + '%' : '0%',
+      tcIn, tcOut, hold, lines, noLines: lines.length === 0
+    };
+    return {
+      rows, sel, shown: list.length, total, onlyKey, min20,
+      toggleKey: () => this.setState({ onlyKey: !onlyKey }),
+      toggleMin: () => this.setState({ min20: !min20 }),
+      keyBg: onlyKey ? '#3A2E1C' : '#26262B', keyBorder: onlyKey ? '#F2A33A' : '#3A3A42', keyFg: onlyKey ? '#F2B256' : '#E7E7EA',
+      minBg: min20 ? '#3A2E1C' : '#26262B', minBorder: min20 ? '#F2A33A' : '#3A3A42', minFg: min20 ? '#F2B256' : '#E7E7EA'
+    };
+  }
+}
+</script>
+</body>
+</html>

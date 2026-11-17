@@ -14,6 +14,11 @@
   Nghi lễ 5-7s, Phỏng vấn giữ trọn câu, mặc định vào +1,2s giữ 3s). Chỉ xem, chưa kéo chỉnh, chưa ghi vào DaVinci.
 - Dấu sao ★: phím J gắn/bỏ sao (chọn nhiều thì đặt đồng loạt), nút gắn/bỏ sao ở cột phải, ô lọc "Chỉ clip có sao".
 
+## Lời nói A (đề bài docs/de_bai_loi_noi_A.md)
+- Xong bước 1 (đo) và bước 2 (kho dữ liệu + chạy cả bin, thử trên bản sao 5 clip: đối chiếu khớp, chạy tiếp đúng). Chưa thử chạy cả bin thật 318 clip trong DaVinci.
+- Còn: bước 3 giao diện bản đồ (đổi nhãn tab: 4 Lời nói, 5 Thời lượng, 6 AI), bước 4 xuất SRT theo giai đoạn, bước 5 ADR-0014 + Notion.
+- Chưa chắc: tự nhận ngôn ngữ vi/en chỉ là đoán theo chữ (Whisper Const-me không có chế độ auto), chưa thử với clip tiếng Anh thật; ngưỡng kéo âm lượng chờ clip tiếng nhỏ.
+
 ## Đang dở (làm ĐẦU TIÊN)
 - Nút "★ Đưa clip sao lên Timeline": lần thử 15/11 báo lỗi "DaVinci không tạo được timeline mới". Đã sửa
   (bỏ ký tự lạ trong tên timeline, thêm cách dự phòng CreateEmptyTimeline + AppendToTimeline, báo lỗi chi tiết)
