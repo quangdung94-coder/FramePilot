@@ -157,14 +157,14 @@ function renderPage1() {
     <div class="stage${editIdx === i ? " open" : ""}" data-i="${i}">
       <div class="stage-row">
         <div class="stage-bar" style="background:${s.color}"></div>
-        <div class="stage-txt"><span class="stage-name">${esc(s.name)}</span><span class="dim12">${esc(s.range)}</span></div>
+        <div class="stage-txt"><span class="stage-name" title="Bấm đúp để đổi tên giai đoạn">${esc(s.name)}</span><span class="dim12">${esc(s.range)}</span></div>
         <span class="chip">${s.count} file</span>
       </div>
       ${editIdx === i ? `<div class="stage-edit">
         <label class="full">Tên giai đoạn<input class="inp" data-f="name" value="${esc(s.name)}"></label>
         <label>Bắt đầu<input class="inp" data-f="start_txt" value="${fmt(s.start)}"></label>
         <label>Kết thúc<input class="inp" data-f="end_txt" value="${fmt(s.end)}"></label>
-        <label class="full">Bin con (cách nhau dấu phẩy, phím 1–9 theo thứ tự)<input class="inp" data-f="bins" value="${esc(s.bins.map((b) => b.name).filter((b) => b !== "Khác").join(", "))}"></label>
+        <label class="full">Bin con (cách nhau dấu phẩy, phím 1–9 theo thứ tự; muốn ĐỔI TÊN một bin con thì bấm đúp tên bin ở bước 2)<input class="inp" data-f="bins" value="${esc(s.bins.map((b) => b.name).filter((b) => b !== "Khác").join(", "))}"></label>
         <div class="row-end"><button class="btn-del" data-act="del">Xóa giai đoạn</button><button class="btn" data-act="save" style="height:32px">Lưu</button></div>
       </div>` : ""}
     </div>`).join("");
@@ -282,10 +282,15 @@ $("stageList").addEventListener("click", (e) => {
 $("stageList").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.target.dataset.f) saveStage(+e.target.closest(".stage").dataset.i, e.target.closest(".stage"));
 });
-function saveStage(i, card) {
+async function saveStage(i, card) {
   const f = {};
   card.querySelectorAll("[data-f]").forEach((el) => { f[el.dataset.f] = el.value; });
   f.bins = f.bins.split(",").map((x) => x.trim()).filter(Boolean);
+  const old = S.stages[i].name;
+  if (f.name !== undefined && f.name.trim() !== old) {            // đổi tên qua đường có kiểm tên (chỉ trong kế hoạch của panel)
+    if (!(await doRename("stage", i, old, f.name))) return;
+    f.name = S.stages[i].name;
+  }
   api().set_stage(i, f).then((st) => { if (st.error) return status(st.error, "warn"); editIdx = null; setState(st); });
 }
 $("camBox").addEventListener("change", (e) => {
@@ -321,7 +326,9 @@ async function confirmApply(thenPage2) {
     <div style="margin:12px 0">${rows || "(không có clip nào)"}</div>
     ${pv.stay} clip ngoài mọi giai đoạn giữ nguyên chỗ cũ. Không xóa clip, không đổi tên, in/out, màu hay file trên ổ.
     Hoàn tác được bằng "Hoàn tác lần chuyển gần nhất".`;
-  if (!(await ask("Áp dụng vào Media Pool", body, "Đồng ý, chuyển " + pv.total + " clip"))) return status("Đã hủy, chưa ghi gì vào DaVinci.", "info");
+  const note = (pv.emptied && pv.emptied.length) ? `<p><b>Bin cũ trong Media Pool sẽ còn lại RỖNG</b> (do đã đổi tên hoặc xếp lại): ${pv.emptied.map((x) => "<b>" + esc(x) + "</b>").join(", ")}.
+    Trợ lý không tự xóa bin, anh xóa tay trong DaVinci nếu không cần.</p>` : "";
+  if (!(await ask("Áp dụng vào Media Pool", body + note, "Đồng ý, chuyển " + pv.total + " clip"))) return status("Đã hủy, chưa ghi gì vào DaVinci.", "info");
   gotoAfterApply = thenPage2;
   api().apply();
 }
@@ -411,8 +418,8 @@ function renderPool() {
   let h = S.stages.map((s, i) => {
     // khi kéo tới: mở THÊM bin con của bin đang trỏ, không gập bin đang mở (cây không dịch dưới con trỏ)
     const open = i === gStage || i === poolOpen;
-    return `<div class="pool-stage"><div class="pool-row${i === gStage && gSub === null ? " on" : ""}${i === gStage && gSub !== null ? " parent" : ""}" data-stage="${i}" title="Bấm để xem cả giai đoạn (chỉ xem, không đổi gì)">${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span>${i < 9 ? `<span class="k" title="Shift+${i + 1}: chuyển clip đang chọn sang giai đoạn này">⇧${i + 1}</span>` : ""}</div>` +
-      (open ? `<div class="pool-subs"><div class="sub-none${i === gStage && gSub === NONE ? " on" : ""}" data-stage="${i}" title="Bấm để xem clip chưa có nhãn (chỉ xem)"><span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span><span class="dim12">${s.none.length}</span></div>${s.bins.map((b) => `<div class="sub${i === gStage && gSub === b.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(b.name)}" title="Bấm để xem clip của bin này (chỉ xem). Muốn chuyển clip vào: phím ${b.key || "số"} hoặc kéo thả"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span><span class="dim12">${b.count}</span>${b.key ? `<span class="k" title="${i === gStage ? "Phím " + b.key : "Shift+" + (i + 1) + " rồi " + b.key}">${b.key}</span>` : ""}</div>`).join("")}
+    return `<div class="pool-stage"><div class="pool-row${i === gStage && gSub === null ? " on" : ""}${i === gStage && gSub !== null ? " parent" : ""}" data-stage="${i}" title="Bấm để xem cả giai đoạn (chỉ xem). Bấm đúp tên để đổi tên.">${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span>${i < 9 ? `<span class="k" title="Shift+${i + 1}: chuyển clip đang chọn sang giai đoạn này">⇧${i + 1}</span>` : ""}</div>` +
+      (open ? `<div class="pool-subs"><div class="sub-none${i === gStage && gSub === NONE ? " on" : ""}" data-stage="${i}" title="Bấm để xem clip chưa có nhãn (chỉ xem)"><span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span><span class="dim12">${s.none.length}</span></div>${s.bins.map((b) => `<div class="sub${i === gStage && gSub === b.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(b.name)}" title="Bấm để xem clip của bin này (chỉ xem). Bấm đúp tên để đổi tên. Muốn chuyển clip vào: phím ${b.key || "số"} hoặc kéo thả"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span><span class="dim12">${b.count}</span>${b.key ? `<span class="k" title="${i === gStage ? "Phím " + b.key : "Shift+" + (i + 1) + " rồi " + b.key}">${b.key}</span>` : ""}</div>`).join("")}
         ${i === gStage ? `<button class="sub-add" id="subAdd">+ Bin mới</button>` : ""}</div>` : "") + `</div>`;
   }).join("");
   if (S.outside) h += `<div class="pool-stage"><div class="pool-row${gStage === -1 ? " on" : ""}" data-stage="-1">${folder("#6A6A72", 18)}<span class="t" style="color:var(--dim)">Ngoài giai đoạn</span><span class="dim12">${S.outside}</span></div></div>`;
@@ -806,4 +813,46 @@ window.addEventListener("pywebviewready", async () => {
   render(true);
   const st = await api().state();
   if (st.n) setState(st);
+});
+
+/* ------------------------------------------------------------------ ĐỔI TÊN giai đoạn / bin con (ADR-0015) */
+/* Bấm đúp tên giai đoạn (bước 1 và cột Media Pool) hoặc tên bin con (cột Media Pool): sửa tại chỗ, Enter đổi, Esc hoặc bấm ra ngoài thì hủy.
+   Chỉ đổi trong kế hoạch của panel (nhãn clip đi theo tên mới). Bin thật trong Media Pool chỉ tạo khi bấm Áp dụng.
+   Python kiểm tên mới (rỗng, ký tự cấm, trùng tên cùng cấp) và báo lỗi rõ. */
+async function doRename(kind, i, old, raw) {
+  const r = await api().rename(kind, i, old, raw);
+  if (r && r.error) { status(r.error, "warn"); return false; }
+  if (r && r.same) return true;
+  setState(await api().state());
+  status(`Đã đổi tên ${kind === "stage" ? "giai đoạn" : "bin con"} thành “${r.name}”. Nhãn clip đi theo tên mới.` +
+    (r.old_bin_left ? " Bin cũ trong Media Pool sẽ còn lại rỗng sau khi Áp dụng, Trợ lý không tự xóa." : " Bin trong Media Pool chỉ tạo khi bấm Áp dụng."), "ok");
+  return true;
+}
+function inlineRename(el, current, commit) {
+  const inp = document.createElement("input");
+  inp.className = "inp rename-inp"; inp.value = current; inp.maxLength = 60; inp.setAttribute("aria-label", "Tên mới");
+  el.replaceWith(inp); inp.focus(); inp.select();
+  let done = false;
+  const finish = async (ok) => {
+    if (done) return; done = true;
+    if (ok && inp.value.trim() !== current) await commit(inp.value);
+    render(false);
+  };
+  inp.addEventListener("keydown", (e) => {
+    e.stopPropagation();                                           // gõ số hay chữ không bị coi là phím 1–9 hay J
+    if (e.key === "Enter") { e.preventDefault(); finish(true); } else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  });
+  ["click", "dblclick", "mousedown"].forEach((t) => inp.addEventListener(t, (e) => e.stopPropagation()));
+  inp.addEventListener("blur", () => finish(false));
+}
+$("pool").addEventListener("dblclick", (e) => {
+  const t = e.target.closest(".t"); if (!t || !S) return;
+  const sub = e.target.closest(".sub"), row = e.target.closest(".pool-row");
+  if (sub && sub.dataset.bin) inlineRename(t, sub.dataset.bin, (v) => doRename("bin", +sub.dataset.stage, sub.dataset.bin, v));
+  else if (row && +row.dataset.stage >= 0) { const i = +row.dataset.stage; inlineRename(t, S.stages[i].name, (v) => doRename("stage", i, S.stages[i].name, v)); }
+});
+$("stageList").addEventListener("dblclick", (e) => {
+  const t = e.target.closest(".stage-name"); if (!t || !S) return;
+  const i = +t.closest(".stage").dataset.i;
+  inlineRename(t, S.stages[i].name, (v) => doRename("stage", i, S.stages[i].name, v));
 });

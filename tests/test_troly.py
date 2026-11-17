@@ -318,26 +318,6 @@ class FPool(object):
         dst.clips.extend(items)
         return True
 
-    def MoveFolders(self, folders, dst):
-        if self.fail_move:
-            return False
-        for f in folders:
-            for par in self._all(self.root):
-                if f in par.subs:
-                    par.subs.remove(f)
-            dst.subs.append(f)
-        return True
-
-    def DeleteFolders(self, folders):
-        """Luật an toàn của Trợ lý: chỉ xóa bin RỖNG (không clip, không bin con). Fake này kiểm luật đó."""
-        for f in folders:
-            assert not f.clips and not f.subs, "xóa bin còn đồ: %s" % f.name
-            self.deleted = getattr(self, "deleted", []) + [f.name]
-            for par in self._all(self.root):
-                if f in par.subs:
-                    par.subs.remove(f)
-        return True
-
 
 class FProject(object):
     def __init__(self, name, pool):

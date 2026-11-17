@@ -55,14 +55,14 @@ class RenameInPlan(unittest.TestCase):
         lab = p["labels"]["01_footage/A.MP4"]
         self.assertEqual(tc.target_folder(0, lab, p["stages"]), ["01_Lễ nhập gia", "Decor"])
 
-    def test_doi_ten_giai_doan_sua_nhat_ky_chuyen(self):
+    def test_doi_ten_giu_nguyen_nhat_ky_chuyen(self):
+        """Nhật ký chuyển ghi bin THẬT trong Media Pool (tên cũ còn nguyên cho tới khi Áp dụng) nên đổi tên không được sửa nó,
+        để Hoàn tác lần Áp dụng cũ vẫn tìm đúng bin."""
         p = plan()
+        before = copy.deepcopy(p["moves"])
         tc.rename_in_plan(p, "stage", 0, "Gia tiên", "Lễ nhập gia")
-        log = p["moves"][0]["log"]
-        self.assertEqual(log[0][2], SRC + "/01_Lễ nhập gia/Decor")
-        self.assertEqual(log[1][2], SRC + "/01_Lễ nhập gia")
-        self.assertEqual(log[2][2], SRC + "/02_Đón khách/Decor")                          # bin khác giữ nguyên
-        self.assertEqual(log[0][1], SRC)
+        tc.rename_in_plan(p, "bin", 1, "Decor", "Trang trí")
+        self.assertEqual(p["moves"], before)
 
     def test_doi_ten_bin_con_nhan_khong_mat_va_phim_so_theo_vi_tri(self):
         p = plan()
@@ -75,8 +75,6 @@ class RenameInPlan(unittest.TestCase):
         self.assertEqual(p["labels"]["01_footage/A.MP4"]["bin"], "Trang trí")
         self.assertEqual(p["labels"]["01_footage/C.MP4"]["bin"], "Decor")                  # bin cùng tên ở giai đoạn khác không đổi
         self.assertEqual(p["stages"][1]["bins"][0], "Decor")
-        self.assertEqual(p["moves"][0]["log"][0][2], SRC + "/01_Gia tiên/Trang trí")
-        self.assertEqual(p["moves"][0]["log"][2][2], SRC + "/02_Đón khách/Decor")
         self.assertEqual(p["ui"]["gSub"], "Trang trí")
         self.assertEqual(tc.target_folder(0, p["labels"]["01_footage/A.MP4"], p["stages"]), ["01_Gia tiên", "Trang trí"])
 

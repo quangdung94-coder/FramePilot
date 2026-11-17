@@ -579,10 +579,11 @@ def bin_prefix(src, i, stage_name, bin_name=None):
 
 
 def rename_in_plan(plan, kind, i, old, new, in_stage_keys=()):
-    """Đổi tên trong MỌI nơi kế hoạch lưu tên: stages, labels, manual, nhật ký chuyển (đường bin) và trạng thái giao diện.
+    """Đổi tên trong MỌI nơi kế hoạch lưu tên: stages, labels, manual và trạng thái giao diện (ui). NHẬT KÝ CHUYỂN (moves) giữ
+    nguyên vì nó ghi bin THẬT trong Media Pool, nơi tên cũ vẫn còn cho tới khi anh bấm Áp dụng.
     kind = 'stage' (old là tên giai đoạn i) hoặc 'bin' (old là tên bin con của giai đoạn i). Phím 1-9 theo VỊ TRÍ bin nên giữ nguyên.
     Hai giai đoạn trùng tên: chỉ nhãn của clip đang thuộc giai đoạn i (in_stage_keys) được đổi; không trùng thì đổi hết,
-    kể cả clip chưa nạp. Trả (đường bin cũ, đường bin mới) trong Media Pool."""
+    kể cả clip chưa nạp. Trả (đường bin cũ, đường bin mới) theo kế hoạch."""
     st = plan["stages"][i]
     stage_old = st["name"]
     dup = sum(1 for s in plan["stages"] if s["name"] == stage_old) > 1
@@ -610,12 +611,6 @@ def rename_in_plan(plan, kind, i, old, new, in_stage_keys=()):
         ui = plan.get("ui") or {}
         if ui.get("gStage") == i and ui.get("gSub") == old:
             ui["gSub"] = new
-    for m in plan.get("moves") or []:                    # Hoàn tác các lần chuyển cũ vẫn tìm đúng bin
-        for row in m.get("log") or []:
-            for j in (1, 2):
-                p = row[j]
-                if p == p_old or p.startswith(p_old + "/"):
-                    row[j] = p_new + p[len(p_old):]
     return p_old, p_new
 
 

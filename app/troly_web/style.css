@@ -359,3 +359,6 @@ button, input, select { font-family: inherit; }
 .ln-exp .btn { flex: 1; height: 36px; font-size: 12px; padding: 0 8px; min-width: 0; }
 .ln-row.pk { background: #2A2A30; }
 .ln-row.pk:not(.on) { border-color: #5A4A2C; }
+.rename-inp { flex: 1; min-width: 0; height: 28px; font-size: 13px; font-weight: 600; padding: 0 6px; border-color: var(--accent); }
+.pool-hint { margin: -4px 0 4px; }
+.stage-name { cursor: text; }

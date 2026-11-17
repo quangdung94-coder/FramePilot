@@ -23,13 +23,12 @@
 - Việc kế (cần người dựng): chọn thư mục kho THẬT, bấm "Chép lời cả bin" (ước ~1 giờ cho 318 clip), thử xuất SRT; đưa 1-2 clip tiếng nhỏ để chốt mức kéo tối đa. Sau đó: tầng 2 đọc kỹ, nhập bản dịch về (hàm đọc lại đã có).
 - Chưa chắc: tự nhận ngôn ngữ vi/en chỉ là đoán theo chữ (Whisper Const-me không có chế độ auto), chưa thử với clip tiếng Anh thật; ngưỡng kéo âm lượng chờ clip tiếng nhỏ.
 
-## Đổi tên giai đoạn / bin con (đề bài 17/11 23:25) - ĐANG LÀM
-- Đã sao lưu D:\VideoAI\data	roly\projects sang projects_backup_20261117-232355 (7 file) trước khi làm. Mọi thử nghiệm chạy trên bản sao/thư mục tạm.
-- Đã kiểm DaVinci 21.1.1.10: bin (Folder) KHÔNG có hàm đổi tên (chỉ GetName). Người dựng CHỌN phương án (b): tạo bin mới tên mới, chuyển clip và bin con sang, XÓA bin cũ chỉ khi đã rỗng (không bao giờ xóa clip).
-- Quyết định kỹ thuật: đổi tên TRỰC TIẾP trong mọi nơi lưu tên (stages, labels, manual, nhật ký chuyển, ui) thay vì thêm id (Media Pool nhận bin theo tên; định dạng kế hoạch không đổi nên không cần nâng cấp file cũ). Hai giai đoạn trùng tên: chỉ đổi nhãn của clip đang thuộc giai đoạn đó. Phím 1-9 theo vị trí bin nên không đổi.
-- Phần A xong: tc.check_new_name (rỗng, ký tự cấm : & / \ * ? " < > |, trùng tên cùng cấp, quá 60 ký tự) và tc.rename_in_plan, 8 bài kiểm thử (tests/test_troly_rename.py).
-- Phần B xong: TrolyApi.rename_check / rename (đổi tên trong kế hoạch rồi việc nền rename_bin: tạo bin mới, chuyển clip và bin con, chỉ XÓA bin cũ khi rỗng hoàn toàn, bin cũ còn đồ thì giữ), Hoàn tác đổi tên (nhật ký có mục rename), bin chưa có trong Media Pool thì chỉ đổi trong panel; lỗi giữa chừng không xóa gì và báo bấm Áp dụng vào Media Pool. 109 bài kiểm thử đạt (thêm tests/test_troly_rename_pool.py, fake Media Pool kiểm luật chỉ xóa bin rỗng). CHƯA thử trên DaVinci thật.
-- Còn: C (giao diện bấm đúp đổi tên tại chỗ + chụp màn hình), D (ADR-0015, kết sổ Notion), rồi DỪNG chờ người dựng thử.
+## Đổi tên giai đoạn / bin con (đề bài 17/11 23:25, ĐỔI KẾ HOẠCH 17/11 khuya) - ĐANG LÀM
+- Kế hoạch mới (người dựng chốt): bin chỉ là NHÃN trong panel, bin thật chỉ tạo khi bấm Áp dụng, nên KHÔNG đổi tên trong Media Pool, không mô hình id, không nâng cấp file project. (Đã thử làm phương án tạo bin mới + xóa bin cũ rồi gỡ bỏ; DaVinci 21.1.1 vốn không có hàm đổi tên bin.)
+- Đã sao lưu D:\VideoAI\data	roly\projects sang projects_backup_20261117-232355 (7 file). Thử nghiệm chạy trên thư mục tạm, không ghi file project thật.
+- Cách làm: tc.rename_in_plan viết lại tên mới ở stages, labels, manual, ui; GIỮ NGUYÊN nhật ký chuyển (moves) vì nó ghi bin thật còn tên cũ trong Media Pool nên Hoàn tác vẫn chạy. tc.check_new_name chặn tên rỗng, ký tự cấm : & / \ * ? " < > |, trùng cùng cấp, quá 60 ký tự. TrolyApi.rename_check / rename. Hai giai đoạn trùng tên: chỉ đổi nhãn clip đang thuộc giai đoạn đó. Phím 1-9 theo vị trí bin nên giữ nguyên.
+- Hộp xác nhận Áp dụng nhắc: bin cũ (đã Áp dụng trước khi đổi tên) sẽ còn lại RỖNG, Trợ lý không tự xóa (apply_preview trả emptied).
+- Đã làm: mã + 15 bài kiểm thử mới (109 bài đạt). Còn: giao diện bấm đúp đổi tên tại chỗ + chụp màn hình, ADR-0015, kết sổ Notion, rồi DỪNG chờ người dựng thử.
 
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: thanh In/Out kéo tay (chuột + phím I/O, mũi tên từng frame), sóng âm (waveform từ proxy bằng ffmpeg),
