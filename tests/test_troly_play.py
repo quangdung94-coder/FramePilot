@@ -95,5 +95,30 @@ class Play(unittest.TestCase):
         self.assertIsNone(self.srv.url_for(link))
 
 
+class TranscodeCmd(unittest.TestCase):
+    """Đo 18/11/2026: file tạm đuôi .part làm ffmpeg không chọn được định dạng -> bản xem nhẹ không bao giờ tạo được."""
+
+    def test_lenh_co_dinh_dang_ro_va_giu_tieng(self):
+        c = tp.transcode_cmd("a.mov", "b.mp4.part")
+        i = c.index("-f")
+        self.assertEqual(c[i + 1], "mp4")
+        self.assertEqual(c[-1], "b.mp4.part")                                # định dạng nêu rõ nên đuôi .part không còn là vấn đề
+        self.assertNotIn("-an", c)
+        self.assertEqual(c[c.index("-c:a") + 1], "aac")
+
+
+class PlayerFallback(unittest.TestCase):
+    """Đo 18/11/2026 trong WebView2 thật: proxy HEVC không báo lỗi mà chỉ ra tiếng không có hình (videoWidth = 0)."""
+
+    def test_chuyen_ban_xem_nhe_khi_khong_co_hinh(self):
+        js = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app", "troly_web", "player.js"), encoding="utf-8").read()
+        self.assertIn("if (!v.videoWidth) return fallback();", js)
+        self.assertIn('v.addEventListener("error", fallback)', js)
+        i = js.index("const fallback = () => {")
+        body = js[i:i + 400]
+        self.assertIn("plOpen(curClip(), true)", body)                      # tạo bản xem nhẹ ffmpeg
+        self.assertIn("transcode", body)                                    # không lặp vô hạn khi bản xem nhẹ cũng lỗi
+
+
 if __name__ == "__main__":
     unittest.main()

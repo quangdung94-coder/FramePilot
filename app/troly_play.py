@@ -139,9 +139,10 @@ class PlayServer(object):
 
 
 def transcode_cmd(src, dst, ffmpeg="ffmpeg"):
-    """Phương án dự phòng: mp4 H.264 nhẹ (720p, keyframe dày để lướt mượt), chỉ cho clip đang xem."""
+    """Phương án dự phòng: mp4 H.264 nhẹ (720p, keyframe dày để lướt mượt, âm thanh AAC), chỉ cho clip đang xem.
+    Phải có -f mp4: file tạm đuôi .part khiến ffmpeg không chọn được định dạng (đo 18/11/2026: lệnh cũ lỗi ngay, trả None)."""
     return [ffmpeg, "-y", "-v", "error", "-i", src, "-vf", "scale=-2:720", "-c:v", "libx264", "-preset", "veryfast",
-            "-crf", "28", "-g", "12", "-an", "-movflags", "+faststart", dst]
+            "-crf", "28", "-g", "12", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", "-f", "mp4", dst]
 
 
 def ensure_play_mp4(src, cache_dir, key, ffmpeg="ffmpeg", timeout=600):

@@ -25,18 +25,19 @@
 
 ## Đổi tên giai đoạn / bin con (đề bài 17/11 23:25, đổi kế hoạch 17/11 khuya) - XONG
 - Kế hoạch (người dựng chốt): bin chỉ là NHÃN trong panel, bin thật chỉ tạo khi bấm Áp dụng, nên chỉ đổi tên TRONG KẾ HOẠCH của panel: không đổi tên trong Media Pool, không mô hình id, không nâng cấp file project. Chi tiết và lý do: docs/adr/0015.
-- Đã sao lưu D:\VideoAI\data	roly\projects sang projects_backup_20261117-232355 (7 file) trước khi làm. Không ghi file project thật khi thử.
+- Đã sao lưu D:\VideoAI\data\troly\projects sang projects_backup_20261117-232355 (7 file) trước khi làm. Không ghi file project thật khi thử.
 - Cách dùng: bấm ĐÚP tên giai đoạn (bước 1 hoặc cột Media Pool bước 2) hoặc tên bin con (cột Media Pool), gõ tên mới, Enter đổi, Esc hoặc bấm ra ngoài thì hủy. Tên rỗng, có ký tự cấm : & / \ * ? " < > |, trùng tên cùng cấp, quá 60 ký tự thì báo lỗi rõ. Nhãn clip đi theo tên mới; phím 1-9 giữ nguyên theo vị trí bin.
 - Nếu đã Áp dụng rồi mới đổi tên: hộp xác nhận Áp dụng liệt kê bin cũ trong Media Pool sẽ còn lại RỖNG, Trợ lý không tự xóa.
 - Kiểm thử: 114 bài đạt (thêm test_troly_rename, test_troly_rename_api, test_troly_rename_web). Đã thử bằng chuột/phím thật ở khung trình duyệt với Media Pool giả: đổi tên giai đoạn, đổi tên bin con, gõ số và J trong ô sửa không bị coi là phím tắt, tên sai bị chặn, Esc hủy, hộp Áp dụng có nhắc; không lẹm mép ở 1100, 1440, 2560 px.
 - Người dựng đã thử trong cửa sổ Trợ lý thật và báo "ok" (17/11/2026). Chưa làm: menu chuột phải "Đổi tên" (bấm đúp đủ dùng).
 
 ## Trình phát proxy + đặt/ghi In/Out (đề bài 18/11, nhánh inout-player, ADR-0016) - CHỜ NGƯỜI DỰNG THỬ
-- Xong code: trình phát proxy ở cột phải Bước 2, kéo/phím I O/mũi tên đặt In/Out tay, nút Ghi In/Out vào DaVinci (clip sao hoặc đang chọn) có sao lưu + đối chiếu + Hoàn tác, nối nút ở tab Lời nói. 138 bài kiểm thử đạt. Đã thử giao diện thật bằng Chromium với Media Pool giả ở 1440x900 và 2560x1440.
-- Sao lưu bước 0: .drp project thử xuất bằng ExportProject -> D:\VideoAI\backup\drp_20261118-0145\project_LV_Ten.drp (chưa kiểm file bằng mắt); dump In/Out 376 clip (đều trống) -> D:\VideoAI\backup\inout_before_20261118-0145\inout_before.json. CHƯA sao lưu mã nguồn và data\troly\projects (lượt tự chạy không có shell và chưa được cấp quyền thư mục D:\VideoAI; mã đã nằm trên Git, kế hoạch project không bị đụng).
+- Xong code: trình phát proxy ở cột phải Bước 2, kéo/phím I O/mũi tên đặt In/Out tay, nút Ghi In/Out vào DaVinci (clip sao hoặc đang chọn) có sao lưu + đối chiếu + Hoàn tác, nối nút ở tab Lời nói. 140 bài kiểm thử đạt. Đã thử giao diện thật bằng Chromium với Media Pool giả ở 1440x900 và 2560x1440.
+- Sao lưu bước 0: .drp project thử xuất bằng ExportProject -> D:\VideoAI\backup\drp_20261118-0145\project_LV_Ten.drp (chưa kiểm file bằng mắt); dump In/Out 376 clip (đều trống) -> D:\VideoAI\backup\inout_before_20261118-0145\inout_before.json. Đã sao lưu 18/11/2026 06:29: kế hoạch project -> D:\VideoAI\backup\projects_20261118-062904\ (7 file); mã nguồn (bỏ .git) -> D:\VideoAI\backup\TroLyFileQuay_20261118-062904\.
 - Đo DaVinci (1 clip, đã xóa về trống): SetMarkInOut nhận frame từ đầu file, không cộng Start TC; chuỗi timecode bị từ chối; không kiểm vượt độ dài. Chi tiết ADR-0016.
-- ANH CẦN LÀM: (1) thêm vào config.json: "proxy_root": "F:\\02_Proxy Media"; (2) git pull nhánh inout-player, mở panel, thử phát proxy thật; nếu không phát thì xem có tự chuyển "bản xem nhẹ" không; ghi kết quả vào ADR-0016; (3) thử đặt In/Out và Ghi trên 2-3 clip, thử Hoàn tác. Không ghi hàng loạt cho tới khi anh thử xong.
-- CHƯA chạy thật: phát proxy thật trên WebView2, độ trễ lướt, bản xem nhẹ ffmpeg, chụp màn hình panel pywebview thật (mới chụp trong Chromium), proxy khác timecode/độ dài bản gốc.
+- Đã đo proxy thật 18/11 (chi tiết ADR-0016): 4/5 mẫu H.264 + PCM trong MOV, phát trực tiếp được trong WebView2 (0 khung rớt, lướt 20-165 ms); 1/5 mẫu HEVC không có hình mà KHÔNG báo lỗi. Đã sửa 2 lỗi: trình phát chỉ dự phòng khi có `error` (nay thêm videoWidth = 0), và bản xem nhẹ ffmpeg không bao giờ tạo được (thiếu -f mp4; nay chạy thật 0,4 s, phát được). config.json đã có proxy_root, đã pull tới ab3509f.
+- ANH CẦN LÀM: (1) mở panel bản mới, thử phát proxy thật và lướt, ghi thêm vào ADR-0016; (2) thử đặt In/Out và bấm Ghi trên 2-3 clip rồi Hoàn tác (Claude KHÔNG tự ghi In/Out vào DaVinci). Không ghi hàng loạt cho tới khi anh thử xong.
+- CHƯA chạy thật: bấm phát trong cửa sổ panel pywebview thật (mới đo bằng cửa sổ WebView2 thử cùng máy chủ phát), chụp màn hình panel thật, ghi In/Out vào DaVinci thật, proxy khác độ dài bản gốc.
 - Chưa làm (đúng đề bài): công tắc PSC/Truyền thống, trang Bước 3 đầy đủ, quy tắc tự tính In/Out vẫn hoãn.
 
 ## Việc tiếp theo (theo thứ tự)

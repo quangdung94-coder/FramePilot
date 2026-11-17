@@ -40,13 +40,26 @@ chỉnh tiếp bằng tay trong DaVinci.
   Panel lưu giây, ghi `round(giây × fps)`.
 - Không bất ngờ so với cách tính đang dùng khi ĐỌC (`mark_in / fps`), nên không phải đổi cách tính.
 
-## Chưa đo được (cần người dựng thử trên máy thật)
-- WebView2 có phát được proxy thật trong F:\02_Proxy Media không (định dạng/codec proxy), độ trễ lướt. Lượt tự chạy không có quyền
-  thư mục D:/F: trên máy nên CHƯA đo. Đã kiểm thử bằng mp4 H.264 giả trong Chromium: phát, dừng, lướt, I/O, kéo mép, mũi tên đều chạy.
-  Nếu proxy là ProRes/DNx và thẻ video báo lỗi thì tự chuyển sang bản xem nhẹ ffmpeg (cũng CHƯA chạy thật). Người dựng thử xong
-  điền kết quả vào đây.
-- Proxy có thể khác timecode/độ dài bản gốc: panel dùng thời gian tính từ đầu clip (giây), khớp theo đầu file; nếu proxy ngắn/dài
-  khác bản gốc thì cần đối chiếu (chưa đo).
+## Kết quả đo proxy thật (18/11/2026, WebView2 = Edge 157, cùng động cơ với panel; CHỈ ĐỌC, không ghi vào F:\02_Proxy Media)
+Lấy 5 file proxy ở 5 project khác nhau (ffprobe + cửa sổ WebView2 thử dùng đúng `troly_play.PlayServer`, tự đóng):
+
+| Mẫu | Container | Hình | Kích thước, fps | Âm thanh | Phát trong WebView2 |
+|---|---|---|---|---|---|
+| 1, 3, 4 | MOV | H.264 High (avc1), ~42 Mbps | 1920x1080, 50 | PCM s16le 48 kHz stereo | ĐƯỢC, có hình + tiếng; ~124 khung / 2,4 s, 0 khung rớt; mở 16-30 ms; lướt 20-165 ms |
+| 5 | MOV | H.264 High, ~41 Mbps | 1920x1080, 59,94 | PCM s16le | ĐƯỢC; 149 khung, 0 rớt; lướt 23-142 ms |
+| 2 | MOV | **HEVC Main (hvc1)**, ~18,5 Mbps | 1920x1080, 50 | PCM s16le | **KHÔNG có hình**: `canPlayType` HEVC rỗng, `videoWidth` = 0, 0 khung; chỉ có tiếng; **không báo lỗi** |
+
+- Proxy là `.mov`, thuần H.264 + PCM trong 4/5 mẫu (mẫu nhỏ, chưa đo hết ~3000 file). Không có ProRes/DNx trong 5 mẫu.
+- **Lỗi tìm ra 1:** trình phát chỉ chuyển sang bản xem nhẹ khi có sự kiện `error`, nhưng proxy HEVC không báo lỗi (chỉ ra tiếng, hình đen).
+  Đã sửa: ngay khi `loadedmetadata` mà `videoWidth` = 0 thì tự chuyển sang bản xem nhẹ (có bài kiểm thử tĩnh).
+- **Lỗi tìm ra 2:** bản xem nhẹ ffmpeg KHÔNG BAO GIỜ tạo được: file tạm đuôi `.part` làm ffmpeg không chọn được định dạng, lệnh lỗi ngay
+  và `ensure_play_mp4` trả `None`. Đã sửa: thêm `-f mp4`; đổi `-an` thành AAC 96 kbps để vẫn nghe tiếng khi duyệt.
+- Bản xem nhẹ chạy thật trên mẫu HEVC (clip 1,9 s): 0,4 giây tạo, 0,39 MB (gốc 4,45 MB), H.264 720p + AAC; WebView2 phát được: 96 khung,
+  0 rớt, lướt 3-11 ms. Clip dài chưa đo thời gian tạo.
+- Âm thanh PCM trong MOV phát được trong WebView2 (đã giải mã, có byte âm thanh).
+- **Chưa đo:** bấm phát trong CỬA SỔ PANEL thật (chỉ đo bằng cửa sổ WebView2 thử, cùng động cơ và cùng máy chủ phát); độ dài proxy so với bản
+  gốc; clip dài nhiều phút; lướt nhiều clip liên tiếp.
+- Người dựng thử xong trong panel thật thì ghi thêm kết quả vào đây.
 
 ## Hệ quả
 - config.json cần thêm `"proxy_root": "F:\\02_Proxy Media"` (không đưa lên Git).

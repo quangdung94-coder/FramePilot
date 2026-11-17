@@ -140,15 +140,20 @@ async function plOpen(c, transcode) {                         // gọi từ show
   PL.fps = r.fps || PL.fps; PL.dur = r.dur || PL.dur;
   const v = document.createElement("video");
   v.muted = false; v.preload = "auto"; v.playsInline = true; v.src = r.url; v.controls = false;
-  v.addEventListener("loadedmetadata", () => { PL.ok = true; if (v.duration) PL.dur = v.duration; plTime(); plRenderIo(curClip()); });
-  v.addEventListener("timeupdate", () => { plHead(); plTime(); });
-  v.addEventListener("play", () => { $("plPlay").textContent = "❚❚"; });
-  v.addEventListener("pause", () => { $("plPlay").textContent = "▶"; });
-  v.addEventListener("error", () => {                         // WebView2 không phát được định dạng này -> bản xem nhẹ
+  const fallback = () => {                                    // dùng bản xem nhẹ ffmpeg (H.264) khi WebView2 không giải mã được hình
     if (PL.uid !== uid || transcode) { $("plNote").textContent = "Không phát được proxy này"; return; }
     $("plNote").textContent = "Đang tạo bản xem nhẹ..."; PL.tried = true;
     plOpen(curClip(), true);
+  };
+  v.addEventListener("loadedmetadata", () => {
+    // Đo 18/11/2026: proxy HEVC (hvc1) trong WebView2 KHÔNG báo lỗi, chỉ ra tiếng mà không có hình (videoWidth = 0).
+    if (!v.videoWidth) return fallback();
+    PL.ok = true; if (v.duration) PL.dur = v.duration; plTime(); plRenderIo(curClip());
   });
+  v.addEventListener("timeupdate", () => { plHead(); plTime(); });
+  v.addEventListener("play", () => { $("plPlay").textContent = "❚❚"; });
+  v.addEventListener("pause", () => { $("plPlay").textContent = "▶"; });
+  v.addEventListener("error", fallback);                      // WebView2 không phát được định dạng này -> bản xem nhẹ
   v.className = "pv"; v.style.opacity = "0"; v.addEventListener("loadeddata", () => { v.style.opacity = "1"; });
   const old = $("preview").querySelector("video"); if (old) { old.pause(); old.remove(); }
   $("preview").appendChild(v);

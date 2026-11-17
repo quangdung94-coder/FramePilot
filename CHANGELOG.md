@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Đo proxy thật, sửa trình phát
+- Đo 5 proxy ở 5 project (chỉ đọc): 4 mẫu H.264 + PCM trong MOV phát được trong WebView2 (0 khung rớt, lướt 20-165 ms); 1 mẫu HEVC không có hình mà không báo lỗi (ADR-0016).
+- Sửa: trình phát tự chuyển sang bản xem nhẹ khi videoWidth = 0; bản xem nhẹ ffmpeg trước đây không bao giờ tạo được (file tạm .part thiếu -f mp4), nay chạy thật và giữ tiếng (AAC). Kiểm thử 140 bài đạt.
+- Sao lưu trước khi làm: D:\VideoAI\backup\projects_20261118-062904 và TroLyFileQuay_20261118-062904.
+
 ## 2026-11-18 – Trình phát proxy + đặt/ghi In/Out (ADR-0016) - CHỜ NGƯỜI DỰNG THỬ
 - Cột phải Bước 2: trình phát proxy (Space phát/dừng, thanh lướt, tốc độ 0.25-4×) qua máy chủ cục bộ 127.0.0.1 chỉ đọc trong proxy_root (config.json); không có proxy thì báo "Chưa có proxy" và giữ thumbnail; proxy WebView2 không phát được thì tự tạo mp4 H.264 nhẹ bằng ffmpeg trong cache (chưa chạy thật).
 - Đặt In/Out bằng tay: kéo hai mép, phím I / O tại chỗ đang xem, mũi tên chỉnh từng frame; đặt tay luôn thắng DaVinci/gợi ý; lưu vào kế hoạch panel.
