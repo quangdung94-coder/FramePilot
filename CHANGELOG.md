@@ -1,5 +1,8 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Danh sách clip "có thể sai" (mục D)
+- app/troly_speech_review.py: gộp tối đa 50 clip có thể sai (chỉ đọc kho) thành CSV + SRT trong thư mục dữ liệu (không vào Git/Notion). 5 bài kiểm thử mới. Đã chạy trên kho thật: 50 clip, 94 dòng. Không có lỗi chính tả "Quy quy tắc" trong kho.
+
 ## 2026-11-18 – Kiểu quay PSC / Truyền thống (ADR-0018)
 - Ô chọn kiểu quay theo project (mặc định chưa chọn, không đổi gì). Truyền thống: gợi ý giữ dài, cắt 1,5 giây đầu/đuôi; PSC: bộ tham số 3-7 giây theo bin. Chỉ đổi gợi ý màu xanh, In/Out đặt tay luôn thắng. 9 bài kiểm thử mới, tổng 172.
 

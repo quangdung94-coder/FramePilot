@@ -50,6 +50,12 @@
 - Kiểm thử: 172 bài đạt (thêm 9). Đã thử đổi kiểu bằng giao diện (bản giả) và kiểm thanh trên không chật ở 1100 px.
 - CHƯA thử: trong cửa sổ panel thật; PSC hiện chưa khác mặc định về số (chỉ thêm nhãn), cần anh cho biết con số PSC muốn.
 
+## Danh sách clip "có thể sai" để duyệt (mục D, 18/11) - XONG, chờ anh duyệt
+- Công cụ app/troly_speech_review.py (chỉ ĐỌC kho SQLite ở chế độ read-only, kho không đổi một byte): gộp tối đa 50 clip có thể sai thành CSV + SRT trong thư mục dữ liệu, KHÔNG vào Git/Notion. SRT có mã [clip#số dòng] và nhãn [NGHI:lý do] ở dòng nghi.
+- Đã chạy trên kho chép lời thật của project đang dùng (376 clip: 149 đã chép, 222 im lặng, 5 lỗi, 50 có thể sai): xuất 50 clip, 94 dòng -> D:\VideoAI\data	rolyeview\co_the_sai_project_20261118-065721.csv và .srt. Lý do trong CSV: hallu (câu bịa quen thuộc), lap (lặp câu trước), ngoai (ngoài đoạn có tiếng), thua (quá ít chữ), keo (kéo âm lượng nhiều), khong_chu (có tiếng mà không ra chữ).
+- Không tìm thấy lỗi chính tả "Quy quy tắc" trong tài liệu của kho (đã tìm hết .md/.py/.js/.html).
+- Việc của anh: duyệt file trên và cho biết nhóm lý do nào hay sai để chỉnh bộ lọc.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: thanh In/Out kéo tay (chuột + phím I/O, mũi tên từng frame), sóng âm (waveform từ proxy bằng ffmpeg),
    bảng quy tắc từng bin chỉnh được, trang Bước 3 riêng (hiện dùng chung màn hình Bước 2), (trình phát proxy đã làm, ADR-0016). In/Out người dựng đặt tay luôn thắng gợi ý. Đọc In/Out đặt trong Media Pool về panel (đã đọc được).
