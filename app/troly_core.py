@@ -207,6 +207,137 @@ def suggest_inout(dur, label=None):
     return {"in_s": round(t_in, 2), "out_s": round(t_out, 2), "dur": round(t_out - t_in, 2), "rule": rule}
 
 
+# --- In/Out (ADR-0016) -------------------------------------------------------------------------------------------------
+# DaVinci SetMarkInOut/GetMarkInOut nhận SỐ FRAME tính từ ĐẦU FILE (frame 0 = frame đầu clip), KHÔNG cộng Start TC của file
+# (đã đo thật, ADR-0016). Chuỗi timecode bị từ chối. Panel lưu giây (kế hoạch: plan["inout"][rel] = [in_s, out_s]).
+def secs_to_frames(s, fps):
+    return int(round(float(s) * float(fps)))
+
+
+def frames_to_secs(f, fps):
+    return round(int(f) / float(fps), 4)
+
+
+def start_tc_frames(tc_str, fps):
+    """'00:42:38:24' -> số frame (fps làm tròn). Chuỗi hỏng -> 0. Chỉ để HIỂN THỊ timecode của file, không dùng khi ghi."""
+    m = re.match(r"^\s*(\d+)[:;](\d+)[:;](\d+)[:;.](\d+)\s*$", tc_str or "")
+    if not m or not fps:
+        return 0
+    h, mi, se, fr = (int(x) for x in m.groups())
+    nom = int(round(fps))
+    return ((h * 60 + mi) * 60 + se) * nom + fr
+
+
+def frames_to_tc(frames, fps):
+    nom = max(1, int(round(fps or 25)))
+    frames = max(0, int(frames))
+    fr = frames % nom
+    t = frames // nom
+    return "%02d:%02d:%02d:%02d" % (t // 3600, (t // 60) % 60, t % 60, fr)
+
+
+def tc_to_file_frame(tc_str, start_tc, fps):
+    """Timecode hiển thị (đã gồm Start TC của file) -> frame tính từ đầu file (giá trị đưa cho SetMarkInOut)."""
+    return start_tc_frames(tc_str, fps) - start_tc_frames(start_tc, fps)
+
+
+def file_frame_to_tc(frame, start_tc, fps):
+    return frames_to_tc(start_tc_frames(start_tc, fps) + int(frame), fps)
+
+
+def clamp_inout(in_s, out_s, dur, fps=25.0):
+    """Sắp xếp, kẹp trong [0, dur], làm tròn theo frame, giữ cách nhau >= 1 frame. dur không rõ (<=0) thì chỉ kẹp >= 0."""
+    a, b = sorted((float(in_s), float(out_s)))
+    step = 1.0 / float(fps or 25.0)
+    a = max(0.0, a)
+    if dur and dur > 0:
+        a = min(a, max(0.0, dur - step))
+        b = min(b, dur)
+    b = max(b, a + step)
+    if dur and dur > 0:
+        b = min(b, dur)
+        a = min(a, max(0.0, b - step))
+    return round(round(a / step) * step, 4), round(round(b / step) * step, 4)
+
+
+def manual_inout(plan, clip):
+    v = (plan.get("inout") or {}).get(clip.rel)
+    return (v[0], v[1]) if v and len(v) == 2 else None
+
+
+def set_manual_inout(plan, clip, in_s, out_s):
+    """Lưu In/Out đặt tay (giây). None -> xóa. Trả (in, out) đã kẹp, hoặc None."""
+    d = plan.setdefault("inout", {})
+    if in_s is None or out_s is None:
+        d.pop(clip.rel, None)
+        return None
+    a, b = clamp_inout(in_s, out_s, clip.dur, clip.fps)
+    d[clip.rel] = [a, b]
+    return a, b
+
+
+def effective_inout(plan, clip):
+    """(in_s, out_s, nguồn): đặt tay trong panel LUÔN thắng, rồi In/Out đang có trong DaVinci; không có -> None.
+    Gợi ý tự động (suggest_inout) không nằm ở đây, giao diện chỉ dùng khi chưa có gì."""
+    m = manual_inout(plan, clip)
+    if m:
+        return m[0], m[1], "manual"
+    if clip.mark_in is not None and clip.mark_out is not None and clip.fps:
+        return frames_to_secs(clip.mark_in, clip.fps), frames_to_secs(clip.mark_out, clip.fps), "davinci"
+    return None
+
+
+def inout_frames(plan, clip):
+    """Cặp frame (từ đầu file) sẽ ghi vào DaVinci cho clip: chỉ In/Out đặt tay. Không có -> None."""
+    m = manual_inout(plan, clip)
+    if not m or not clip.fps:
+        return None
+    fa, fb = secs_to_frames(m[0], clip.fps), secs_to_frames(m[1], clip.fps)
+    if clip.frames:
+        fb = min(fb, clip.frames - 1)
+    if fb <= fa:
+        return None
+    return fa, fb
+
+
+def inout_backup_dir(data_root):
+    return os.path.join(data_root, "troly", "inout_backup")
+
+
+def write_inout_backup(data_root, project, entries, stamp=None):
+    """Sao lưu In/Out CŨ của các clip trước khi ghi. entries = [{uid, rel, in, out}] (frame hoặc None).
+    File riêng có ngày giờ, không ghi đè file cũ. Trả đường dẫn."""
+    import datetime as _dt
+    d = inout_backup_dir(data_root)
+    os.makedirs(d, exist_ok=True)
+    stamp = stamp or _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    base = os.path.join(d, "%s_%s" % (_safe(project), stamp))
+    p, i = base + ".json", 1
+    while os.path.exists(p):
+        i += 1
+        p = "%s_%d.json" % (base, i)
+    _write_json(p, {"project": project, "at": _dt.datetime.now().isoformat(timespec="seconds"), "entries": entries,
+                    "restored": False})
+    return p
+
+
+def read_inout_backup(path):
+    return _read_json(path)
+
+
+def latest_inout_backup(data_root, project):
+    d = inout_backup_dir(data_root)
+    try:
+        names = sorted(n for n in os.listdir(d) if n.startswith(_safe(project) + "_") and n.endswith(".json"))
+    except OSError:
+        return None
+    for n in reversed(names):
+        data = _read_json(os.path.join(d, n))
+        if data and not data.get("restored"):
+            return os.path.join(d, n)
+    return None
+
+
 PROJECT_RE = re.compile(r"^\d{4}\.\d{2}\.\d{2}\.")
 
 

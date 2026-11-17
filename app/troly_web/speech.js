@@ -230,6 +230,13 @@ $("lnSet").onclick = async () => {
   await lnRefresh();
 };
 
+/* Ghi vào DaVinci: dùng chung hộp xác nhận + sao lưu + Hoàn tác của player.js (ADR-0016). Chỉ clip có In/Out ĐẶT TAY mới ghi. */
+$("lnWrite").onclick = () => {
+  const ids = LN.pick && LN.pick.size ? [...LN.pick] : (LN.sel ? [LN.sel] : []);
+  if (!ids.length) return status("Chưa chọn clip nào.", "warn");
+  plWrite("selected", ids);
+};
+
 /* kéo mép khung trắng ở thanh lớn */
 $("lnBar").addEventListener("mousedown", (ev) => {
   const h = ev.target.closest(".h"); const r = curRow(); if (!h || !r) return;

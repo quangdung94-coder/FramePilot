@@ -56,7 +56,7 @@ def main():
         if w is not None:
             w.evaluate_js("window.onEvent && window.onEvent(%s, %s)" % (json.dumps(kind), json.dumps(data)))
 
-    api = ta.TrolyApi(a.project, data_root, emit=emit)
+    api = ta.TrolyApi(a.project, data_root, emit=emit, proxy_root=troly_env.config().get("proxy_root"))
     # maximized: luôn vừa màn hình ở mọi tỉ lệ DPI (không lẹm mép); min_size đủ cho bố cục 3 cột
     win = webview.create_window("VideoAI Trợ lý File Quay - " + a.project, url=INDEX, js_api=api,
                                 width=1440, height=880, min_size=(1100, 680), background_color="#18181B",

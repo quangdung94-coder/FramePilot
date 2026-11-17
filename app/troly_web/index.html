@@ -143,11 +143,25 @@
       <span class="dim12" id="curName"></span>
     </div>
     <div class="preview" id="preview"><span>Chọn một clip để xem</span></div>
+    <div class="player hidden" id="player">
+      <div class="player-ctl" id="plCtl">
+        <button class="btn pl-play" id="plPlay" title="Phát / dừng (phím Space)">▶</button>
+        <input type="range" id="plSeek" min="0" max="1000" value="0" aria-label="Lướt clip">
+        <select id="plRate" title="Tốc độ"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+      </div>
+      <div class="row-between dim12"><span id="plTime">00:00:00 / 00:00:00</span><span id="plNote"></span></div>
+    </div>
     <button class="btn btn-star btn-44" id="starToggleBtn">☆ Gắn sao (phím J)</button>
     <div class="v8">
       <div class="io-bar" id="ioBar"><div class="io-empty" id="ioEmpty">Chưa đặt In / Out</div></div>
       <div class="row-between dim12"><span class="io-in" id="ioIn">In --:--:--</span><span id="ioDur">Giữ --:--:--</span><span class="io-in" id="ioOut">Out --:--:--</span></div>
       <div class="dim12" id="ioRule" style="font-size:11px;color:#A1A1AA;text-align:right"></div>
+      <span class="keys"><b>Space</b> phát/dừng · <b>I</b> / <b>O</b> đặt In/Out tại chỗ đang xem · kéo hai mép · bấm vào cột này rồi <b>←/→</b> chỉnh từng frame (Shift = 10). Giờ hiện dạng phút:giây:frame.</span>
+      <div class="inline8 io-write">
+        <button class="btn flex1" id="ioWriteStar" title="Ghi In/Out đặt tay của các clip có sao vào Media Pool (có hộp xác nhận)">Ghi In/Out clip sao</button>
+        <button class="btn flex1" id="ioWriteSel" title="Ghi In/Out đặt tay của các clip đang chọn">Ghi clip đang chọn</button>
+        <button class="btn" id="ioUndo" title="Khôi phục In/Out cũ theo bản sao lưu lần ghi gần nhất">Hoàn tác</button>
+      </div>
     </div>
     <div class="info-box">
       <span class="dim12">Clip đang chọn</span>
@@ -227,6 +241,7 @@
       <button class="btn btn-44 flex1" id="lnStar">Gắn sao (J)</button>
       <button class="btn-accent btn-44 flex1" id="lnSet">Đặt In / Out</button>
     </div>
+    <button class="btn" id="lnWrite" title="Ghi các In/Out đã đặt của clip đang chọn (hoặc các clip Ctrl/Shift + bấm) vào Media Pool, có hộp xác nhận và sao lưu">Ghi In/Out phần đã chọn vào DaVinci</button>
     <button class="btn ln-deep" disabled title="Sắp có">Đọc kỹ từng câu (vows, phát biểu dài) · sắp có</button>
   </aside>
 </main>
@@ -261,6 +276,7 @@
 </div>
 </div>
 <script src="app.js"></script>
+<script src="player.js"></script>
 <script src="speech.js"></script>
 </body>
 </html>

@@ -5,7 +5,8 @@ troly_resolve.py - Cầu nối DaVinci cho Trợ lý File Quay (ADR-0009). Mọi
 Việc ĐỌC: danh sách bin, clip của một bin (gồm mọi bin con), thuộc tính từng clip.
 Việc GHI (chỉ khi người dựng bấm "Áp dụng vào Media Pool", ADR-0009):
   - tạo bin con bên trong bin nguồn (01_Rước dâu, 01_Rước dâu/Decor, ...): AddSubFolder;
-  - CHUYỂN clip vào bin đó: MoveClips. Không xóa clip, không đổi tên, không đụng file trên ổ, không đụng in/out, màu.
+  - CHUYỂN clip vào bin đó: MoveClips. Không xóa clip, không đổi tên, không đụng file trên ổ, màu.
+  - GHI In/Out của clip nguồn (SetMarkInOut) CHỈ khi người dựng bấm nút, luôn sao lưu In/Out cũ trước và có Hoàn tác (ADR-0016).
   - Mỗi lần chuyển ghi nhật ký (clip nào từ bin nào sang bin nào) vào kế hoạch của project để HOÀN TÁC được.
 """
 import os
@@ -257,6 +258,88 @@ class TrolyWorker(threading.Thread):
             raise RuntimeError("DaVinci không tạo được timeline mới (%d clip). Chi tiết: %s. "
                                "Hãy thử chuyển sang trang Edit hoặc Media của DaVinci rồi bấm lại." % (len(items), "; ".join(why)))
         self.post("timeline_appended", (len(items), True))
+
+    # --- GHI In/Out (ADR-0016) ----------------------------------------------------------------------------------
+    @staticmethod
+    def _read_vio(mpi):
+        """(in, out) frame video đang đặt trong clip, hoặc (None, None)."""
+        try:
+            m = mpi.GetMarkInOut() or {}
+        except Exception:                                     # noqa: BLE001
+            return None, None
+        v = m.get("video") if isinstance(m, dict) else None
+        if not isinstance(v, dict) or v.get("in") is None or v.get("out") is None:
+            return None, None
+        return int(v["in"]), int(v["out"])
+
+    def do_inout_write(self, arg):
+        """arg = (data_root, tên project, [(uid, rel, in_frame, out_frame)]). Thứ tự an toàn:
+        1) đọc In/Out CŨ của từng clip, 2) GHI FILE SAO LƯU (lỗi thì dừng, chưa đụng DaVinci), 3) SetMarkInOut từng clip,
+        4) đọc lại đối chiếu. Chỉ gọi SetMarkInOut; không xóa clip, không đụng timeline/file/render."""
+        root, pname, rows = arg
+        if not self.items:
+            raise RuntimeError("Hãy bấm 'Đọc clip' trước.")
+        todo, old = [], []
+        for uid, rel, a, b in rows:
+            if uid not in self.items:
+                continue
+            oa, ob = self._read_vio(self.items[uid][1])
+            old.append({"uid": uid, "rel": rel, "in": oa, "out": ob, "new_in": a, "new_out": b})
+            todo.append((uid, a, b))
+        if not todo:
+            raise RuntimeError("Không có clip nào để ghi In/Out.")
+        backup = tc.write_inout_backup(root, pname, old)
+        if not tc.read_inout_backup(backup):
+            raise RuntimeError("Không ghi được file sao lưu In/Out, chưa đụng DaVinci.")
+        ok, bad, mismatch = [], [], []
+        for n, (uid, a, b) in enumerate(todo):
+            mpi = self.items[uid][1]
+            try:
+                r = mpi.SetMarkInOut(int(a), int(b), "all")
+            except Exception as e:                            # noqa: BLE001
+                r = False
+                bad.append((uid, "lỗi: %s" % e))
+                continue
+            if not r:
+                bad.append((uid, "DaVinci từ chối"))
+                continue
+            if self._read_vio(mpi) == (int(a), int(b)):
+                ok.append(uid)
+            else:
+                mismatch.append((uid, self._read_vio(mpi)))
+            if n % 20 == 0:
+                self.post("progress", ("Đang ghi In/Out", n + 1, len(todo)))
+        self.post("inout_written", {"backup": backup, "ok": ok, "bad": bad, "mismatch": mismatch, "total": len(todo)})
+
+    def do_inout_restore(self, arg):
+        """arg = đường dẫn file sao lưu. Khôi phục đúng In/Out cũ (cũ trống thì xóa In/Out) rồi đọc lại đối chiếu."""
+        data = tc.read_inout_backup(arg)
+        if not data or not isinstance(data.get("entries"), list):
+            raise RuntimeError("Không đọc được file sao lưu In/Out.")
+        if not self.items:
+            raise RuntimeError("Hãy bấm 'Đọc clip' trước.")
+        ok, bad, skipped = [], [], 0
+        for e in data["entries"]:
+            uid = e.get("uid")
+            if uid not in self.items:
+                skipped += 1
+                continue
+            mpi = self.items[uid][1]
+            try:
+                if e.get("in") is None or e.get("out") is None:
+                    r = mpi.ClearMarkInOut("all")
+                    good = self._read_vio(mpi) == (None, None)
+                else:
+                    r = mpi.SetMarkInOut(int(e["in"]), int(e["out"]), "all")
+                    good = self._read_vio(mpi) == (int(e["in"]), int(e["out"]))
+            except Exception as ex:                           # noqa: BLE001
+                bad.append((uid, "lỗi: %s" % ex))
+                continue
+            if r and good:
+                ok.append(uid)
+            else:
+                bad.append((uid, "không khôi phục khớp"))
+        self.post("inout_restored", {"backup": arg, "ok": ok, "bad": bad, "skipped": skipped})
 
     def run(self):
         while True:

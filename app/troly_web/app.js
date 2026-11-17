@@ -763,6 +763,7 @@ document.addEventListener("keydown", (e) => {
 async function showCur() {
   const c = items[cur];
   if (!c) {
+    plStop(); PL.uid = null;
     $("curName").textContent = ""; $("preview").innerHTML = "<span>Chọn một clip để xem</span>"; $("curBin").textContent = "—"; $("curInfo").textContent = "";
     $("ioIn").textContent = "In --:--:--"; $("ioIn").className = "io-in";
     $("ioOut").textContent = "Out --:--:--"; $("ioOut").className = "io-in";
@@ -779,39 +780,16 @@ async function showCur() {
   $("curInfo").textContent = `Giờ quay ${c.time} (${src}) · dài ${durTxt(c.dur)}\nMáy ${c.camera}\nHình: ${notes[c.uid] || "đang làm..."}\nLUT: ${c.lut || "(không gắn)"}` +
     (sel.size > 1 ? `\nĐang chọn ${sel.size} clip` : "");
 
-  /* Hiển thị In/Out từ DaVinci hoặc gợi ý theo quy tắc bin con */
-  const dur = c.dur || 0;
-  if (c.in_s != null && c.out_s != null && dur > 0) {
-    const inPct = Math.max(0, Math.min(100, (c.in_s / dur) * 100)).toFixed(1);
-    const wPct = Math.max(0, Math.min(100 - inPct, ((c.out_s - c.in_s) / dur) * 100)).toFixed(1);
-    $("ioBar").innerHTML = `<div class="io-range" style="left:${inPct}%;width:${wPct}%"></div>`;
-    $("ioIn").textContent = "In " + fmtSec(c.in_s); $("ioIn").className = "io-in active";
-    $("ioOut").textContent = "Out " + fmtSec(c.out_s); $("ioOut").className = "io-in active";
-    $("ioDur").textContent = "Giữ " + durTxt(c.out_s - c.in_s);
-    $("ioRule").textContent = "Đã đặt trong DaVinci";
-  } else if (c.sug && dur > 0) {
-    const s = c.sug;
-    const inPct = Math.max(0, Math.min(100, (s.in_s / dur) * 100)).toFixed(1);
-    const wPct = Math.max(0, Math.min(100 - inPct, (s.dur / dur) * 100)).toFixed(1);
-    $("ioBar").innerHTML = `<div class="io-sug" style="left:${inPct}%;width:${wPct}%"></div><div class="io-empty">${esc(s.rule)}</div>`;
-    $("ioIn").textContent = "In " + fmtSec(s.in_s); $("ioIn").className = "io-in sug";
-    $("ioOut").textContent = "Out " + fmtSec(s.out_s); $("ioOut").className = "io-in sug";
-    $("ioDur").textContent = "Giữ " + durTxt(s.dur);
-    $("ioRule").textContent = "Gợi ý (" + s.rule + ")";
-  } else {
-    $("ioBar").innerHTML = '<div class="io-empty">Chưa đặt In / Out</div>';
-    $("ioIn").textContent = "In --:--:--"; $("ioIn").className = "io-in";
-    $("ioOut").textContent = "Out --:--:--"; $("ioOut").className = "io-in";
-    $("ioDur").textContent = "Giữ --:--:--";
-    $("ioRule").textContent = "";
-  }
+  plRenderIo(c);                                           // thanh In/Out (player.js): đặt tay > DaVinci > gợi ý
 
-  if (bigs[c.uid]) { $("preview").innerHTML = `<img src="${bigs[c.uid]}">`; return; }
-  $("preview").innerHTML = thumbs[c.uid] ? `<img src="${thumbs[c.uid]}">` : "<span>Đang làm hình xem trước...</span>";
   const uid = c.uid;
+  if (PL.uid !== uid) { plStop(); PL.uid = uid; plOpen(c); }          // trình phát proxy (player.js); thumbnail là nền
+  const showImg = (src) => { const v = $("preview").querySelector("video"); $("preview").innerHTML = `<img src="${src}">`; if (v) $("preview").appendChild(v); };
+  if (bigs[uid]) { showImg(bigs[uid]); return; }
+  if (thumbs[uid]) showImg(thumbs[uid]); else if (!$("preview").querySelector("video")) $("preview").innerHTML = "<span>Đang làm hình xem trước...</span>";
   const r = await api().big(uid);
   if (r && r.src) { bigs[uid] = r.src; notes[uid] = notes[uid] || r.note; }
-  if (items[cur] && items[cur].uid === uid && bigs[uid]) $("preview").innerHTML = `<img src="${bigs[uid]}">`;
+  if (items[cur] && items[cur].uid === uid && bigs[uid]) showImg(bigs[uid]);
 }
 
 /* ------------------------------------------------------------------ chuyển bước, khởi động */

@@ -36,8 +36,11 @@ def _data_uri(path):
 
 
 class TrolyApi(object):
-    def __init__(self, project, data_root, emit=None, resolve_factory=None, start_worker=True, thumb_workers=4):
+    def __init__(self, project, data_root, emit=None, resolve_factory=None, start_worker=True, thumb_workers=4,
+                 proxy_root=None):
         self._project, self._root = project, data_root
+        self._proxy_root = proxy_root          # thư mục proxy (config.json: proxy_root); None = chưa cấu hình
+        self._play = None
         self._emit_fn = emit or (lambda kind, data: None)
         self._plan = tc.load_plan(data_root, project)
         self._note = self._plan.pop("_note", None)      # ghi chú khi phải khôi phục file kế hoạch (hiện lúc kết nối)
@@ -95,6 +98,10 @@ class TrolyApi(object):
                 self._on_applied(*data)
             elif kind == "undone":
                 self._on_undone(*data)
+            elif kind == "inout_written":
+                self._on_inout_written(data)
+            elif kind == "inout_restored":
+                self._on_inout_restored(data)
             elif kind == "timeline_appended":
                 self._busy = False
                 n, created = data
@@ -162,15 +169,16 @@ class TrolyApi(object):
                 si = self._assign.get(c.uid)
                 lb = self._label_in_stage(c, si)
                 fps = c.fps or 25.0
-                in_s = round(c.mark_in / fps, 2) if c.mark_in is not None else None
-                out_s = round(c.mark_out / fps, 2) if c.mark_out is not None else None
+                eff = tc.effective_inout(self._plan, c)          # đặt tay trong panel > đang có trong DaVinci
+                in_s, out_s, io_src = (round(eff[0], 2), round(eff[1], 2), eff[2]) if eff else (None, None, None)
+                dv = (round(c.mark_in / fps, 2), round(c.mark_out / fps, 2)) if c.mark_in is not None and c.mark_out is not None else None
                 sug = tc.suggest_inout(c.dur, lb)
                 clips.append({"uid": c.uid, "name": c.name, "m0": m[0] if m else None, "m1": m[1] if m else None,
                               "time": c.t_start.strftime("%H:%M:%S") if c.t_start else "--:--:--",
                               "dur": c.dur or 0, "stage": si, "label": lb,
                               "manual": bool(tc.manual_of(self._plan, c)), "camera": c.camera, "src": c.t_src, "lut": c.lut or "", "bin_path": c.bin_path,
                               "thumb": c.uid in self._thumb_done and bool(self._thumb_done[c.uid][0]),
-                              "in_s": in_s, "out_s": out_s, "sug": sug,
+                              "in_s": in_s, "out_s": out_s, "io_src": io_src, "dv": dv, "fps": fps, "tc": c.tc or "", "sug": sug,
                               "star": tc.is_starred(self._plan, c)})
             gap = None
             if self._day0 and self._clips:
@@ -568,6 +576,135 @@ class TrolyApi(object):
         _, p, note = self._thumbs.make(uid, c.path, c.proxy, c.lut, c.dur, width=640)
         return {"src": _data_uri(p) if p else None, "note": note}
 
+    # ------------------------------------------------------------------ In/Out (ADR-0016)
+    def set_inout(self, uid, in_s, out_s):
+        """Lưu In/Out đặt tay (giây từ đầu file) vào KẾ HOẠCH panel; in_s/out_s None thì xóa. Không đụng DaVinci."""
+        with self._lock:
+            c = self._by_uid.get(uid)
+            if c is None:
+                return {"error": "Không thấy clip."}
+            try:
+                r = tc.set_manual_inout(self._plan, c, in_s, out_s)
+            except (TypeError, ValueError):
+                return {"error": "In/Out không hợp lệ."}
+            self._save_now()
+            return {"ok": True, "in_s": r[0] if r else None, "out_s": r[1] if r else None}
+
+    def _inout_rows(self, uids):
+        rows = []
+        for u in uids:
+            c = self._by_uid.get(u)
+            fr = tc.inout_frames(self._plan, c) if c is not None else None
+            if fr:
+                rows.append((u, c.rel, fr[0], fr[1]))
+        return rows
+
+    def inout_write_preview(self, scope="starred", uids=None):
+        """Đếm clip sẽ được ghi (để hộp xác nhận nói rõ số clip). scope: 'starred' = clip có sao, 'selected' = uids.
+        Chỉ clip có In/Out ĐẶT TAY mới được ghi; còn lại bị bỏ qua (không ghi gợi ý tự động)."""
+        with self._lock:
+            pool = uids or [] if scope == "selected" else [c.uid for c in self._clips if tc.is_starred(self._plan, c)]
+            rows = self._inout_rows(pool)
+            return {"pool": len(pool), "n": len(rows), "skip": len(pool) - len(rows),
+                    "has_undo": bool(tc.latest_inout_backup(self._root, self._project))}
+
+    def inout_write(self, scope="starred", uids=None):
+        """Ghi In/Out đặt tay vào Media Pool DaVinci (sau khi người dựng đã xác nhận ở giao diện). Sao lưu cũ trước."""
+        with self._lock:
+            if self._busy or not self._clips:
+                return {"error": "Đang bận hoặc chưa đọc clip."}
+            pool = uids or [] if scope == "selected" else [c.uid for c in self._clips if tc.is_starred(self._plan, c)]
+            rows = self._inout_rows(pool)
+            if not rows:
+                return {"error": "Không có clip nào có In/Out đặt tay để ghi."}
+            self._busy = True
+            self._worker.jobs.put(("inout_write", (self._root, self._project, rows)))
+        self._emit("status", {"text": "Đang sao lưu In/Out cũ rồi ghi %d clip..." % len(rows), "kind": "info"})
+        return {"ok": True, "n": len(rows)}
+
+    def _on_inout_written(self, r):
+        self._busy = False
+        self._plan["last_inout_backup"] = r["backup"]
+        for u in r["ok"]:                                   # DaVinci nay đã có đúng giá trị này
+            c = self._by_uid.get(u)
+            fr = tc.inout_frames(self._plan, c) if c is not None else None
+            if fr:
+                c.mark_in, c.mark_out = fr
+        self._save_now()
+        n_bad = len(r["bad"]) + len(r["mismatch"])
+        names = ", ".join(self._by_uid[u].name for u, _ in (r["bad"] + r["mismatch"])[:5] if u in self._by_uid)
+        if n_bad:
+            msg = "Ghi In/Out: khớp %d/%d clip; %d clip LỖI/LỆCH (%s). Bấm Hoàn tác In/Out để khôi phục nếu cần." % (
+                len(r["ok"]), r["total"], n_bad, names)
+        else:
+            msg = "Đã ghi In/Out cho %d clip, đọc lại khớp 100%%. Sao lưu: %s" % (len(r["ok"]), r["backup"])
+        self._emit("state", self.state())
+        self._emit("status", {"text": msg, "kind": "warn" if n_bad else "ok"})
+
+    def inout_undo(self):
+        with self._lock:
+            p = tc.latest_inout_backup(self._root, self._project)
+            if self._busy or not p or not self._clips:
+                return {"error": "Chưa có bản sao lưu In/Out để hoàn tác."}
+            self._busy = True
+            self._worker.jobs.put(("inout_restore", p))
+        self._emit("status", {"text": "Đang khôi phục In/Out cũ...", "kind": "info"})
+        return {"ok": True}
+
+    def _on_inout_restored(self, r):
+        self._busy = False
+        data = tc.read_inout_backup(r["backup"]) or {}
+        if not r["bad"]:
+            data["restored"] = True                          # đánh dấu để lần Hoàn tác sau lấy bản trước nữa
+            try:
+                tc._write_json(r["backup"], data)
+            except OSError:
+                pass
+        by = {e["uid"]: e for e in data.get("entries", [])}
+        for u in r["ok"]:
+            c, e = self._by_uid.get(u), by.get(u)
+            if c is not None and e is not None:
+                c.mark_in, c.mark_out = e.get("in"), e.get("out")
+        msg = "Đã khôi phục In/Out cũ cho %d clip, đọc lại khớp." % len(r["ok"])
+        if r["bad"]:
+            msg = "Khôi phục %d clip; %d clip KHÔNG khớp, file sao lưu vẫn giữ: %s" % (len(r["ok"]), len(r["bad"]), r["backup"])
+        self._emit("state", self.state())
+        self._emit("status", {"text": msg, "kind": "warn" if r["bad"] else "ok"})
+
+    # ------------------------------------------------------------------ trình phát proxy (ADR-0016)
+    def _play_dir(self):
+        return os.path.join(self._root, "cache", "troly_play", tc._safe(self._project))
+
+    def _play_server(self):
+        import troly_play as tp
+        if self._play is None:
+            self._play = tp.PlayServer([self._proxy_root, self._play_dir()])
+        return self._play
+
+    def play_info(self, uid, transcode=False):
+        """URL phát file proxy của clip (chỉ đọc). transcode=True: phương án dự phòng, ffmpeg tạo mp4 H.264 nhẹ trong cache
+        (xóa được). Clip không có proxy: {"error": "Chưa có proxy"} để giao diện hiện thumbnail."""
+        import troly_play as tp
+        c = self._by_uid.get(uid)
+        if c is None:
+            return {"error": "Không thấy clip."}
+        if not self._proxy_root:
+            return {"error": "Chưa cấu hình proxy_root trong config.json."}
+        src = c.proxy
+        if not src or not os.path.isfile(src):
+            return {"error": "Chưa có proxy"}
+        if not tp.inside(src, [self._proxy_root]):
+            return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
+        if transcode:
+            dst = tp.ensure_play_mp4(src, self._play_dir(), c.rel or c.name)
+            if not dst:
+                return {"error": "ffmpeg không tạo được bản xem nhẹ."}
+            src = dst
+        url = self._play_server().url_for(src)
+        if not url:
+            return {"error": "Không phát được file này."}
+        return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "transcoded": bool(transcode)}
+
     def _pump_thumbs(self):
         with self._lock:
             if self._closed:
@@ -945,6 +1082,8 @@ class TrolyApi(object):
         return {"ok": True}
 
     def close(self):
+        if self._play is not None:
+            self._play.close()
         self._closed = True
         if self._speech_run is not None:
             self._speech_run.stop = True
