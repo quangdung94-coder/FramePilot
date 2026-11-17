@@ -23,6 +23,13 @@
 - Việc kế (cần người dựng): chọn thư mục kho THẬT, bấm "Chép lời cả bin" (ước ~1 giờ cho 318 clip), thử xuất SRT; đưa 1-2 clip tiếng nhỏ để chốt mức kéo tối đa. Sau đó: tầng 2 đọc kỹ, nhập bản dịch về (hàm đọc lại đã có).
 - Chưa chắc: tự nhận ngôn ngữ vi/en chỉ là đoán theo chữ (Whisper Const-me không có chế độ auto), chưa thử với clip tiếng Anh thật; ngưỡng kéo âm lượng chờ clip tiếng nhỏ.
 
+## Đổi tên giai đoạn / bin con (đề bài 17/11 23:25) - ĐANG LÀM
+- Đã sao lưu D:\VideoAI\data	roly\projects sang projects_backup_20261117-232355 (7 file) trước khi làm. Mọi thử nghiệm chạy trên bản sao/thư mục tạm.
+- Đã kiểm DaVinci 21.1.1.10: bin (Folder) KHÔNG có hàm đổi tên (chỉ GetName). Người dựng CHỌN phương án (b): tạo bin mới tên mới, chuyển clip và bin con sang, XÓA bin cũ chỉ khi đã rỗng (không bao giờ xóa clip).
+- Quyết định kỹ thuật: đổi tên TRỰC TIẾP trong mọi nơi lưu tên (stages, labels, manual, nhật ký chuyển, ui) thay vì thêm id (Media Pool nhận bin theo tên; định dạng kế hoạch không đổi nên không cần nâng cấp file cũ). Hai giai đoạn trùng tên: chỉ đổi nhãn của clip đang thuộc giai đoạn đó. Phím 1-9 theo vị trí bin nên không đổi.
+- Phần A xong: tc.check_new_name (rỗng, ký tự cấm : & / \ * ? " < > |, trùng tên cùng cấp, quá 60 ký tự) và tc.rename_in_plan, 8 bài kiểm thử (tests/test_troly_rename.py).
+- Còn: B (API rename + việc nền Media Pool + Hoàn tác), C (giao diện bấm đúp đổi tên tại chỗ + chụp màn hình), D (ADR-0015, kết sổ Notion), rồi DỪNG chờ người dựng thử.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: thanh In/Out kéo tay (chuột + phím I/O, mũi tên từng frame), sóng âm (waveform từ proxy bằng ffmpeg),
    bảng quy tắc từng bin chỉnh được, trang Bước 3 riêng (hiện dùng chung màn hình Bước 2), trình phát video proxy

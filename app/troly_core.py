@@ -548,6 +548,77 @@ def label_of(plan, clip):
     return plan["labels"].get(clip.rel or clip.name)
 
 
+# ---------------------------------------------------------------------------
+# ĐỔI TÊN GIAI ĐOẠN / BIN CON (ADR-0015)
+# ---------------------------------------------------------------------------
+NAME_FORBIDDEN = ':&/\*?"<>|'          # ký tự cấm của tên timeline/bin (CLAUDE.md)
+NAME_MAX = 60
+
+
+def check_new_name(new, siblings, current=None):
+    """Kiểm tên mới. Trả (tên đã gọn khoảng trắng, lỗi hoặc None). siblings = tên các bin cùng cấp; current = tên đang đổi
+    (không tính là trùng với chính nó). Không để trống, không ký tự cấm, không trùng tên khác trong cùng cấp (không phân biệt hoa thường)."""
+    n = " ".join((new or "").split())
+    if not n:
+        return n, "Tên không được để trống."
+    bad = [c for c in NAME_FORBIDDEN if c in n]
+    if bad:
+        return n, "Tên không được chứa các ký tự: %s" % " ".join(bad)
+    if len(n) > NAME_MAX:
+        return n, "Tên dài quá %d ký tự." % NAME_MAX
+    for s in siblings:
+        if s != current and s.casefold() == n.casefold():
+            return n, "Đã có tên “%s” trong cùng cấp." % s
+    return n, None
+
+
+def bin_prefix(src, i, stage_name, bin_name=None):
+    """Đường bin trong Media Pool: <bin nguồn>/NN_<giai đoạn>[/<bin con>]."""
+    p = "%s/%02d_%s" % (src or "", i + 1, stage_name)
+    return p + "/" + bin_name if bin_name else p
+
+
+def rename_in_plan(plan, kind, i, old, new, in_stage_keys=()):
+    """Đổi tên trong MỌI nơi kế hoạch lưu tên: stages, labels, manual, nhật ký chuyển (đường bin) và trạng thái giao diện.
+    kind = 'stage' (old là tên giai đoạn i) hoặc 'bin' (old là tên bin con của giai đoạn i). Phím 1-9 theo VỊ TRÍ bin nên giữ nguyên.
+    Hai giai đoạn trùng tên: chỉ nhãn của clip đang thuộc giai đoạn i (in_stage_keys) được đổi; không trùng thì đổi hết,
+    kể cả clip chưa nạp. Trả (đường bin cũ, đường bin mới) trong Media Pool."""
+    st = plan["stages"][i]
+    stage_old = st["name"]
+    dup = sum(1 for s in plan["stages"] if s["name"] == stage_old) > 1
+    keys = set(in_stage_keys)
+
+    def mine(key):
+        return (not dup) or key in keys
+    src = plan.get("source_bin") or ""
+    labels, manual = plan.get("labels") or {}, plan.get("manual") or {}
+    if kind == "stage":
+        for key, lab in labels.items():
+            if lab.get("stage") == old and mine(key):
+                lab["stage"] = new
+        for key, lab in manual.items():
+            if lab.get("stage") == old and mine(key):
+                lab["stage"] = new
+        st["name"] = new
+        p_old, p_new = bin_prefix(src, i, old), bin_prefix(src, i, new)
+    else:
+        st["bins"][st["bins"].index(old)] = new          # cùng VỊ TRÍ nên phím số không đổi
+        for key, lab in labels.items():
+            if lab.get("stage") == stage_old and lab.get("bin") == old and mine(key):
+                lab["bin"] = new
+        p_old, p_new = bin_prefix(src, i, stage_old, old), bin_prefix(src, i, stage_old, new)
+        ui = plan.get("ui") or {}
+        if ui.get("gStage") == i and ui.get("gSub") == old:
+            ui["gSub"] = new
+    for m in plan.get("moves") or []:                    # Hoàn tác các lần chuyển cũ vẫn tìm đúng bin
+        for row in m.get("log") or []:
+            for j in (1, 2):
+                p = row[j]
+                if p == p_old or p.startswith(p_old + "/"):
+                    row[j] = p_new + p[len(p_old):]
+    return p_old, p_new
+
+
 def target_folder(clip_stage, clip_label, stages, clip_manual=None):
     """Đường bin đích (tương đối với bin nguồn) cho một clip: ['01_Rước dâu', 'Decor'] / ['01_Rước dâu'] / [] (giữ nguyên).
     clip_manual (giai đoạn chọn tay, nếu có) THẮNG clip_stage tính theo giờ.
