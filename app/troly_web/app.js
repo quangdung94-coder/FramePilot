@@ -115,6 +115,7 @@ function render(rebuildItems) {
   const hasMoves = S && S.moves.length;
   $("undoBtn1").classList.toggle("hidden", !hasMoves);
   $("undoBtn2").classList.toggle("hidden", !hasMoves);
+  if (S && $("styleSel").value !== (S.shoot_style || "") && document.activeElement !== $("styleSel")) $("styleSel").value = S.shoot_style || "";
   if (S) {
     $("tplSel").innerHTML = S.templates.map((t) => `<option${t === S.template ? " selected" : ""}>${esc(t)}</option>`).join("");
   }
@@ -841,3 +842,11 @@ $("pool").addEventListener("dblclick", (e) => {
   if (sub && sub.dataset.bin) inlineRename(t, sub.dataset.bin, (v) => doRename("bin", +sub.dataset.stage, sub.dataset.bin, v));
   else if (row && +row.dataset.stage >= 0) { const i = +row.dataset.stage; inlineRename(t, S.stages[i].name, (v) => doRename("stage", i, S.stages[i].name, v)); }
 });
+
+/* Kiểu quay (ADR-0018): chỉ đổi gợi ý màu xanh; In/Out đặt tay luôn thắng */
+$("styleSel").onchange = async (e) => {
+  const st = await api().set_shoot_style(e.target.value);
+  if (st && st.error) return status(st.error, "warn");
+  setState(st);
+  status(e.target.value ? "Đã chọn kiểu quay " + (e.target.value === "psc" ? "PSC" : "Truyền thống") + ": chỉ đổi gợi ý màu xanh, In/Out anh đặt tay vẫn thắng." : "Đã bỏ chọn kiểu quay: gợi ý như mặc định.", "ok");
+};

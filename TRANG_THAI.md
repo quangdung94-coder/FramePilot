@@ -45,6 +45,11 @@
 - Kiểm thử: 163 bài đạt, toàn bộ dùng lệnh tắt máy/lưu GIẢ; lệnh tắt máy thật bị chặn bằng biến TROLY_NO_SHUTDOWN. Đã thử giao diện bằng bản giả: tick, hộp xác nhận, đếm ngược, Huỷ (không tắt), để chạy hết (chỉ gọi bản giả).
 - CHƯA thử thật: SaveProject trên DaVinci thật, lệnh shutdown thật, cả lượt chạy thật vài giờ. Anh nên thử lần đầu với tick tắt máy rồi bấm Huỷ lúc đếm ngược.
 
+## Kiểu quay PSC / Truyền thống (đề bài 18/11, ADR-0018) - CHỜ NGƯỜI DỰNG THỬ
+- Đã làm: ô "Kiểu quay: chưa chọn / Truyền thống / PSC" ở thanh trên bước 2, lưu theo project (plan["shoot_style"]). Chưa chọn = KHÔNG đổi gì (kiểm thử khớp 31 tổ hợp với bản cũ). Truyền thống: cắt 1,5 giây đầu và đuôi, giữ dài; PSC: bộ tham số 3-7 giây theo bin hiện có. Chỉ đổi gợi ý màu xanh; In/Out đặt tay luôn thắng; gợi ý không bao giờ được ghi vào DaVinci.
+- Kiểm thử: 172 bài đạt (thêm 9). Đã thử đổi kiểu bằng giao diện (bản giả) và kiểm thanh trên không chật ở 1100 px.
+- CHƯA thử: trong cửa sổ panel thật; PSC hiện chưa khác mặc định về số (chỉ thêm nhãn), cần anh cho biết con số PSC muốn.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: thanh In/Out kéo tay (chuột + phím I/O, mũi tên từng frame), sóng âm (waveform từ proxy bằng ffmpeg),
    bảng quy tắc từng bin chỉnh được, trang Bước 3 riêng (hiện dùng chung màn hình Bước 2), (trình phát proxy đã làm, ADR-0016). In/Out người dựng đặt tay luôn thắng gợi ý. Đọc In/Out đặt trong Media Pool về panel (đã đọc được).

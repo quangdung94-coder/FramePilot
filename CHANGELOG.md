@@ -1,5 +1,8 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Kiểu quay PSC / Truyền thống (ADR-0018)
+- Ô chọn kiểu quay theo project (mặc định chưa chọn, không đổi gì). Truyền thống: gợi ý giữ dài, cắt 1,5 giây đầu/đuôi; PSC: bộ tham số 3-7 giây theo bin. Chỉ đổi gợi ý màu xanh, In/Out đặt tay luôn thắng. 9 bài kiểm thử mới, tổng 172.
+
 ## 2026-11-18 – Phân tích cả project + tắt máy an toàn (ADR-0017)
 - Nút "Phân tích cả project" (chép lời cả bin rồi thumbnail), ô "Tắt máy khi xong" mặc định tắt, lưu project DaVinci rồi đếm ngược 2 phút có Huỷ, không tắt khi dừng/lỗi/lưu lỗi. Worker mới do_save_project; app/troly_batch.py. Quy tắc SaveProject trong CLAUDE.md. 23 bài kiểm thử mới (bản giả), tổng 163.
 

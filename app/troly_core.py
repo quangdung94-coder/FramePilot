@@ -171,7 +171,11 @@ class Clip(object):
                    mark_in=mark_in, mark_out=mark_out, tc=props.get("Start TC") or "")
 
 
-def suggest_inout(dur, label=None):
+SHOOT_STYLES = ("", "traditional", "psc")          # "" = chưa chọn (không đổi gì)
+TRAD_HEAD_S, TRAD_TAIL_S = 1.5, 1.5               # Truyền thống: chỉ gợi ý cắt khoảng 1-2 giây đầu và đuôi mỗi clip
+
+
+def suggest_inout(dur, label=None, style=""):
     """Gợi ý in/out (giây) theo quy tắc ADR-0004 kết hợp nhãn phân loại bin con:
     - Decor / Chi tiết: cần đoạn 2.5 - 3.5s ổn định, bỏ 1s đầu bấm máy.
     - Cô dâu chú rể / Beauty: cần đoạn 3.5 - 4.5s khoảnh khắc đẹp.
@@ -182,6 +186,12 @@ def suggest_inout(dur, label=None):
     dur = float(dur or 0)
     if dur < 1.0:
         return None
+    if style == "traditional":
+        # Truyền thống (ADR-0018): giữ source dài nhất có thể, chỉ cắt đầu và đuôi; không phân biệt bin. Clip ngắn thì cắt ít hơn
+        # để vẫn còn ít nhất 1 giây. Chỉ là bộ tham số gợi ý (màu xanh); In/Out đặt tay vẫn luôn thắng.
+        head = tail = min(TRAD_HEAD_S, max(0.0, (dur - 1.0) / 2.0))
+        return {"in_s": round(head, 2), "out_s": round(dur - tail, 2), "dur": round(dur - head - tail, 2),
+                "rule": "Truyền thống: giữ dài, cắt %.1fs đầu và %.1fs đuôi" % (head, tail)}
     lb = (label or "").lower()
     if any(k in lb for k in ("decor", "chi tiết", "trang trí")):
         trim = 3.0
@@ -204,6 +214,8 @@ def suggest_inout(dur, label=None):
     if t_out <= t_in + 0.5:
         t_in = 0.0
         t_out = dur
+    if style == "psc":                                 # PSC: clip ngắn 3-7 giây theo loại bin (bộ tham số hiện có), chỉ ghi rõ kiểu trong chữ giải thích
+        rule = "PSC · " + rule
     return {"in_s": round(t_in, 2), "out_s": round(t_out, 2), "dur": round(t_out - t_in, 2), "rule": rule}
 
 

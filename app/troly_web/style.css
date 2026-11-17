@@ -387,3 +387,5 @@ button, input, select { font-family: inherit; }
 .shut-box { width: 460px; max-width: calc(100vw - 48px); padding: 24px; border-radius: 14px; background: var(--bar); border: 1px solid var(--accent);
   display: flex; flex-direction: column; gap: 14px; text-align: center; }
 .shut-t { font-size: 20px; color: var(--link); }
+#styleSel { max-width: 190px; }
+@media (max-width: 1250px) { #right2 .seg-off { display: none; } #styleSel { max-width: 150px; } }

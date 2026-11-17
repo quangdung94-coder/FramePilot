@@ -177,7 +177,7 @@ class TrolyApi(object):
                 eff = tc.effective_inout(self._plan, c)          # đặt tay trong panel > đang có trong DaVinci
                 in_s, out_s, io_src = (round(eff[0], 2), round(eff[1], 2), eff[2]) if eff else (None, None, None)
                 dv = (round(c.mark_in / fps, 2), round(c.mark_out / fps, 2)) if c.mark_in is not None and c.mark_out is not None else None
-                sug = tc.suggest_inout(c.dur, lb)
+                sug = tc.suggest_inout(c.dur, lb, self._plan.get("shoot_style") or "")
                 clips.append({"uid": c.uid, "name": c.name, "m0": m[0] if m else None, "m1": m[1] if m else None,
                               "time": c.t_start.strftime("%H:%M:%S") if c.t_start else "--:--:--",
                               "dur": c.dur or 0, "stage": si, "label": lb,
@@ -198,6 +198,7 @@ class TrolyApi(object):
                     "n": len(self._clips), "new_n": self._new_n, "gone_n": self._gone_n,
                     "n_manual": sum(1 for c in self._clips if tc.manual_of(self._plan, c)),
                     "n_starred": sum(1 for c in self._clips if tc.is_starred(self._plan, c)),
+                    "shoot_style": self._plan.get("shoot_style") or "",
                     "stages": stages, "outside": outside, "clips": clips, "gap": gap,
                     "cameras": [{"cam": k, "n": v, "off": self._plan["offsets"].get(k, 0)} for k, v in
                                 cams.most_common()],
@@ -214,6 +215,20 @@ class TrolyApi(object):
         self._worker.jobs.put(("bins", None))
         return {"project": self._project, "version": "v0.2.4", "parsed": self._parse_name(),
                 "ui": self._plan.get("ui") or {}}
+
+    def set_shoot_style(self, style):
+        """Kiểu quay của project: '' (chưa chọn, không đổi gì), 'traditional' (Truyền thống) hoặc 'psc'. Lưu trong kế hoạch project.
+        CHỈ đổi gợi ý màu xanh; In/Out người dựng đặt tay luôn thắng và gợi ý không bao giờ được ghi vào DaVinci (ADR-0018)."""
+        style = style or ""
+        if style not in tc.SHOOT_STYLES:
+            return {"error": "Kiểu quay không hợp lệ."}
+        with self._lock:
+            if style:
+                self._plan["shoot_style"] = style
+            else:
+                self._plan.pop("shoot_style", None)
+            self._save_now()
+        return self.state()
 
     def save_ui(self, ui):
         """Lưu trạng thái làm việc: bước đang ở, giai đoạn/bin con đang xem, thu phóng thanh giờ, ô lọc."""

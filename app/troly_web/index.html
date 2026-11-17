@@ -32,6 +32,11 @@
     <button class="btn" id="loadBtn">Đọc clip</button>
   </div>
   <div class="top-right hidden" id="right2">
+    <select id="styleSel" class="sel" title="Kiểu quay của project này. Chỉ đổi gợi ý màu xanh ở thanh In/Out; In/Out anh đặt tay luôn thắng. Chưa chọn thì không đổi gì.">
+      <option value="">Kiểu quay: chưa chọn</option>
+      <option value="traditional" title="Giữ source dài, chỉ gợi ý cắt khoảng một đến hai giây đầu và đuôi">Truyền thống</option>
+      <option value="psc" title="Clip ngắn khoảng 3-7 giây theo loại bin">PSC</option>
+    </select>
     <div class="seg" role="group" aria-label="Chế độ phân loại">
       <button class="seg-on">Tự phân loại</button>
       <button class="seg-off" disabled title="Cần nhãn của vài project để AI học">AI gợi ý · chưa có dữ liệu</button>
