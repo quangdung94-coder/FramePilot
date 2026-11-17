@@ -269,6 +269,7 @@ $("tlCard").addEventListener("dblclick", () => { fitView(); renderPage1(); saveU
 window.addEventListener("resize", () => { if (S) renderTimeline(); });
 
 /* danh sách giai đoạn */
+let nameClick = { i: -1, t: 0, prev: null };
 $("stageList").addEventListener("click", (e) => {
   const card = e.target.closest(".stage"); if (!card) return;
   const i = +card.dataset.i, act = e.target.dataset.act;
@@ -277,6 +278,16 @@ $("stageList").addEventListener("click", (e) => {
     if (ok) { editIdx = null; api().del_stage(i).then(setState); }
   });
   if (e.target.closest(".stage-edit")) return;
+  if (e.target.closest(".stage-name")) {                           // bấm đúp tên = đổi tên tại chỗ (nhận bằng thời gian vì lần bấm đầu vẽ lại danh sách)
+    const now = Date.now();
+    if (nameClick.i === i && now - nameClick.t < 500) {
+      editIdx = nameClick.prev; nameClick = { i: -1, t: 0, prev: null }; renderPage1();
+      const el = document.querySelector(`.stage[data-i="${i}"] .stage-name`);
+      if (el) inlineRename(el, S.stages[i].name, (v) => doRename("stage", i, S.stages[i].name, v));
+      return;
+    }
+    nameClick = { i, t: now, prev: editIdx };
+  }
   editIdx = editIdx === i ? null : i; renderPage1();
 });
 $("stageList").addEventListener("keydown", (e) => {
@@ -850,9 +861,4 @@ $("pool").addEventListener("dblclick", (e) => {
   const sub = e.target.closest(".sub"), row = e.target.closest(".pool-row");
   if (sub && sub.dataset.bin) inlineRename(t, sub.dataset.bin, (v) => doRename("bin", +sub.dataset.stage, sub.dataset.bin, v));
   else if (row && +row.dataset.stage >= 0) { const i = +row.dataset.stage; inlineRename(t, S.stages[i].name, (v) => doRename("stage", i, S.stages[i].name, v)); }
-});
-$("stageList").addEventListener("dblclick", (e) => {
-  const t = e.target.closest(".stage-name"); if (!t || !S) return;
-  const i = +t.closest(".stage").dataset.i;
-  inlineRename(t, S.stages[i].name, (v) => doRename("stage", i, S.stages[i].name, v));
 });
