@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Chia giai đoạn theo giờ quay</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#F2B256}a:hover{color:#FFD08A}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #18181B; color: #E7E7EA; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
+
+<!-- Thanh trên cùng -->
+<div style="height: 64px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #1F1F23; border-bottom: 1px solid #2E2E34">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 32px; height: 32px; border-radius: 8px; background: #F2A33A; display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M3 12h12M3 17h8"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 15px; font-weight: 700">Trợ lý File Quay</span>
+<span style="font-size: 12px; color: #A1A1AA">Cưới Yến Nhi – Anh Vũ · 10/10/2026 · 248 file</span>
+</div>
+</div>
+<nav style="display: flex; gap: 6px" aria-label="Các bước">
+<a href="Main.dc.html" style="text-decoration: none; padding: 10px 16px; border-radius: 8px; background: #F2A33A; color: #18181B; font-size: 13px; font-weight: 600">1 · Giai đoạn</a>
+<a href="PhanLoai.dc.html" style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">2 · Phân loại bin</a>
+<a href="PhanLoai.dc.html" style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">3 · In / Out</a>
+<a href="Timeline.dc.html" style="text-decoration: none; padding: 10px 16px; border-radius: 8px; color: #C4C4CC; font-size: 13px; font-weight: 500">4 · Thời lượng</a>
+</nav>
+<button style="height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #3A3A42; background: #26262B; color: #E7E7EA; font-family: inherit; font-size: 13px; font-weight: 500">Quét lại thư mục</button>
+</div>
+
+<div style="flex: 1; display: flex; min-height: 0">
+
+<!-- Cột trái: danh sách giai đoạn -->
+<div style="width: 380px; flex-shrink: 0; border-right: 1px solid #2E2E34; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">Giai đoạn trong ngày</h2>
+<span style="font-size: 12px; color: #A1A1AA">6 giai đoạn</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{stages}}" as="s" hint-placeholder-count="6">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; background: #222226; border: 1px solid #2E2E34">
+<div style="width: 6px; align-self: stretch; border-radius: 3px; background: {{s.color}}"></div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 600">{{s.name}}</span>
+<span style="font-size: 12px; color: #A1A1AA">{{s.range}}</span>
+</div>
+<span style="font-size: 12px; color: #C4C4CC; background: #2E2E34; padding: 4px 8px; border-radius: 6px">{{s.count}} file</span>
+</div>
+</sc-for>
+</div>
+<button style="height: 44px; border-radius: 10px; border: 1px dashed #4A4A52; background: transparent; color: #C4C4CC; font-family: inherit; font-size: 13px">+ Thêm giai đoạn</button>
+<div style="flex: 1"></div>
+<div style="padding: 14px; border-radius: 10px; background: #222226; font-size: 12px; line-height: 1.5; color: #A1A1AA">Giờ quay lấy từ ngày giờ ghi trong mỗi file. Kéo hai đầu của từng khoảng màu trên thanh thời gian để chỉnh giờ bắt đầu và kết thúc.</div>
+</div>
+
+<!-- Vùng chính: thanh thời gian -->
+<div style="flex: 1; min-width: 0; padding: 24px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 22px; font-weight: 700">Thanh thời gian buổi quay</h1>
+<span style="font-size: 13px; color: #A1A1AA">Mỗi vạch là một file quay, đặt đúng theo giờ máy quay ghi lại</span>
+</div>
+<div style="display: flex; gap: 8px; align-items: center">
+<label for="from" style="font-size: 12px; color: #A1A1AA">Hiển thị từ</label>
+<input id="from" value="06:00" style="width: 72px; height: 36px; border-radius: 8px; border: 1px solid #3A3A42; background: #222226; color: #E7E7EA; font-family: inherit; font-size: 13px; text-align: center">
+<label for="to" style="font-size: 12px; color: #A1A1AA">đến</label>
+<input id="to" value="22:00" style="width: 72px; height: 36px; border-radius: 8px; border: 1px solid #3A3A42; background: #222226; color: #E7E7EA; font-family: inherit; font-size: 13px; text-align: center">
+</div>
+</div>
+
+<div style="background: #1F1F23; border: 1px solid #2E2E34; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<!-- Thước giờ -->
+<div style="position: relative; height: 20px">
+<sc-for list="{{hours}}" as="h" hint-placeholder-count="9">
+<span style="position: absolute; left: {{h.left}}; transform: translateX(-50%); font-size: 11px; color: #A1A1AA">{{h.label}}</span>
+</sc-for>
+</div>
+<!-- Mật độ file -->
+<div style="position: relative; height: 56px; background: #18181B; border-radius: 8px">
+<sc-for list="{{ticks}}" as="t" hint-placeholder-count="40">
+<div style="position: absolute; top: 10px; bottom: 10px; width: 2px; left: {{t.left}}; background: #8A8A94; border-radius: 1px"></div>
+</sc-for>
+</div>
+<!-- Khoảng giai đoạn -->
+<div style="position: relative; height: 64px">
+<sc-for list="{{stages}}" as="s" hint-placeholder-count="6">
+<div style="position: absolute; top: 0; height: 64px; left: {{s.left}}; width: {{s.width}}; background: {{s.fill}}; border: 2px solid {{s.color}}; border-radius: 8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; padding: 0 8px; overflow: hidden">
+<div style="position: absolute; left: -2px; top: 14px; bottom: 14px; width: 6px; border-radius: 3px; background: {{s.color}}"></div>
+<div style="position: absolute; right: -2px; top: 14px; bottom: 14px; width: 6px; border-radius: 3px; background: {{s.color}}"></div>
+<span style="font-size: 12px; font-weight: 600; white-space: nowrap">{{s.name}}</span>
+<span style="font-size: 11px; color: #C4C4CC; white-space: nowrap">{{s.range}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: #A1A1AA; padding-top: 4px">
+<span>Nghỉ quay 11:15 – 17:00 (không có file)</span>
+<span>248 file · 6 giai đoạn · 0 file chưa xếp</span>
+</div>
+</div>
+
+<!-- Xem trước bin sẽ tạo -->
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">Bin sẽ tạo trong Media Pool</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{stages}}" as="s" hint-placeholder-count="6">
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #222226; border: 1px solid #2E2E34">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{s.color}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+<span style="flex: 1; font-size: 13px; font-weight: 500">{{s.bin}}</span>
+<span style="font-size: 12px; color: #A1A1AA">{{s.count}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="flex: 1"></div>
+<div style="display: flex; justify-content: flex-end; gap: 12px">
+<button style="height: 48px; padding: 0 20px; border-radius: 10px; border: 1px solid #3A3A42; background: #26262B; color: #E7E7EA; font-family: inherit; font-size: 14px; font-weight: 500">Lưu mẫu giờ cho đám sau</button>
+<a href="PhanLoai.dc.html" style="height: 48px; padding: 0 24px; border-radius: 10px; background: #F2A33A; color: #18181B; font-size: 14px; font-weight: 600; text-decoration: none; display: flex; align-items: center">Tạo bin và sang bước phân loại</a>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const start = 6 * 60, span = 16 * 60;
+    const pct = (m) => ((m - start) / span * 100).toFixed(3) + '%';
+    const fmt = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    const raw = [
+      { name: 'Rước dâu', a: 390, b: 480, count: 38, color: '#F2A33A' },
+      { name: 'Gia tiên', a: 480, b: 585, count: 64, color: '#5B9BF5' },
+      { name: 'Về nhà trai', a: 585, b: 675, count: 41, color: '#4FC1A6' },
+      { name: 'Đón khách', a: 1020, b: 1080, count: 27, color: '#C98BE0' },
+      { name: 'Lễ nhà hàng', a: 1080, b: 1170, count: 46, color: '#EF7D65' },
+      { name: 'Chào bàn', a: 1170, b: 1260, count: 32, color: '#A9CF62' }
+    ];
+    const stages = raw.map((s, i) => ({
+      ...s,
+      range: fmt(s.a) + ' – ' + fmt(s.b),
+      left: pct(s.a),
+      width: ((s.b - s.a) / span * 100).toFixed(3) + '%',
+      fill: s.color + '26',
+      bin: String(i + 1).padStart(2, '0') + '_' + s.name
+    }));
+    const hours = [];
+    for (let h = 6; h <= 22; h += 2) hours.push({ label: String(h).padStart(2, '0') + ':00', left: pct(h * 60) });
+    const ticks = [];
+    raw.forEach((s, si) => {
+      const n = Math.round(s.count / 3);
+      for (let k = 0; k < n; k++) {
+        const m = s.a + 3 + ((k * 37 + si * 11) % 100) / 100 * (s.b - s.a - 6);
+        ticks.push({ left: pct(m) });
+      }
+    });
+    return { stages, hours, ticks };
+  }
+}
+</script>
+</body>
+</html>

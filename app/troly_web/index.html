@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trợ lý File Quay</title>
+<!-- Giao diện theo demo đã duyệt docs/03-design/troly_demo/*.dc.html (ADR-0010). Chức năng ở src/troly_api.py. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+<!-- Thanh trên cùng (giống nhau ở mọi bước) -->
+<header class="top">
+  <div class="brand">
+    <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M3 12h12M3 17h8"></path></svg></div>
+    <div class="brand-text">
+      <span class="brand-title">Trợ lý File Quay</span>
+      <span class="brand-sub" id="sub">Đang kết nối DaVinci...</span>
+    </div>
+  </div>
+  <nav class="steps" aria-label="Các bước">
+    <a href="#" data-page="1" class="step">1 · Giai đoạn</a>
+    <a href="#" data-page="2" class="step">2 · Phân loại bin</a>
+    <a href="#" data-page="3" class="step">3 · In / Out</a>
+    <a href="#" data-page="4" class="step">4 · Thời lượng</a>
+  </nav>
+  <div class="top-right" id="right1">
+    <select id="binSel" class="sel" title="Bin nguồn trong Media Pool"><option>(đang đọc bin...)</option></select>
+    <button class="btn" id="loadBtn">Đọc clip</button>
+  </div>
+  <div class="top-right hidden" id="right2">
+    <div class="seg" role="group" aria-label="Chế độ phân loại">
+      <button class="seg-on">Tự phân loại</button>
+      <button class="seg-off" disabled title="Cần nhãn của vài project để AI học">AI gợi ý · chưa có dữ liệu</button>
+    </div>
+  </div>
+  <div class="top-right hidden" id="right4">
+    <label class="lbl" for="target">Video mục tiêu</label>
+    <input id="target" class="inp" value="10 – 15 phút" disabled style="width:120px">
+  </div>
+</header>
+
+<!-- ======================= BƯỚC 1: GIAI ĐOẠN ======================= -->
+<main class="page" id="page1">
+  <aside class="col-left">
+    <div class="row-between baseline">
+      <h2>Giai đoạn trong ngày</h2>
+      <span class="dim12" id="stageCount">0 giai đoạn</span>
+    </div>
+    <div class="stage-list" id="stageList"></div>
+    <button class="btn-dashed" id="addStage">+ Thêm giai đoạn</button>
+    <div class="inline8">
+      <select id="tplSel" class="sel flex1" title="Mẫu sự kiện"></select>
+      <button class="btn" id="suggestBtn" title="Chia lại giai đoạn theo các khoảng nghỉ quay dài nhất">Gợi ý lại</button>
+    </div>
+    <div class="flex1"></div>
+    <div class="note-box" id="camBox"></div>
+    <div class="note-box">Giờ quay lấy từ ngày giờ ghi trong mỗi file. Kéo hai đầu của từng khoảng màu trên thanh thời gian để chỉnh giờ bắt đầu và kết thúc. Bấm vào giai đoạn để sửa tên, giờ, bin con.</div>
+  </aside>
+
+  <section class="col-main">
+    <div class="row-between end">
+      <div class="title-block">
+        <h1>Thanh thời gian buổi quay</h1>
+        <span class="dim13">Mỗi vạch là một file quay, đặt đúng theo giờ máy quay ghi lại</span>
+      </div>
+      <div class="inline8">
+        <label for="from" class="lbl">Hiển thị từ</label>
+        <input id="from" class="inp center" value="06:00" style="width:72px">
+        <label for="to" class="lbl">đến</label>
+        <input id="to" class="inp center" value="22:00" style="width:72px">
+      </div>
+    </div>
+
+    <div class="tl-card" id="tlCard">
+      <div class="ruler" id="ruler"></div>
+      <div class="density" id="density"></div>
+      <div class="bands" id="bands"></div>
+      <div class="tl-foot">
+        <span id="gapText">Chưa đọc clip</span>
+        <span><span id="sumText"></span><button class="btn-link hidden" id="clearManual" title="Các clip này quay về giai đoạn tính theo giờ quay">Bỏ chọn tay</button></span>
+      </div>
+    </div>
+
+    <div class="v12">
+      <h2>Bin sẽ tạo trong Media Pool</h2>
+      <div class="bin-grid" id="binGrid"></div>
+    </div>
+
+    <div class="flex1"></div>
+    <div class="row-between center">
+      <button class="btn-link hidden" id="undoBtn1">Hoàn tác lần chuyển gần nhất</button>
+      <div class="inline12">
+        <button class="btn btn-lg" id="saveTpl">Lưu mẫu giờ cho đám sau</button>
+        <button class="btn-accent btn-lg" id="applyBtn1">Tạo bin và sang bước phân loại</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ======================= BƯỚC 2 + 3: PHÂN LOẠI, IN/OUT ======================= -->
+<main class="page hidden" id="page2">
+  <aside class="col-pool">
+    <span class="caps">Media Pool</span>
+    <div id="pool"></div>
+  </aside>
+
+  <section class="col-grid">
+    <div class="row-between end">
+      <div class="title-block">
+        <h1 class="h20" id="gridTitle">Chưa chọn giai đoạn</h1>
+        <span class="dim13" id="gridHint">Kéo thumbnail vào bin bên trái, hoặc bấm phím số. Mỗi lần anh xếp, AI ghi lại để học.</span>
+      </div>
+      <span class="dim13b" id="doneText"></span>
+    </div>
+    <div class="grid-scroll" id="gridScroll" tabindex="0">
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="legend">
+      <span><i class="pill-solid"></i>Đã xếp</span>
+      <span class="legend-off"><i class="pill-ai"></i>AI gợi ý, chờ anh duyệt (sắp có)</span>
+      <span><i class="pill-none"></i>Chưa xếp</span>
+      <span class="flex1"></span>
+      <button class="btn-link hidden" id="undoBtn2">Hoàn tác lần chuyển gần nhất</button>
+      <label class="chk"><input type="checkbox" id="onlyStar"> Chỉ clip có sao ★ (<b id="starCount">0</b>)</label>
+      <label class="chk"><input type="checkbox" id="onlyNew"> Chỉ clip chưa xếp</label>
+    </div>
+  </section>
+
+  <aside class="col-right">
+    <div class="row-between baseline">
+      <h2>Điểm In / Out</h2>
+      <span class="dim12" id="curName"></span>
+    </div>
+    <div class="preview" id="preview"><span>Chọn một clip để xem</span></div>
+    <button class="btn btn-star btn-44" id="starToggleBtn">☆ Gắn sao (phím J)</button>
+    <div class="v8">
+      <div class="io-bar" id="ioBar"><div class="io-empty" id="ioEmpty">Chưa đặt In / Out</div></div>
+      <div class="row-between dim12"><span class="io-in" id="ioIn">In --:--:--</span><span id="ioDur">Giữ --:--:--</span><span class="io-in" id="ioOut">Out --:--:--</span></div>
+      <div class="dim12" id="ioRule" style="font-size:11px;color:#A1A1AA;text-align:right"></div>
+    </div>
+    <div class="info-box">
+      <span class="dim12">Clip đang chọn</span>
+      <span class="b14" id="curBin">Chưa xếp</span>
+      <span class="c13" id="curInfo"></span>
+    </div>
+    <div class="v6">
+      <span class="dim12">Phím tắt của giai đoạn này</span>
+      <div id="keyList"></div>
+      <span class="keys"><b>J</b> bật/tắt sao ★ · 0 bỏ nhãn · Shift+số sang giai đoạn đó rồi bấm số bin con · mũi tên di chuyển · Shift/Ctrl + bấm chọn nhiều · Enter mở trong DaVinci</span>
+    </div>
+    <div class="flex1"></div>
+    <div class="v8">
+      <button class="btn-accent btn-44" id="appendStarBtn" style="background:#E5A93C;color:#18181B;font-weight:600" title="Đưa các clip có sao ★ vào Timeline DaVinci">★ Đưa clip sao lên Timeline</button>
+      <div class="inline8">
+        <button class="btn btn-44" id="revealBtn">Mở trong DaVinci</button>
+        <button class="btn-accent btn-44 flex1" id="applyBtn2">Áp dụng vào Media Pool</button>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- ======================= BƯỚC 4: THỜI LƯỢNG ======================= -->
+<main class="page hidden" id="page4">
+  <section class="col-main">
+    <div class="soon">
+      <h2>Bước 4 · Thời lượng: sắp có</h2>
+      <span class="dim13">Khi đã có điểm In / Out của từng bin, bước này chia thời lượng video mục tiêu cho từng giai đoạn
+      theo đúng thứ tự giờ quay.</span>
+    </div>
+  </section>
+</main>
+
+<footer class="status" id="status"><span id="statusText">Đang kết nối DaVinci...</span><span class="progress"><i id="progBar"></i></span><span id="thumbText"></span></footer>
+
+<!-- Hộp xác nhận ghi vào DaVinci -->
+<!-- Menu chuột phải trên thumbnail, bảng nhỏ sau Shift+số -->
+<div class="ctx hidden" id="ctx"></div>
+<div class="pend hidden" id="pend"></div>
+
+<div class="modal hidden" id="modal">
+  <div class="modal-box">
+    <h2 id="mTitle">Áp dụng vào Media Pool</h2>
+    <div class="dim13" id="mBody"></div>
+    <div class="row-end">
+      <button class="btn btn-lg" id="mNo">Hủy</button>
+      <button class="btn-accent btn-lg" id="mYes">Đồng ý</button>
+    </div>
+  </div>
+</div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
