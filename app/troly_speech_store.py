@@ -199,3 +199,14 @@ def add_timecode(tc_start, seconds, fps):
     ff = total % fr
     total //= fr
     return "%02d:%02d:%02d:%02d" % (total // 3600 % 24, total // 60 % 60, total % 60, ff)
+
+def _line_flags(self):
+    """{khóa clip: [(giây đầu, giây cuối, số cụm key, mã nghi bịa)]} cho cả kho, để vẽ thanh màu và khung In/Out (không có chữ)."""
+    out = {}
+    for key, a, b, k, y in self.db.execute("SELECT clip, t0, t1, keys, why FROM lines ORDER BY clip, idx"):
+        out.setdefault(key, []).append((a, b, len(json.loads(k or "[]")), y or ""))
+    return out
+
+
+Store.line_flags = _line_flags
+

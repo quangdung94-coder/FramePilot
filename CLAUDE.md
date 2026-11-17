@@ -67,7 +67,8 @@ Quy trình:
 - app/troly_env.py: đọc config.json, kết nối DaVinci, hộp báo lỗi.
 - install.py: cài mục menu "VideoAI Trợ lý File Quay" vào Workspace > Scripts. Sửa code trong app\ không cần cài lại,
   chỉ đóng và mở lại cửa sổ Trợ lý.
-- design/: 3 màn hình demo đã duyệt (1_giai_doan, 2_phan_loai_inout, 4_thoi_luong). Mở bằng trình duyệt.
+- design/: demo đã duyệt (1_giai_doan, 2_phan_loai_inout, 4_thoi_luong = Bước 5 Thời lượng từ 17/11/2026) và loi_noi_demo/ (Bước 4 Lời nói: ảnh 4a, 4b + HTML). Mở bằng trình duyệt.
+- Số bước: 1 Giai đoạn, 2 Phân loại bin, 3 In/Out, 4 Lời nói, 5 Thời lượng (AI sau). Bước Lời nói làm theo docs/de_bai_loi_noi_A.md.
 
 ## Chạy
 - Cài thư viện: `& $py -m pip install -r requirements.txt`

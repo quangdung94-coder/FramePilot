@@ -16,7 +16,8 @@
 
 ## Lời nói A (đề bài docs/de_bai_loi_noi_A.md)
 - Xong bước 1 (đo) và bước 2 (kho dữ liệu + chạy cả bin, thử trên bản sao 5 clip: đối chiếu khớp, chạy tiếp đúng). Chưa thử chạy cả bin thật 318 clip trong DaVinci.
-- Còn: bước 3 giao diện bản đồ (đổi nhãn tab: 4 Lời nói, 5 Thời lượng, 6 AI), bước 4 xuất SRT theo giai đoạn, bước 5 ADR-0014 + Notion.
+- Xong bước 3 của đề bài (giao diện tab "4 · Lời nói" tầng 1: bản đồ, lọc, tìm chữ, cột phải, J gắn sao, kéo mép khung In/Out, Đặt In/Out lưu vào kế hoạch panel; đã đổi nhãn tab: 4 Lời nói, 5 Thời lượng). Chưa chụp trong cửa sổ pywebview thật (xem dưới).
+- Còn: bước 4 xuất SRT theo giai đoạn (nút đang mờ "sắp có"), bước 5 ADR-0014 + Notion.
 - Chưa chắc: tự nhận ngôn ngữ vi/en chỉ là đoán theo chữ (Whisper Const-me không có chế độ auto), chưa thử với clip tiếng Anh thật; ngưỡng kéo âm lượng chờ clip tiếng nhỏ.
 
 ## Đang dở (làm ĐẦU TIÊN)
@@ -30,7 +31,7 @@
 2. Bước 3 In/Out: thanh In/Out kéo tay (chuột + phím I/O, mũi tên từng frame), sóng âm (waveform từ proxy bằng ffmpeg),
    bảng quy tắc từng bin chỉnh được, trang Bước 3 riêng (hiện dùng chung màn hình Bước 2), trình phát video proxy
    HTML5 ở cột phải. In/Out người dựng đặt tay luôn thắng gợi ý. Đọc In/Out đặt trong Media Pool về panel (đã đọc được).
-3. Bước 4 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin
+3. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin
    (Decor 10-20s, Beauty 20-30s), "Cắt gọt cho vừa", đưa lên timeline MỚI (không sửa timeline cũ).
 4. Ý tưởng người dựng đã nêu (chưa thiết kế):
    - Nhiều máy quay (2-4 camera): nghiên cứu layout dễ nhìn (mỗi máy một làn trên thanh thời gian, màu theo máy, lọc theo máy).
@@ -45,4 +46,4 @@
 - Code sao/In-Out gợi ý ban đầu do Antigravity viết, phần nối giao diện + tạo timeline do Claude viết (15/11).
 - Kho Git riêng: https://github.com/quangdung94-coder/TroLyFileQuay (riêng tư). Lịch sử trước 17/11/2026 nằm ở kho cũ D:\VideoAI\repo (v0.2.5 = commit b13c7fb). Menu DaVinci trỏ vào thư mục này (app\), `install.py --check` đạt.
 - Bộ kiểm thử: tests/ (47 bài, `& $py -m unittest discover -s tests -q`; trên Windows đặt PYTHONUTF8=1). ADR chép vào docs/adr/ (0009, 0010, 0011).
-- Số ADR sắp tới: Bước 3 trang riêng = ADR-0012, Bước 4 chia thời lượng = ADR-0013 (ADR-0011 là quyết định timeline mới, đã có).
+- Số ADR sắp tới: Bước 3 trang riêng = ADR-0012, Bước 5 chia thời lượng = ADR-0013, Bước 4 Lời nói = ADR-0014 (ADR-0011 là quyết định timeline mới, đã có).

@@ -1,5 +1,7 @@
 # ADR-0009: Trợ lý File Quay: chia giai đoạn theo giờ quay, phân loại vào bin con (quyền GHI mới: tạo bin + chuyển clip)
 
+> Ghi chú 17/11/2026: đánh số bước đã đổi thành 1 Giai đoạn, 2 Phân loại bin, 3 In/Out, 4 Lời nói (mới), 5 Thời lượng. Chữ "bước 4 Thời lượng" trong ADR này là bước 5 hiện nay.
+
 - Ngày: 2026-11-15
 - Trạng thái: Đã chốt (hướng mới "huong-di-moi-tro-ly-file-quay", phiên chat 15/11/2026; làm Phần 1 + 2 trước)
 

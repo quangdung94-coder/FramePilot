@@ -24,7 +24,8 @@
     <a href="#" data-page="1" class="step">1 · Giai đoạn</a>
     <a href="#" data-page="2" class="step">2 · Phân loại bin</a>
     <a href="#" data-page="3" class="step">3 · In / Out</a>
-    <a href="#" data-page="4" class="step">4 · Thời lượng</a>
+    <a href="#" data-page="4" class="step">4 · Lời nói</a>
+    <a href="#" data-page="5" class="step">5 · Thời lượng</a>
   </nav>
   <div class="top-right" id="right1">
     <select id="binSel" class="sel" title="Bin nguồn trong Media Pool"><option>(đang đọc bin...)</option></select>
@@ -37,6 +38,12 @@
     </div>
   </div>
   <div class="top-right hidden" id="right4">
+    <div class="seg" role="group" aria-label="Tầng hiển thị">
+      <button class="seg-on">Tầng 1 · Bản đồ</button>
+      <button class="seg-off" disabled title="Sắp có">Tầng 2 · Đọc kỹ</button>
+    </div>
+  </div>
+  <div class="top-right hidden" id="right5">
     <label class="lbl" for="target">Video mục tiêu</label>
     <input id="target" class="inp" value="10 – 15 phút" disabled style="width:120px">
   </div>
@@ -162,11 +169,68 @@
   </aside>
 </main>
 
-<!-- ======================= BƯỚC 4: THỜI LƯỢNG ======================= -->
+<!-- ======================= BƯỚC 4: LỜI NÓI (tầng 1: bản đồ) ======================= -->
 <main class="page hidden" id="page4">
+  <section class="ln-main">
+    <div class="row-between end">
+      <div class="title-block">
+        <h1 class="h20" id="lnTitle">Lời nói</h1>
+        <span class="dim13" id="lnSummary">Chưa chép lời.</span>
+      </div>
+      <button class="btn" id="lnExport" disabled title="Sắp có (bước xuất SRT)">Xuất SRT theo giai đoạn · sắp có</button>
+    </div>
+    <div class="ln-store dim12"><span class="ln-storeinfo" id="lnStore"></span><button class="btn" id="lnRun" title="Chép lời mọi clip của bin đang đọc; chạy tiếp được nếu bị ngắt">Chép lời cả bin</button></div>
+    <div class="ln-filters">
+      <select id="lnStage" class="sel" title="Giai đoạn"></select>
+      <button class="pill" id="lnKey" aria-pressed="false">Chỉ clip có cụm key</button>
+      <button class="pill" id="lnMin" aria-pressed="false">Tiếng nói từ 20 giây</button>
+      <label for="lnFind" class="lbl" style="margin-left:6px">Tìm chữ</label>
+      <input id="lnFind" class="inp ln-find" placeholder="trong tất cả clip của project">
+      <span class="dim13b" id="lnCount" style="margin-left:auto"></span>
+    </div>
+    <div class="ln-legend">
+      <span><i class="lg lg-key"></i>Có cụm key lễ cưới</span>
+      <span><i class="lg lg-sp"></i>Có người nói</span>
+      <span><i class="lg lg-dist"></i>Tiếng méo, kết quả có thể sai</span>
+      <span><i class="lg lg-quiet"></i>Im lặng</span>
+      <span><i class="lg lg-box"></i>Đoạn gợi ý In / Out</span>
+    </div>
+    <div class="ln-table">
+      <div class="ln-head"><span>Clip</span><span>Bản đồ lời nói (cả độ dài clip)</span><span>Câu tiêu biểu</span><span>Key</span><span>Ngữ</span></div>
+      <div class="ln-rows" id="lnRows" tabindex="0"></div>
+    </div>
+  </section>
+  <aside class="ln-right">
+    <div class="row-between baseline">
+      <h2 id="lnName">Chọn một clip</h2>
+      <span class="dim12" id="lnMeta"></span>
+    </div>
+    <div class="v6">
+      <div class="ln-bar big" id="lnBar"></div>
+      <div class="row-between dim12" style="font-size:11px"><span>0:00</span><span id="lnDurEnd"></span></div>
+    </div>
+    <div class="ln-sugg hidden" id="lnSugg">
+      <span class="dim12" id="lnSuggTitle">Đoạn gợi ý, giờ theo timecode của file gốc</span>
+      <div class="row-between" style="font-size:13px"><b class="ln-tc" id="lnIn"></b><span class="dim2" id="lnHold"></span><b class="ln-tc" id="lnOut"></b></div>
+      <span class="dim12" id="lnSuggNote">Kéo mép khung trắng để chỉnh. Anh đặt tay thì lấy theo anh.</span>
+    </div>
+    <div class="v6 ln-lines-wrap">
+      <span class="dim12">Chữ của clip · câu có cụm key tô đậm</span>
+      <div class="ln-lines" id="lnLines"></div>
+    </div>
+    <div class="inline8">
+      <button class="btn btn-44 flex1" id="lnStar">Gắn sao (J)</button>
+      <button class="btn-accent btn-44 flex1" id="lnSet">Đặt In / Out</button>
+    </div>
+    <button class="btn ln-deep" disabled title="Sắp có">Đọc kỹ từng câu (vows, phát biểu dài) · sắp có</button>
+  </aside>
+</main>
+
+<!-- ======================= BƯỚC 5: THỜI LƯỢNG ======================= -->
+<main class="page hidden" id="page5">
   <section class="col-main">
     <div class="soon">
-      <h2>Bước 4 · Thời lượng: sắp có</h2>
+      <h2>Bước 5 · Thời lượng: sắp có</h2>
       <span class="dim13">Khi đã có điểm In / Out của từng bin, bước này chia thời lượng video mục tiêu cho từng giai đoạn
       theo đúng thứ tự giờ quay.</span>
     </div>
@@ -192,5 +256,6 @@
 </div>
 </div>
 <script src="app.js"></script>
+<script src="speech.js"></script>
 </body>
 </html>

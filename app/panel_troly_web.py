@@ -62,6 +62,7 @@ def main():
                                 width=1440, height=880, min_size=(1100, 680), background_color="#18181B",
                                 maximized=True, text_select=False)
     holder["win"] = win
+    api.pick_dir_fn = lambda: (lambda r: r[0] if r else None)(win.create_file_dialog(webview.FOLDER_DIALOG))
     win.events.closed += lambda: api.close()
     webview.start(debug=a.debug, gui="edgechromium")
 

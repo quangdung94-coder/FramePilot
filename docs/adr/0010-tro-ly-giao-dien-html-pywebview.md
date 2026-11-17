@@ -1,5 +1,7 @@
 # ADR-0010: Giao diện Trợ lý File Quay chuyển sang HTML trong cửa sổ pywebview (WebView2)
 
+> Ghi chú 17/11/2026: đánh số bước đã đổi thành 1 Giai đoạn, 2 Phân loại bin, 3 In/Out, 4 Lời nói (mới), 5 Thời lượng. Chữ "bước 4 Thời lượng" trong ADR này là bước 5 hiện nay.
+
 - Ngày: 2026-11-15
 - Trạng thái: Đã chốt (người dựng duyệt 15/11/2026)
 

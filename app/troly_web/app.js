@@ -27,7 +27,7 @@ function saveUi() {
 }
 function applyUi(ui) {
   if (!ui) return;
-  if ([1, 2, 3, 4].includes(ui.page)) page = ui.page;
+  if ([1, 2, 3, 4, 5].includes(ui.page)) page = ui.page;
   if (Array.isArray(ui.view) && ui.view.length === 2 && ui.view[1] > ui.view[0]) { view = ui.view.slice(); keepView = true; }
   if (typeof ui.gStage === "number") gStage = ui.gStage;
   if (ui.gSub !== undefined && ui.gSub !== null) gSub = ui.gSub === "__none__" ? NONE : ui.gSub;
@@ -67,7 +67,9 @@ window.onEvent = function (kind, data) {
   if (kind === "bins") {
     const s = $("binSel");
     s.innerHTML = data.bins.map((b) => `<option value="${esc(b.path)}"${b.path === data.pick ? " selected" : ""}>${esc(b.path)}  (${b.n})</option>`).join("");
-  } else if (kind === "state") setState(data);
+  } else if (kind === "speech_progress") lnProgress(data);
+  else if (kind === "speech_done") lnDone(data);
+  else if (kind === "state") setState(data);
   else if (kind === "status") status(data.text, data.kind);
   else if (kind === "progress") { status(data.text, "info"); $("progBar").style.width = (data.frac * 100) + "%"; }
   else if (kind === "thumb") {
@@ -104,9 +106,11 @@ function render(rebuildItems) {
   $("right1").classList.toggle("hidden", page !== 1);
   $("right2").classList.toggle("hidden", page !== 2 && page !== 3);
   $("right4").classList.toggle("hidden", page !== 4);
+  $("right5").classList.toggle("hidden", page !== 5);
   $("page1").classList.toggle("hidden", page !== 1);
   $("page2").classList.toggle("hidden", page !== 2 && page !== 3);
   $("page4").classList.toggle("hidden", page !== 4);
+  $("page5").classList.toggle("hidden", page !== 5);
   const hasMoves = S && S.moves.length;
   $("undoBtn1").classList.toggle("hidden", !hasMoves);
   $("undoBtn2").classList.toggle("hidden", !hasMoves);
@@ -115,6 +119,7 @@ function render(rebuildItems) {
   }
   renderPage1();
   renderPage2(rebuildItems);
+  if (page === 4) lnRefresh();
 }
 
 /* ------------------------------------------------------------------ BƯỚC 1 */
@@ -711,6 +716,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape") { $("ctx").classList.add("hidden"); if (pending) { cancelPending(); status("Đã thôi chờ bin con (clip giữ nguyên giai đoạn mới).", "info"); } return; }
+  if (page === 4) { lnKey(e); return; }
   if ((page !== 2 && page !== 3) || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
   if (e.code === "KeyJ" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { cancelPending(); e.preventDefault(); toggleStar(); return; }
   const d = digitOf(e);

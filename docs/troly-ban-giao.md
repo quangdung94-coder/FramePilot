@@ -34,3 +34,5 @@ chia giai đoạn theo giờ quay, thumbnail (proxy + LUT), phân loại vào bi
 3. ADR-0009: thêm quyền GHI mới vào DaVinci: tạo bin con trong bin nguồn + MoveClips; có nhật ký và hoàn tác,
    không xóa clip, không đổi in/out, màu, file.
 4. Chạy thử trên project thật (chỉ đọc trước), xem thumbnail có đúng màu LUT, rồi CHANGELOG, commit, push, cài menu.
+
+> Ghi chú 17/11/2026: số bước đã đổi (4 Lời nói mới, 5 Thời lượng); "thẻ 4 Thời lượng" ở trên nay là bước 5.

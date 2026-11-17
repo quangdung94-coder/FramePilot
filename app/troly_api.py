@@ -701,45 +701,113 @@ class TrolyApi(object):
                 self._speech_run.stop = True
         return {"ok": True}
 
+    def speech_pick_dir(self):
+        """Hộp chọn thư mục kho lời nói (cửa sổ do panel_troly_web gắn vào pick_dir_fn)."""
+        fn = getattr(self, "pick_dir_fn", None)
+        if fn is None:
+            return {"error": "Không mở được hộp chọn thư mục ở chế độ này."}
+        p = fn()
+        if not p:
+            return {"cancel": True}
+        return self.speech_set_dir(p)
+
+    def _seg_colors(self, speech, flags, suspect_gain):
+        """Màu từng đoạn nói trên thanh: key (có cụm key lễ cưới), dist (câu nghi sai hoặc kéo âm lượng nhiều), sp (có người nói)."""
+        out = []
+        for a, b in speech:
+            col = "sp"
+            for t0, t1, nk, why in flags:
+                if min(b, t1) - max(a, t0) > 0:
+                    if why:
+                        col = "dist"
+                        break
+                    if nk:
+                        col = "key"
+            if col == "sp" and suspect_gain:
+                col = "dist"
+            out.append([a, b, col])
+        return out
+
+    def _span(self, key, row, flags, clip):
+        """Khung gợi ý In/Out (giây tính từ đầu file). Thứ tự ưu tiên: người dựng đặt tay trong panel > In/Out đặt trong
+        DaVinci > gợi ý theo chữ (từ câu có cụm key đầu tiên tới câu có cụm key cuối cùng, đệm 1 giây hai đầu).
+        None nếu không có gì để gợi ý. Chỉ ĐỌC, không ghi gì vào DaVinci."""
+        import troly_speech_store as ss
+        dur = row.get("dur") or 0
+        man = (self._plan.get("inout") or {}).get(key)
+        if man:
+            a, b, src = man[0], man[1], "manual"
+        elif clip is not None and clip.mark_in is not None and clip.mark_out is not None and clip.fps:
+            a, b, src = clip.mark_in / clip.fps, clip.mark_out / clip.fps, "davinci"
+        else:
+            ln = [f for f in flags if f[2] and not f[3]]
+            if not ln:
+                return None
+            a, b, src = max(0.0, ln[0][0] - 1.0), min(dur, ln[-1][1] + 1.0), "text"
+        fps = (clip.fps if clip is not None else None) or 25.0
+        return {"in_s": round(a, 2), "out_s": round(b, 2), "src": src,
+                "tc_in": ss.add_timecode(row.get("tc"), a, fps), "tc_out": ss.add_timecode(row.get("tc"), b, fps)}
+
     def speech_clips(self, only_keys=False, min_speech=0.0, text=""):
-        """Bản đồ lời nói: mỗi clip một dòng (không có chữ từng câu) + bộ lọc. Trả về cả 'shown' và 'total' cho dòng đếm."""
+        """Bản đồ lời nói: mỗi clip một dòng (không có chữ từng câu) + bộ lọc. 'all' = mọi clip đã có dòng (cho đếm X / Y),
+        'summary' = số liệu cả project."""
         with self._lock:
             st = self._speech_store()
             if st is None:
-                return {"rows": [], "shown": 0, "total": 0}
+                return {"rows": [], "all": [], "summary": None}
             by_rel = {c.rel: c for c in self._clips}
+            flags = st.line_flags()
             hits = st.search(text) if (text or "").strip() else None
-            rows = []
+            rows, all_ = [], []
             for r in st.clip_rows():
-                if r["status"] != "done" or r["key"] not in by_rel:
+                c = by_rel.get(r["key"])
+                if c is None or r["status"] not in ("done", "silent"):
                     continue
-                spoken = sum(b - a for a, b in r["speech"])
-                r["spoken_s"] = round(spoken, 1)
+                all_.append({"uid": c.uid, "stage": self._assign.get(c.uid), "spoken_s": 0.0})
+                spoken = round(sum(b - a for a, b in r["speech"]), 1)
+                all_[-1]["spoken_s"] = spoken
                 if (only_keys and not r["n_keys"]) or spoken < float(min_speech or 0) or (hits is not None and r["key"] not in hits):
                     continue
-                c = by_rel[r["key"]]
-                r["time"] = c.t_start.strftime("%H:%M:%S") if c.t_start else None
-                r["span"] = self._inout_from_text(st, r, c)
-                rows.append(r)
-            rows.sort(key=lambda r: (by_rel[r["key"]].t_start or datetime.datetime.min, r["key"]))
-            total = sum(1 for r in st.clip_rows() if r["status"] == "done" and r["key"] in by_rel)
-            return {"rows": rows, "shown": len(rows), "total": total}
+                fl = flags.get(r["key"], [])
+                rows.append({"uid": c.uid, "key": r["key"], "name": c.name, "stage": self._assign.get(c.uid),
+                             "time": c.t_start.strftime("%H:%M:%S") if c.t_start else None,
+                             "t_sort": c.t_start.isoformat() if c.t_start else "",
+                             "dur": r["dur"] or c.dur or 0, "fps": c.fps or 25.0, "tc": r["tc"], "spoken_s": spoken, "lang": r["lang"], "n_keys": r["n_keys"],
+                             "headline": r["headline"] or "", "suspect": bool(r["suspect"]), "silent": r["status"] == "silent",
+                             "segs": self._seg_colors(r["speech"], fl, (r["gain_db"] or 0) > 18.0),
+                             "span": self._span(r["key"], r, fl, c), "star": tc.is_starred(self._plan, c)})
+            rows.sort(key=lambda x: (x["t_sort"], x["key"]))
+            return {"rows": rows, "all": all_, "summary": st.counts([c.rel for c in self._clips])}
 
-    def _inout_from_text(self, st, row, clip):
-        """Khung gợi ý In/Out chỉ theo chữ: từ câu có cụm key đầu tiên tới câu có cụm key cuối cùng, đệm 1 giây hai đầu.
-        Giây tính từ đầu file; In/Out người dựng đặt tay (mark_in/mark_out) thắng. None nếu không có câu có cụm key."""
-        import troly_speech_store as ss
-        ln = [l for l in st.lines_of(row["key"]) if l["keys"] and not l["why"]]
-        if not ln:
-            return None
-        dur = row["dur"] or 0
-        a, b = max(0.0, ln[0]["t0"] - 1.0), min(dur, ln[-1]["t1"] + 1.0)
-        out = {"in_s": round(a, 2), "out_s": round(b, 2), "manual": False}
-        if clip.mark_in is not None and clip.mark_out is not None and clip.fps:
-            out = {"in_s": round(clip.mark_in / clip.fps, 2), "out_s": round(clip.mark_out / clip.fps, 2), "manual": True}
-        out["tc_in"], out["tc_out"] = ss.add_timecode(row.get("tc"), out["in_s"], clip.fps), \
-            ss.add_timecode(row.get("tc"), out["out_s"], clip.fps)
-        return out
+    def speech_detail(self, uid):
+        """Cột phải: chữ của một clip + khung In/Out. Chữ chỉ đi từ kho ra giao diện, không đi đâu khác."""
+        with self._lock:
+            st = self._speech_store()
+            c = self._by_uid.get(uid)
+            if st is None or c is None:
+                return {"lines": [], "span": None}
+            row = next((r for r in st.clip_rows() if r["key"] == c.rel), None)
+            if row is None:
+                return {"lines": [], "span": None}
+            lines = st.lines_of(c.rel)
+            fl = [(l["t0"], l["t1"], len(l["keys"]), ",".join(l["why"])) for l in lines]
+            return {"lines": lines, "span": self._span(c.rel, row, fl, c), "lang": row["lang"], "dur": row["dur"], "fps": c.fps or 25.0,
+                    "tc": row["tc"], "suspect": bool(row["suspect"]), "star": tc.is_starred(self._plan, c)}
+
+    def speech_set_inout(self, uid, in_s, out_s):
+        """Lưu In/Out người dựng đặt tay VÀO KẾ HOẠCH CỦA PANEL (không ghi vào DaVinci). in_s/out_s = None thì xóa."""
+        with self._lock:
+            c = self._by_uid.get(uid)
+            if c is None:
+                return {"error": "Không thấy clip."}
+            d = self._plan.setdefault("inout", {})
+            if in_s is None or out_s is None:
+                d.pop(c.rel, None)
+            else:
+                a, b = sorted((float(in_s), float(out_s)))
+                d[c.rel] = [round(a, 2), round(b, 2)]
+            self._save_now()
+        return {"ok": True}
 
     def speech_lines(self, key):
         with self._lock:
