@@ -36,12 +36,12 @@ Quy trình:
   a) tạo bin con + chuyển clip giữa các bin (AddSubFolder, MoveClips), có nhật ký và Hoàn tác;
   b) tạo timeline MỚI từ clip có sao (CreateTimelineFromClips, dự phòng CreateEmptyTimeline + AppendToTimeline).
 - KHÔNG BAO GIỜ: xóa clip, đổi tên file, đụng file trên ổ đĩa, sửa/xóa timeline đang có, render.
-- Ghi In/Out (SetMarkInOut) chưa làm; nếu làm phải sao lưu In/Out cũ trước và có Hoàn tác.
+  c) ghi In/Out của clip nguồn (SetMarkInOut/ClearMarkInOut), CHỈ khi người dựng bấm nút trong panel + hộp xác nhận nói rõ số clip; TRƯỚC khi ghi phải sao lưu In/Out cũ của từng clip (file riêng có ngày giờ trong <data_root>\troly\inout_backup), ghi xong đọc lại đối chiếu, có nút Hoàn tác khôi phục đúng bản sao lưu. In/Out người dựng đặt tay luôn thắng gợi ý; gợi ý tự động không bao giờ được ghi. Chỉ ghi In/Out, không đụng gì khác (ADR-0016). Số frame tính từ đầu file, không cộng Start TC.
 - Đã đo: MoveClips không làm đổi timeline (2 timeline, 338 clip giữ nguyên).
 - Tên timeline mới không chứa ký tự `: & / \ * ? " < > |`.
 
 ## Dữ liệu
-- config.json (thư mục gốc, không đưa lên Git): data_root = D:\VideoAI\data (dùng chung với bản cũ để giữ nhãn đã xếp).
+- config.json (thư mục gốc, không đưa lên Git): data_root = D:\VideoAI\data (dùng chung với bản cũ để giữ nhãn đã xếp); proxy_root = F:\02_Proxy Media (thư mục duy nhất trình phát được đọc).
 - Kế hoạch mỗi project: <data_root>\troly\projects\<tên project>.json (giai đoạn, nhãn bin con, chọn tay, sao,
   trạng thái giao diện, nhật ký chuyển). Ghi tự động qua file tạm, có bản .bak. Khóa clip = đường dẫn TƯƠNG ĐỐI
   (ví dụ 01_footage/DG4939.MP4), không dùng ổ đĩa.
@@ -63,6 +63,7 @@ Quy trình:
 - app/troly_api.py: lớp TrolyApi, mọi hàm giao diện gọi (state, move, toggle_star, append_starred...).
 - app/troly_core.py: logic thuần (giờ quay, giai đoạn, nhãn, sao, gợi ý In/Out suggest_inout, lưu kế hoạch).
 - app/troly_resolve.py: luồng nền duy nhất gọi DaVinci (đọc clip, chuyển bin, hoàn tác, tạo timeline).
+- app/troly_play.py: máy chủ phát proxy 127.0.0.1 (Range, chỉ trong proxy_root); app/troly_web/player.js: trình phát + kéo In/Out + nút Ghi In/Out (ADR-0016).
 - app/troly_thumbs.py: làm thumbnail bằng ffmpeg (proxy + LUT, 4 luồng, cache).
 - app/troly_speech.py (kéo âm lượng, VAD, Whisper, câu nghi bịa), troly_speech_store.py (kho SQLite mỗi project), troly_speech_run.py (chạy cả bin nền), troly_speech_srt.py (xuất/đọc lại SRT), do_loi_noi.py (đo). Giao diện bước 4: app/troly_web/speech.js. Quyết định: docs/adr/0014.
 - app/troly_env.py: đọc config.json, kết nối DaVinci, hộp báo lỗi.

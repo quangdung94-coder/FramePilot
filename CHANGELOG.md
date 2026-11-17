@@ -1,5 +1,12 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Trình phát proxy + đặt/ghi In/Out (ADR-0016) - CHỜ NGƯỜI DỰNG THỬ
+- Cột phải Bước 2: trình phát proxy (Space phát/dừng, thanh lướt, tốc độ 0.25-4×) qua máy chủ cục bộ 127.0.0.1 chỉ đọc trong proxy_root (config.json); không có proxy thì báo "Chưa có proxy" và giữ thumbnail; proxy WebView2 không phát được thì tự tạo mp4 H.264 nhẹ bằng ffmpeg trong cache (chưa chạy thật).
+- Đặt In/Out bằng tay: kéo hai mép, phím I / O tại chỗ đang xem, mũi tên chỉnh từng frame; đặt tay luôn thắng DaVinci/gợi ý; lưu vào kế hoạch panel.
+- Nút "Ghi In/Out clip sao" / "Ghi clip đang chọn" / "Hoàn tác" (cả ở tab Lời nói): hộp xác nhận nói rõ số clip, sao lưu In/Out cũ trước, đọc lại đối chiếu, báo clip lỗi/lệch, Hoàn tác khôi phục đúng bản sao lưu.
+- Đo thật: SetMarkInOut nhận số frame từ đầu file (không cộng Start TC), chuỗi timecode bị từ chối, không kiểm vượt độ dài (panel tự kẹp).
+- Kiểm thử 138 bài đạt (mới: test_troly_play, test_troly_inout). Phần chưa chạy thật: phát proxy thật trên WebView2, bản xem nhẹ ffmpeg, ghi hàng loạt trong panel thật.
+
 ## 2026-11-17 (khuya, tiếp) – Đổi tên giai đoạn và bin con trong kế hoạch (ADR-0015)
 - Bấm đúp tên giai đoạn / bin con để sửa tại chỗ (Enter đổi, Esc hủy). Chỉ đổi trong kế hoạch của panel: nhãn, chọn tay, trạng thái giao diện đi theo tên mới; nhật ký chuyển giữ nguyên; phím 1-9 theo vị trí. Tên rỗng, ký tự cấm, trùng tên cùng cấp, quá 60 ký tự bị chặn.
 - Hộp xác nhận Áp dụng nhắc các bin cũ trong Media Pool sẽ còn lại rỗng (không tự xóa).
