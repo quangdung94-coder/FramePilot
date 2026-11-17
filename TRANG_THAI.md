@@ -36,8 +36,8 @@
 5. AI tự phân loại clip, học từ nhãn người dựng đã xếp.
 
 ## Ghi chú kỹ thuật
-- Chưa có bộ kiểm thử trong thư mục này (bộ test cũ nằm ở repo VideoAI, phụ thuộc module cũ). Khi sửa logic trong
-  troly_core.py nên viết test mới vào tests/ và chạy `& $py -m unittest discover -s tests -q`.
+- Khi sửa logic trong troly_core.py nên thêm test vào tests/ rồi chạy bộ kiểm thử.
 - Code sao/In-Out gợi ý ban đầu do Antigravity viết, phần nối giao diện + tạo timeline do Claude viết (15/11).
-- Các thay đổi v0.2.5 đã commit + push ở kho cũ D:\VideoAIepo (commit b13c7fb; ADR-0011 nằm ở đó). Menu DaVinci đang trỏ vào thư mục này (app\), `install.py --check` đạt.
-- Thư mục này chưa phải Git repo. Muốn có lịch sử: `git init`, tạo kho riêng tư trên GitHub, rồi commit lần đầu.
+- Kho Git riêng: https://github.com/quangdung94-coder/TroLyFileQuay (riêng tư). Lịch sử trước 17/11/2026 nằm ở kho cũ D:\VideoAI\repo (v0.2.5 = commit b13c7fb). Menu DaVinci trỏ vào thư mục này (app\), `install.py --check` đạt.
+- Bộ kiểm thử: tests/ (47 bài, `& $py -m unittest discover -s tests -q`; trên Windows đặt PYTHONUTF8=1). ADR chép vào docs/adr/ (0009, 0010, 0011).
+- Số ADR sắp tới: Bước 3 trang riêng = ADR-0012, Bước 4 chia thời lượng = ADR-0013 (ADR-0011 là quyết định timeline mới, đã có).

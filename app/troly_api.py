@@ -5,7 +5,7 @@ Giao diện HTML (src\troly_web\) gọi các hàm công khai của lớp TrolyAp
 Mỗi hàm trả về dữ liệu JSON (dict/list/str/số). Việc lâu (đọc DaVinci, áp dụng, thumbnail) chạy nền và báo về giao
 diện qua hàm emit(loại, dữ liệu) (bản chạy thật: window.evaluate_js("onEvent(...)")).
 
-Logic chép từ bản CustomTkinter cũ (đã bỏ, ADR-0011 ở kho VideoAI cũ). Mọi lệnh gọi DaVinci vẫn ở troly_resolve.TrolyWorker.
+Logic chép từ bản CustomTkinter cũ (đã bỏ, xem docs/adr/0011). Mọi lệnh gọi DaVinci vẫn ở troly_resolve.TrolyWorker.
 Thuộc tính và hàm bắt đầu bằng "_" KHÔNG lộ ra JavaScript (quy ước của pywebview).
 """
 import base64
