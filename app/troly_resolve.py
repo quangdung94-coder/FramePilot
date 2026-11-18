@@ -104,6 +104,14 @@ class TrolyWorker(threading.Thread):
         except Exception:                             # noqa: BLE001  bản DaVinci/giả lập không có hàm này
             self.project_uid = ""
 
+    def _require_current(self):
+        """Việc GHI chỉ chạy khi DaVinci vẫn đang mở đúng project của panel (người dựng có thể đã đổi project sau khi mở panel;
+        khi đó các đối tượng đã đọc thuộc project cũ, ghi vào là sai chỗ)."""
+        cur = self.pm.GetCurrentProject() if self.pm is not None else None
+        if not cur or cur.GetName() != self.project_name:
+            self.project = None                           # lần sau kết nối lại và kiểm lại
+            raise RuntimeError("DaVinci đang mở project khác. Hãy mở project %s." % self.project_name)
+
     @property
     def pool(self):
         return self.project.GetMediaPool()
@@ -147,6 +155,7 @@ class TrolyWorker(threading.Thread):
         """arg = (bin nguồn, {uid: [tên bin cấp 1, tên bin cấp 2] }). Clip có [] thì để nguyên chỗ cũ.
         Trả nhật ký [(uid, bin cũ, bin mới)] chỉ gồm các clip ĐÃ chuyển thật."""
         src_path, targets = arg
+        self._require_current()
         root = self.pool.GetRootFolder()
         src = find_folder(root, src_path)
         if src is None:
@@ -166,10 +175,16 @@ class TrolyWorker(threading.Thread):
         total = sum(len(v) for v in groups.values())
         for parts, uids in sorted(groups.items()):
             folder = src
-            for name in parts:
-                folder = ensure_sub(self.pool, folder, name)
-                if folder is None:
-                    raise RuntimeError("Không tạo được bin %s." % name)
+            try:
+                for name in parts:
+                    folder = ensure_sub(self.pool, folder, name)
+                    if folder is None:
+                        break
+            except Exception:                                  # noqa: BLE001
+                folder = None
+            if folder is None:                                 # không tạo được bin: tính lỗi nhóm này, KHÔNG bỏ nhật ký các nhóm đã chuyển
+                failed += len(uids)
+                continue
             dst_path = src_path + "/" + "/".join(parts)
             items = [self.items[u][1] for u in uids]
             ok = self.pool.MoveClips(items, folder)
@@ -185,6 +200,7 @@ class TrolyWorker(threading.Thread):
 
     def do_undo(self, log):
         """Chuyển clip về lại bin cũ theo nhật ký của lần áp dụng (bin trống đã tạo để lại, không xóa)."""
+        self._require_current()
         root = self.pool.GetRootFolder()
         back, failed = [], 0
         by_dst = {}
@@ -240,6 +256,7 @@ class TrolyWorker(threading.Thread):
         Lỗi thì báo rõ bước nào hỏng."""
         import datetime
         import re
+        self._require_current()
         if not self.items:
             raise RuntimeError("Hãy bấm 'Đọc clip' trước.")
         items = [self.items[u][1] for u in uids if u in self.items]
@@ -297,6 +314,7 @@ class TrolyWorker(threading.Thread):
         1) đọc In/Out CŨ của từng clip, 2) GHI FILE SAO LƯU (lỗi thì dừng, chưa đụng DaVinci), 3) SetMarkInOut từng clip,
         4) đọc lại đối chiếu. Chỉ gọi SetMarkInOut; không xóa clip, không đụng timeline/file/render."""
         root, pname, rows = arg
+        self._require_current()
         if not self.items:
             raise RuntimeError("Hãy bấm 'Đọc clip' trước.")
         todo, old = [], []
@@ -333,6 +351,7 @@ class TrolyWorker(threading.Thread):
 
     def do_inout_restore(self, arg):
         """arg = đường dẫn file sao lưu. Khôi phục đúng In/Out cũ (cũ trống thì xóa In/Out) rồi đọc lại đối chiếu."""
+        self._require_current()
         data = tc.read_inout_backup(arg)
         if not data or not isinstance(data.get("entries"), list):
             raise RuntimeError("Không đọc được file sao lưu In/Out.")
