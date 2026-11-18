@@ -1,5 +1,11 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 (tối) – Bước 5 sửa thành THANH KÉO (ADR-0013, demo bản 2 đã duyệt) - CHỜ NGƯỜI DỰNG THỬ
+- Mỗi giai đoạn/bin một thanh cố định, đầu phải = toàn bộ clip sao ("Thanh đầy"), phần màu = số LẤY kết thúc ở chấm 28 px kéo được (pointer events, cảm ứng, bám 1 giây, Shift tinh chỉnh, phím ← →); gõ phút:giây vẫn được; không vượt Có. Chữ hàng: "Thanh đầy = X · lấy Y", "Bỏ Z (N clip ít ưu tiên nhất)", "Kéo hết cỡ rồi · muốn dài hơn phải gắn thêm sao". Thiếu chỉ ở thanh tổng ("Hiện Tại", đoạn nét đứt "thiếu X").
+- Mặc định KHÔNG giới hạn Max (bỏ Decor 10-20 s, Beauty 20-30 s... làm tụt tổng); Min–Max chuyển vào "Giới hạn nâng cao", chỉ có tác dụng khi anh đặt. Kéo bin con (plan["durations"]["bin_s"]) cập nhật tổng giai đoạn. Gợi ý: Tự kéo thêm cho đủ / Hạ mục tiêu xuống số Hiện Tại / Quay lại Bước 3.
+- Sửa nguồn hụt tổng (29:11 thay vì 30:00): rút ngắn clip không còn hụt 0,1 s mỗi clip (dồn phần lẻ), bù lại clip đã bỏ ở Truyền thống (trong giai đoạn và toàn cục, không vượt mục tiêu quá 10 s). Ca mẫu 34:40 clip sao, mục tiêu 30:00 -> Hiện Tại 30:00 ±10 s.
+- Test: +12 (tests/test_troly_dur_moi.py viết lại, API kéo bin con/kẹp ở Có/đổi tên bin_s, web), sửa test cũ theo mặc định mới; 395 bài đạt. Thử bằng chuột/pointer thật ở bàn thử trình duyệt (Media Pool giả) 1100x700, 1440x900, 1707x960; chưa mở cửa sổ pywebview thật.
+
 ## 2026-11-18 – Bước 5 Thời lượng làm lại (ADR-0013, theo demo đã duyệt) - CHỜ NGƯỜI DỰNG THỬ
 - Mỗi giai đoạn MỘT hàng (mũi tên xổ, ổ khóa, ô gõ phút:giây, thanh màu giữ/bỏ/thiếu, dòng "Có X, được chia Y, phải bỏ Z"); "Video mục tiêu" gõ phút:giây; thanh tổng "Đang giữ X, thiếu/dư Y". Bỏ vạch kéo tỉ lệ, bỏ nút "Cắt gọt cho vừa": mọi sửa tính lại ngay (gõ dở chưa tính, kết quả cũ bị bỏ, không vẽ lại khi đang giữ chuột).
 - Khóa/gõ số làm giai đoạn khác co giãn theo tỉ lệ clip sao có, không vượt quá số có (thiếu thì báo thiếu, không bịa clip). Lưu plan["durations"]["stage_s"] và ["locked"]; khóa cũ stage_share bỏ qua; đổi tên giai đoạn đổi theo. Min mặc định co theo số chia; Min anh sửa là cứng. Truyền thống chỉ bỏ nguyên clip, "clip sao có thể cho" tính theo nguyên clip, số dư được bù lại.

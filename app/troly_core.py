@@ -890,13 +890,15 @@ def rename_in_plan(plan, kind, i, old, new, in_stage_keys=()):
             lk = dur.get("locked")
             if isinstance(lk, list) and old in lk:
                 lk[lk.index(old)] = new
-            bb = dur.get("bins")
-            if isinstance(bb, dict) and old in bb:
-                bb[new] = bb.pop(old)
+            for key in ("bins", "bin_s"):                         # Min-Max nâng cao và số giây bin anh kéo
+                bb = dur.get(key)
+                if isinstance(bb, dict) and old in bb:
+                    bb[new] = bb.pop(old)
         else:
-            sub = (dur.get("bins") or {}).get(stage_old)
-            if isinstance(sub, dict) and old in sub:
-                sub[new] = sub.pop(old)
+            for key in ("bins", "bin_s"):
+                sub = (dur.get(key) or {}).get(stage_old)
+                if isinstance(sub, dict) and old in sub:
+                    sub[new] = sub.pop(old)
     return p_old, p_new
 
 

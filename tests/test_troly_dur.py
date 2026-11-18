@@ -48,16 +48,16 @@ def kinds(r):
 
 
 class Defaults(unittest.TestCase):
-    def test_de_xuat_decor_10_20_beauty_20_30_va_bin_khac_tu_suy_ra(self):
+    def test_mac_dinh_khong_gioi_han_min_max_bin(self):
         plan, clips, assign, st = mk([("a", 0, "Decor", 1, 1, 20)])
         r = td.build(plan, clips, assign, st)
-        self.assertEqual((binrow(r, "S1", "Decor")["min"], binrow(r, "S1", "Decor")["max"]), (10.0, 20.0))
-        self.assertEqual((binrow(r, "S1", "Beauty cô dâu")["min"], binrow(r, "S1", "Beauty cô dâu")["max"]), (20.0, 30.0))
+        d = binrow(r, "S1", "Decor")
+        self.assertEqual((d["min"], d["max"], d["edited"]), (0.0, d["natural_s"], False))      # không còn Decor 10-20 s mặc định
         plan, clips, assign, st = mk([("n%d" % i, 0, "Nghi lễ", 1, i, 30) for i in range(6)])
         r = td.build(plan, clips, assign, st)
         nl = binrow(r, "S1", "Nghi lễ")
-        self.assertEqual(nl["natural_s"], 30.0)                          # 6 clip × 5 s (bảng quy tắc Bước 3: Nghi lễ 2,5–5)
-        self.assertEqual((nl["min"], nl["max"]), (18.0, 30.0))           # Min 0,6 × tự nhiên, Max = tự nhiên (tối đa 90)
+        self.assertEqual(nl["natural_s"], 30.0)                          # 6 clip x 5 s (bảng quy tắc Bước 3: Nghi lễ 2,5-5)
+        self.assertEqual((nl["min"], nl["max"]), (0.0, 30.0))
         self.assertFalse(nl["edited"])
         self.assertEqual(binrow(r, "S1", "Khác")["max"], 0.0)            # bin không có clip sao: 0-0
 
@@ -70,7 +70,8 @@ class Defaults(unittest.TestCase):
 
 class Short(unittest.TestCase):
     def test_bin_thieu_min_chi_canh_bao_khong_tu_them_clip_chua_sao(self):
-        plan, clips, assign, st = mk([("a", 0, "Beauty cô dâu", 1, 1, 20), ("b", 0, "Beauty cô dâu", 0, 2, 20), ("c", 0, "Beauty cô dâu", 0, 3, 20)])
+        plan, clips, assign, st = mk([("a", 0, "Beauty cô dâu", 1, 1, 20), ("b", 0, "Beauty cô dâu", 0, 2, 20), ("c", 0, "Beauty cô dâu", 0, 3, 20)],
+                                     durations={"bins": {"S1": {"Beauty cô dâu": [20, 30]}}})
         r = td.build(plan, clips, assign, st)
         self.assertEqual([i["uid"] for i in r["items"]], ["a"])           # chỉ clip có sao
         self.assertIn("bin_short", kinds(r))
@@ -94,7 +95,7 @@ class Over(unittest.TestCase):
     def test_vuot_max_bo_clip_it_uu_tien_nhat_khi_khong_the_rut(self):
         # Decor: quy tắc cố định 3 s (không rút được); 8 clip = 24 s > Max 20 -> bỏ 2 clip (mức sao thấp, rồi quay muộn)
         spec = [("d%d" % i, 0, "Decor", 2 if i in (6, 7) else 1, i, 20) for i in range(8)]
-        r = td.build(*mk(spec))
+        r = td.build(*mk(spec, durations={"bins": {"S1": {"Decor": [10, 20]}}}))             # Max 20 s do anh đặt trong "Giới hạn nâng cao"
         kept = [i["uid"] for i in r["items"]]
         self.assertEqual(len(kept), 6)
         self.assertLessEqual(binrow(r, "S1", "Decor")["total_s"], 20.0)
@@ -172,10 +173,10 @@ class Target(unittest.TestCase):
         self.assertEqual(td.build(*plan)["target_min"], 12.0)
 
     def test_giai_doan_anh_chot_giu_nguyen_con_lai_co_gian(self):
-        plan = mk(self.spec(), durations={"target_min": 1.5, "stage_s": {"S1": 72}})
+        plan = mk(self.spec(), durations={"target_min": 1.2, "stage_s": {"S1": 30}})
         r = td.build(*plan)
-        self.assertAlmostEqual(r["stages"][0]["budget_s"], 72.0, places=0)
-        self.assertAlmostEqual(r["stages"][1]["budget_s"], 18.0, places=0)
+        self.assertAlmostEqual(r["stages"][0]["budget_s"], 30.0, places=0)
+        self.assertAlmostEqual(r["stages"][1]["budget_s"], 42.0, places=0)
         self.assertTrue(r["stages"][0]["pinned"])
         self.assertFalse(r["stages"][1]["pinned"])
         v = td.normalize_shares([0.5, 0.3, 0.2], 0, 0.7)                     # hàm cũ vẫn đúng
@@ -212,7 +213,7 @@ class OrderAndEdges(unittest.TestCase):
             self.assertFalse(td.check_bin_minmax(*bad)[0], bad)
         plan = mk([("a", 0, "Decor", 1, 1, 20)], durations={"bins": {"S1": {"Decor": [30, 20]}}})   # file hỏng: bỏ qua, dùng mặc định
         r = td.build(*plan)
-        self.assertEqual((binrow(r, "S1", "Decor")["min"], binrow(r, "S1", "Decor")["max"], binrow(r, "S1", "Decor")["edited"]), (10.0, 20.0, False))
+        self.assertEqual((binrow(r, "S1", "Decor")["min"], binrow(r, "S1", "Decor")["max"], binrow(r, "S1", "Decor")["edited"]), (0.0, 3.0, False))
 
     def test_clip_rat_ngan_duoi_1_giay_lay_nguyen_clip_va_out_khong_vuot_do_dai(self):
         r = td.build(*mk([("s", 0, "Decor", 1, 1, 0.6), ("l", 0, "Decor", 1, 2, 2.0)]))
@@ -224,7 +225,7 @@ class OrderAndEdges(unittest.TestCase):
 
     def test_sao_nhieu_muc_uu_tien_cao_duoc_giu(self):
         spec = [("p%d" % i, 0, "Decor", 3 if i == 0 else 1, i, 20) for i in range(8)]
-        r = td.build(*mk(spec))
+        r = td.build(*mk(spec, durations={"bins": {"S1": {"Decor": [10, 20]}}}))
         self.assertIn("p0", [i["uid"] for i in r["items"]])                   # p0 quay sớm nhất nhưng mức sao cao nhất; bị bỏ là clip quay muộn mức thấp
         self.assertNotIn("p7", [i["uid"] for i in r["items"]])
 

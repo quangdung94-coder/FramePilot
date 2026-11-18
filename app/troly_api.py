@@ -1306,7 +1306,7 @@ class TrolyApi(object):
         r["proposed"] = True
         r["limits"] = {"target": list(td.TARGET_LIMITS_MIN), "suggest": list(td.SUGGEST_RANGE_MIN), "scale_s": td.BIN_SCALE_S}
         d = self._plan.get("durations") or {}
-        r["edited"] = {"target": "target_min" in d, "stages": bool(d.get("stage_s")), "bins": bool(d.get("bins"))}
+        r["edited"] = {"target": "target_min" in d, "stages": bool(d.get("stage_s")), "bins": bool(d.get("bins")), "bin_s": bool(d.get("bin_s"))}
         r["style"] = self._plan.get("shoot_style") or ""
         r["advice"] = td.advise(self._plan, self._clips, self._assign, self._stages, r)
         r["project"] = self._project
@@ -1326,7 +1326,8 @@ class TrolyApi(object):
             return self._dur_view()
 
     def dur_set_stage(self, index, seconds):
-        """Gõ số giây cho MỘT giai đoạn: giai đoạn đó thành "anh chốt", các giai đoạn còn lại co giãn. seconds rỗng/None = bỏ chốt (và bỏ khóa)."""
+        """Gõ/kéo số giây LẤY cho MỘT giai đoạn: giai đoạn đó thành "anh chốt" (không vượt Có = clip sao của giai đoạn), các giai đoạn còn lại
+        co giãn; số bin con anh kéo trong giai đoạn đó được bỏ (chia lại theo tỉ lệ). seconds rỗng/None = bỏ chốt (và bỏ khóa)."""
         with self._lock:
             if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(self._stages):
                 return {"error": "Không có giai đoạn số %s." % index}
@@ -1334,6 +1335,7 @@ class TrolyApi(object):
             if seconds is None or seconds == "":
                 d = self._plan.get("durations") or {}
                 (d.get("stage_s") or {}).pop(name, None)
+                (d.get("bin_s") or {}).pop(name, None)
                 if name in (d.get("locked") or []):
                     d["locked"].remove(name)
             else:
@@ -1343,7 +1345,40 @@ class TrolyApi(object):
                     return {"error": "Thời lượng giai đoạn phải là số giây (hoặc phút:giây)."}
                 if v != v or v < 0 or v > td.STAGE_MAX_S:
                     return {"error": "Thời lượng giai đoạn từ 0:00 đến %s." % td.mmss(td.STAGE_MAX_S)}
-                self._plan.setdefault("durations", {}).setdefault("stage_s", {})[name] = round(v, 1)
+                v = min(v, self._dur_build()["stages"][index]["avail_s"])        # chặn ở cuối thanh
+                d = self._plan.setdefault("durations", {})
+                d.setdefault("stage_s", {})[name] = round(v, 1)
+                (d.get("bin_s") or {}).pop(name, None)
+            self._save_soon()
+            return self._dur_view()
+
+    def dur_set_bin_take(self, stage_i, bin_name, seconds):
+        """Kéo/gõ số giây LẤY của một bin con (không vượt Có của bin). Tổng giai đoạn cập nhật theo (giai đoạn thành "anh chốt"); các bin còn lại giữ phần chia.
+        seconds rỗng/None = bỏ số đã kéo của bin này."""
+        with self._lock:
+            if not isinstance(stage_i, int) or isinstance(stage_i, bool) or not 0 <= stage_i < len(self._stages):
+                return {"error": "Không có giai đoạn số %s." % stage_i}
+            r = self._dur_build()
+            st = r["stages"][stage_i]
+            b = next((x for x in st["bins"] if x["name"] == bin_name), None)
+            if b is None:
+                return {"error": "Không có bin “%s” trong giai đoạn này." % bin_name}
+            name = self._stages[stage_i]["name"]
+            if seconds is None or seconds == "":
+                d = self._plan.get("durations") or {}
+                (d.get("bin_s") or {}).get(name, {}).pop(bin_name, None)
+            else:
+                try:
+                    v = float(seconds)
+                except (TypeError, ValueError):
+                    return {"error": "Số giây của bin phải là số (hoặc phút:giây)."}
+                if v != v or v < 0 or v > td.STAGE_MAX_S:
+                    return {"error": "Số giây của bin từ 0:00 đến %s." % td.mmss(td.STAGE_MAX_S)}
+                take = min(v, b["avail_s"])
+                new_total = min(st["total_s"] - b["total_s"] + take, st["avail_s"])
+                d = self._plan.setdefault("durations", {})
+                d.setdefault("bin_s", {}).setdefault(name, {})[bin_name] = round(take, 1)
+                d.setdefault("stage_s", {})[name] = round(new_total, 1)
             self._save_soon()
             return self._dur_view()
 
@@ -1358,6 +1393,7 @@ class TrolyApi(object):
             if name in locked:
                 locked.remove(name)
                 (d.get("stage_s") or {}).pop(name, None)
+                (d.get("bin_s") or {}).pop(name, None)
                 if not locked:
                     d.pop("locked", None)
             else:
@@ -1374,11 +1410,11 @@ class TrolyApi(object):
         return self._dur_view()
 
     def dur_rebalance(self):
-        """Gợi ý (a) "Chia lại cho đủ": dồn phần thiếu sang giai đoạn còn dư clip sao, giai đoạn khóa giữ nguyên. Chỉ sửa kế hoạch trong panel."""
+        """Gợi ý (a) "Tự kéo thêm cho đủ": thả các giai đoạn chưa khóa cho co giãn, dồn phần thiếu sang giai đoạn còn dư clip sao. Chỉ sửa kế hoạch trong panel."""
         with self._lock:
             res = td.plan_rebalance(self._plan, self._clips, self._assign, self._stages)
             if not res:
-                return {"error": "Không có cách chia lại nào làm tăng thời lượng (không giai đoạn nào còn dư clip sao)."}
+                return {"error": "Không có cách kéo thêm nào làm tăng thời lượng (không giai đoạn nào còn dư clip sao chưa khóa)."}
             return self._dur_apply(res[0])
 
     def dur_lower_target(self):

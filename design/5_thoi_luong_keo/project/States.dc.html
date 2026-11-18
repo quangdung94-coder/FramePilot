@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bước 5 - Các trạng thái</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input{font-family:inherit}
+.s{width:1440px;height:470px;background:#18181B;color:#E7E7EA;font-family:Inter,"Segoe UI",system-ui,sans-serif;box-sizing:border-box;padding:24px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;overflow:hidden}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.caps{font-size:12px;font-weight:600;letter-spacing:.08em;color:#A1A1AA}
+.card{border-radius:10px;background:#1F1F23;border:1px solid #2E2E34;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card.warn{border-color:#664A1C}
+.card.ok{border-color:#2F5B36}
+.hd{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.inp{height:36px;width:72px;box-sizing:border-box;border-radius:8px;border:1px solid #4A4A54;background:#26262B;color:#E7E7EA;font-size:14px;font-weight:600;text-align:center;margin-left:auto}
+.tr{height:12px;border-radius:6px;background:#2A2A30;position:relative;margin:6px 0}
+.tr i{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.tr b{position:absolute;top:-8px;width:28px;height:28px;margin-left:-14px;border-radius:50%;background:#18181B;border:4px solid #F2A33A;box-sizing:border-box}
+.tx{font-size:12px;color:#C4C4CC;line-height:1.6}
+.tx b{color:#E7E7EA;font-weight:600}
+.tx .w{color:#F2B256;font-weight:600}
+.tx .g{color:#7FD08A;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:4px 8px;border-radius:6px;background:#26262B;border:1px solid #3A3A42;font-size:11px;color:#C4C4CC}
+.tagw{padding:3px 9px;border-radius:999px;background:#3A2E1C;color:#F2B256;font-size:11px;font-weight:600;border:1px solid #664A1C;margin-left:auto}
+.tagg{padding:3px 9px;border-radius:999px;background:#1F2B1F;color:#7FD08A;font-size:11px;font-weight:600;border:1px solid #2F5B36;margin-left:auto}
+.dlg{border-radius:12px;background:#222226;border:1px solid #4A4A54;padding:16px;display:flex;flex-direction:column;gap:10px}
+.dt{font-size:15px;font-weight:700}
+.kv{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#C4C4CC}
+.kv span:last-child{color:#E7E7EA;font-weight:600;text-align:right}
+.bt{display:flex;gap:8px;padding-top:4px}
+.b1{flex:1;height:44px;border-radius:8px;border:1px solid #3A3A42;background:#26262B;color:#E7E7EA;font-size:13px;font-weight:500;cursor:pointer}
+.b2{flex:1.6;height:44px;border-radius:8px;border:0;background:#F2A33A;color:#18181B;font-size:13px;font-weight:700;cursor:pointer}
+.sug{text-align:left;padding:10px 12px;border-radius:8px;border:1px solid #2C4A80;background:#1B2740;color:#8DB8F7;font-size:12px;font-weight:600;cursor:pointer}
+</style>
+</helmet>
+<div class="s">
+  <div class="col">
+    <div class="caps">1 · DƯ CLIP: PHẢI BỎ</div>
+    <div class="card">
+      <div class="hd"><i class="dot" style="background:#4A8CF0"></i>02_Đón khách<input class="inp" value="4:00" aria-label="Thời lượng Đón khách"></div>
+      <div class="tr"><i style="width:83%;background:#4A8CF0"></i><b style="left:83%;border-color:#4A8CF0"></b></div>
+      <div class="tx">Thanh đầy = <b>4:50</b> · lấy <b>4:00</b> · bỏ <b>0:50</b></div>
+      <div class="tx">Sẽ bỏ 2 clip ít ưu tiên nhất:</div>
+      <div class="chips"><span class="chip">DG7612.MP4 · 0:30</span><span class="chip">DG7655.MP4 · 0:20</span></div>
+      <div class="tx">Kéo chấm hoặc gõ số, danh sách bỏ đổi theo ngay. Không cần bấm nút nào.</div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="caps">2 · KÉO HẾT CỠ MÀ VẪN THIẾU</div>
+    <div class="card warn">
+      <div class="hd"><i class="dot" style="background:#34B58A"></i>03_Lễ sân khấu<span class="tagw">hết clip sao</span></div>
+      <div class="tr"><i style="width:100%;background:#34B58A"></i><b style="left:100%;border-color:#34B58A"></b></div>
+      <div class="tx">Thanh đầy = <b>2:50</b> clip sao, chấm ở cuối thanh, không kéo thêm được. <span class="w">Tổng video còn thiếu 0:40.</span></div>
+      <button class="sug">Tự kéo thêm cho đủ 12:00 (Đón khách +0:40)</button>
+      <div class="tx">Số thiếu hiện ở thanh trên cùng và dòng cuối trang để không bỏ sót.</div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="caps">3 · SAU KHI BẤM GỢI Ý: ĐẠT MỤC TIÊU</div>
+    <div class="card ok">
+      <div class="hd">Video mục tiêu 12:00<span class="tagg">đạt</span></div>
+      <div class="tx">01_Chuẩn bị <b>4:30</b> (khóa)<br>02_Đón khách <b>4:40</b> · bỏ 0:10<br>03_Lễ sân khấu <b>2:50</b> · <span class="g">giữ hết</span></div>
+      <div class="tr"><i style="width:100%;background:#7FD08A"></i><b style="left:100%;border-color:#7FD08A"></b></div>
+      <div class="tx">Đang giữ <b>12:00</b> trên mục tiêu <b>12:00</b>. Nút “Đưa lên Timeline mới” sáng lên.</div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="caps">4 · HỘP XÁC NHẬN KHI ĐƯA LÊN TIMELINE</div>
+    <div class="dlg">
+      <div class="dt">Tạo timeline mới?</div>
+      <div class="kv"><span>Tên</span><span>Rough Cut sao 2026.11.06.LV_Ten 18.11 17:40</span></div>
+      <div class="kv"><span>Độ dài</span><span>12:00</span></div>
+      <div class="kv"><span>Số clip</span><span>26 / 28 clip sao</span></div>
+      <div class="kv"><span>Thứ tự</span><span>giai đoạn, rồi giờ quay</span></div>
+      <div class="tx">Chỉ tạo một timeline MỚI. Timeline đang có và In/Out trong Media Pool không bị sửa.</div>
+      <div class="bt"><button class="b1">Hủy</button><button class="b2">Tạo timeline mới</button></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":470}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

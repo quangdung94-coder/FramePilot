@@ -168,7 +168,7 @@ class DurApi(unittest.TestCase):
 
     def test_go_so_chot_giai_doan_khoa_va_mo_khoa(self):
         plan = self.api._plan
-        plan["stages"].append({"name": "Sau", "start": 0.0, "end": 100000.0, "color": "#eee", "bins": ["Khác"]})
+        plan["stages"].append({"name": "Sau", "start": 100000.0, "end": 200000.0, "color": "#eee", "bins": ["Khác"]})
         self.star_all()
         v = self.api.dur_set_stage(0, 5)
         self.assertEqual((v["stages"][0]["pinned"], v["stages"][0]["locked"], v["stages"][0]["budget_s"]), (True, False, 5.0))
@@ -193,11 +193,63 @@ class DurApi(unittest.TestCase):
 
     def test_chia_lai_cho_du_qua_api_khi_co_giai_doan_con_du(self):
         plan = self.api._plan
-        plan["stages"].append({"name": "Sau", "start": 0.0, "end": 100000.0, "color": "#eee", "bins": ["Khác"]})
+        plan["stages"].append({"name": "Sau", "start": 100000.0, "end": 200000.0, "color": "#eee", "bins": ["Khác"]})
         self.star_all()
         # giai đoạn 1 "Sau" không có clip; giai đoạn 0 chỉ có vài giây -> không có chỗ dồn, chia lại báo lỗi nhẹ
         self.api.dur_set_stage(0, 600)
         self.assertIn("error", self.api.dur_rebalance())
+
+    def test_keo_gio_khong_vuot_co_ke_ca_go_so_lon(self):
+        self.star_all()
+        have = self.api.dur_state()["stages"][0]["natural_s"]
+        v = self.api.dur_set_stage(0, 5000)                                            # gõ quá Có: kẹp ở cuối thanh
+        self.assertAlmostEqual(v["stages"][0]["budget_s"], have, delta=0.1)
+        self.assertAlmostEqual(self.api._plan["durations"]["stage_s"]["Chuẩn bị"], have, delta=0.1)
+        self.assertTrue(v["stages"][0]["maxed"])
+
+    def test_keo_bin_con_cap_nhat_tong_giai_doan_va_bo_keo(self):
+        self.star_all()
+        v0 = self.api.dur_state()
+        st0 = v0["stages"][0]
+        dec0 = next(b for b in st0["bins"] if b["name"] == "Decor")
+        nl0 = next(b for b in st0["bins"] if b["name"] == "Nghi lễ")
+        v = self.api.dur_set_bin_take(0, "Decor", 3)                                    # kéo Decor xuống 3 s
+        st = v["stages"][0]
+        dec = next(b for b in st["bins"] if b["name"] == "Decor")
+        nl = next(b for b in st["bins"] if b["name"] == "Nghi lễ")
+        self.assertEqual(dec["pin"], 3.0)
+        self.assertLessEqual(dec["total_s"], 3.0 + 1e-6)
+        self.assertAlmostEqual(nl["total_s"], nl0["total_s"], delta=0.2)                # bin khác giữ nguyên
+        self.assertAlmostEqual(st["total_s"], st0["total_s"] - dec0["total_s"] + dec["total_s"], delta=0.2)   # tổng giai đoạn cập nhật theo
+        self.assertTrue(st["pinned"])
+        v = self.api.dur_set_bin_take(0, "Decor", 5000)                                 # kéo quá Có: kẹp
+        dec = next(b for b in v["stages"][0]["bins"] if b["name"] == "Decor")
+        self.assertAlmostEqual(dec["pin"], dec0["avail_s"], delta=0.1)
+        v = self.api.dur_set_bin_take(0, "Decor", "")                                   # bỏ số đã kéo của bin
+        self.assertIsNone(next(b for b in v["stages"][0]["bins"] if b["name"] == "Decor")["pin"])
+        for args in ((9, "Decor", 1), (0, "Không có", 1), (0, "Decor", "x"), (0, "Decor", -3)):
+            self.assertIn("error", self.api.dur_set_bin_take(*args), args)
+
+    def test_go_so_giai_doan_bo_so_bin_da_keo_va_mo_khoa_xoa_chot(self):
+        self.star_all()
+        self.api.dur_set_bin_take(0, "Decor", 3)
+        self.assertIn("bin_s", self.api._plan["durations"])
+        self.api.dur_set_stage(0, 8)
+        self.assertNotIn("Chuẩn bị", self.api._plan["durations"].get("bin_s", {}))
+        self.api.dur_set_bin_take(0, "Decor", 3)
+        self.api.dur_toggle_lock(0)
+        self.api.dur_toggle_lock(0)
+        d = self.api._plan["durations"]
+        self.assertNotIn("Chuẩn bị", d.get("stage_s", {}))
+        self.assertNotIn("Chuẩn bị", d.get("bin_s", {}))
+
+    def test_doi_ten_giai_doan_va_bin_doi_theo_so_bin_da_keo(self):
+        self.star_all()
+        self.api.dur_set_bin_take(0, "Decor", 3)
+        self.api.rename("bin", 0, "Decor", "Chi tiết")
+        self.assertIn("Chi tiết", self.api._plan["durations"]["bin_s"]["Chuẩn bị"])
+        self.api.rename("stage", 0, "Chuẩn bị", "Nhà gái")
+        self.assertIn("Chi tiết", self.api._plan["durations"]["bin_s"]["Nhà gái"])
 
     def test_dat_lai_ve_de_xuat(self):
         self.star_all()
