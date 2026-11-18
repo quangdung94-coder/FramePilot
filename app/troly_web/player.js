@@ -3,7 +3,10 @@
    (api.set_inout), ghi vào DaVinci chỉ khi bấm nút + xác nhận. Phím đọc bằng event.code, bỏ qua khi đang gõ ô chữ. */
 "use strict";
 
-const PL = { range: null, uid: null, vid: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, tried: false };
+const PL = { range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, tried: false };
+/* Việc 2 (ADR-0023): lướt mượt. Chỉ gửi lệnh nhảy khi lệnh trước xong (seeked), lệnh mới thay lệnh cũ chưa gửi; đang KÉO thì nhảy theo keyframe
+   (giải mã 1 khung), THẢ ra thì nhảy chính xác. Dùng lại MỘT thẻ <video> cho mọi clip. Không tạo proxy mới. */
+const SK = { want: null, fast: false, busy: false, drag: false, timer: 0, sent: 0, seeks: 0 };
 const fmtF = (t, fps) => {                                   // giây -> mm:ss:ff theo frame của clip
   t = Math.max(0, t || 0); fps = Math.round(fps || 25);
   const f = Math.round(t * fps), ff = f % fps, s = Math.floor(f / fps);
@@ -81,10 +84,25 @@ function plMark(which) {                                       // phím I / O: �
   if (which === "in") plSet(t, Math.max(b, t + plStep()));
   else plSet(Math.min(a, t - plStep()), t);
 }
-function plSeek(t) {
+function kfBefore(t) {                                          // keyframe gần nhất ở hoặc trước t (không có danh sách thì giữ nguyên t)
+  const k = PL.kf; if (!k || !k.length) return t;
+  let lo = 0, hi = k.length - 1, ans = -1;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (k[m] <= t + 1e-6) { ans = m; lo = m + 1; } else hi = m - 1; }
+  return ans < 0 ? 0 : k[ans];
+}
+function plPump() {                                             // gửi lệnh nhảy kế tiếp nếu lệnh trước đã xong
+  const v = PL.vid; if (!v || SK.want == null || SK.busy) return;
+  const t = SK.want; SK.want = null;
+  const tt = SK.fast ? kfBefore(t) : t;
+  if (Math.abs(v.currentTime - tt) < 0.0005 && !v.seeking) { plHead(); plTime(); return; }
+  SK.busy = true; SK.seeks++; SK.sent = performance.now();
+  clearTimeout(SK.timer); SK.timer = setTimeout(() => { SK.busy = false; plPump(); }, 1500);        // phòng seeked không bao giờ tới
+  v.currentTime = tt;
+}
+function plSeek(t, opt) {                                       // opt.fast: đang kéo -> nhảy theo keyframe; mặc định: chính xác
   if (!PL.vid) return;
-  PL.vid.currentTime = Math.max(0, Math.min(PL.dur || 0, t));
-  plHead(); plTime();
+  SK.want = Math.max(0, Math.min(PL.dur || 0, t)); SK.fast = !!(opt && opt.fast);
+  plPump();
 }
 function plNudge(frames) {                                     // mũi tên: chỉnh từng frame
   const c = curClip(); if (!c || !PL.vid) return;
@@ -112,9 +130,9 @@ $("ioBar").addEventListener("mousedown", (ev) => {
     const t = tAt(m.clientX), s = plStep();
     if (which === "in") a = Math.min(t, b - s); else b = Math.max(t, a + s);
     c.in_s = a; c.out_s = b; c.io_src = "manual"; plRenderIo(c);
-    plSeek(which === "in" ? a : b);
+    plSeek(which === "in" ? a : b, { fast: true });
   };
-  const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); plSet(a, b); };
+  const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); plSet(a, b); plSeek(which === "in" ? a : b); };
   document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
 });
 
@@ -196,7 +214,7 @@ async function lutAttach(c, v) {                                // gọi từ pl
   if (LUT.loaded !== c.lut) { if (!lutUpload(d)) { $("plNote").textContent = "WebGL không nạp được LUT - hiện màu gốc"; lutUi(); return; } LUT.loaded = c.lut; }
   LUT.name = d.title; LUT.ready = true; lutUi();
   const note = $("plNote"); if (!note.textContent) note.textContent = "Màu theo LUT " + d.title;
-  v.addEventListener("seeked", lutDraw); v.addEventListener("loadeddata", lutDraw); lutLoop();
+  lutLoop();
 }
 function lutDetach() {
   LUT.loopId++; LUT.ready = false; LUT.vid = null;
@@ -213,16 +231,41 @@ window.addEventListener("resize", () => { if (LUT.ready) lutDraw(); });
 function plTime() {
   if (!PL.vid) return;
   $("plTime").textContent = fmtF(PL.vid.currentTime, PL.fps) + " / " + fmtF(PL.dur, PL.fps);
-  $("plSeek").value = PL.dur ? Math.round(PL.vid.currentTime / PL.dur * 1000) : 0;
+  if (!SK.drag) $("plSeek").value = PL.dur ? Math.round(PL.vid.currentTime / PL.dur * 1000) : 0;
 }
 function plToggle() {
   if (!PL.vid || !PL.ok) return;
   if (PL.vid.paused) PL.vid.play(); else PL.vid.pause();
 }
 function plStop() {
-  if (PL.vid) { try { PL.vid.pause(); } catch (e) { /* bỏ qua */ } PL.vid.removeAttribute("src"); PL.vid.load(); }
-  PL.vid = null; PL.ok = false; PL.edge = null; PL.tried = false; lutDetach();
+  const v = PL.el;
+  if (v) { try { v.pause(); } catch (e) { /* bỏ qua */ } v.style.opacity = "0"; v.removeAttribute("src"); v.load(); }       // giữ thẻ, chỉ bỏ nguồn
+  PL.vid = null; PL.ok = false; PL.edge = null; PL.tried = false; PL.kf = null; SK.want = null; SK.busy = false; SK.drag = false; lutDetach();
   $("player").classList.add("hidden");
+}
+function plEl() {                                               // MỘT thẻ <video> dùng cho mọi clip; sự kiện gắn một lần
+  if (PL.el) return PL.el;
+  const v = document.createElement("video");
+  v.className = "pv"; v.preload = "auto"; v.playsInline = true; v.crossOrigin = "anonymous"; v.controls = false; v.muted = false; v.style.opacity = "0";
+  const fallback = () => {                                      // dùng bản xem nhẹ ffmpeg (H.264) khi WebView2 không giải mã được hình
+    const o = PL.open;
+    if (!o || PL.uid !== o.uid || o.transcode) { $("plNote").textContent = "Không phát được proxy này"; return; }
+    $("plNote").textContent = "Đang tạo bản xem nhẹ..."; PL.tried = true;
+    plOpen(curClip(), true);
+  };
+  v.addEventListener("loadedmetadata", () => {
+    // Đo 18/11/2026: proxy HEVC (hvc1) trong WebView2 KHÔNG báo lỗi, chỉ ra tiếng mà không có hình (videoWidth = 0).
+    if (PL.vid !== v) return;
+    if (!v.videoWidth) return fallback();
+    PL.ok = true; if (v.duration) PL.dur = v.duration; plTime(); plRenderIo(curClip());
+  });
+  v.addEventListener("timeupdate", () => { plHead(); plTime(); });
+  v.addEventListener("play", () => { $("plPlay").textContent = "❚❚"; });
+  v.addEventListener("pause", () => { $("plPlay").textContent = "▶"; });
+  v.addEventListener("seeked", () => { SK.busy = false; clearTimeout(SK.timer); lutDraw(); plPump(); });
+  v.addEventListener("loadeddata", () => { if (PL.vid === v) v.style.opacity = "1"; lutDraw(); });
+  v.addEventListener("error", () => { if (v.getAttribute("src")) fallback(); });          // WebView2 không phát được định dạng này -> bản xem nhẹ
+  PL.el = v; return v;
 }
 async function plOpen(c, transcode) {                         // gọi từ showCur khi đổi clip
   if (!transcode) { plStop(); PL.uid = c ? c.uid : null; }
@@ -235,28 +278,15 @@ async function plOpen(c, transcode) {                         // gọi từ show
   }
   $("plCtl").classList.remove("hidden"); $("plNote").textContent = transcode ? "Bản xem nhẹ (ffmpeg)" : "";
   PL.fps = r.fps || PL.fps; PL.dur = r.dur || PL.dur;
-  const v = document.createElement("video");
-  v.muted = false; v.preload = "auto"; v.playsInline = true; v.crossOrigin = "anonymous"; v.src = r.url; v.controls = false;
-  const fallback = () => {                                    // dùng bản xem nhẹ ffmpeg (H.264) khi WebView2 không giải mã được hình
-    if (PL.uid !== uid || transcode) { $("plNote").textContent = "Không phát được proxy này"; return; }
-    $("plNote").textContent = "Đang tạo bản xem nhẹ..."; PL.tried = true;
-    plOpen(curClip(), true);
-  };
-  v.addEventListener("loadedmetadata", () => {
-    // Đo 18/11/2026: proxy HEVC (hvc1) trong WebView2 KHÔNG báo lỗi, chỉ ra tiếng mà không có hình (videoWidth = 0).
-    if (!v.videoWidth) return fallback();
-    PL.ok = true; if (v.duration) PL.dur = v.duration; plTime(); plRenderIo(curClip());
-  });
-  v.addEventListener("timeupdate", () => { plHead(); plTime(); });
-  v.addEventListener("play", () => { $("plPlay").textContent = "❚❚"; });
-  v.addEventListener("pause", () => { $("plPlay").textContent = "▶"; });
-  v.addEventListener("error", fallback);                      // WebView2 không phát được định dạng này -> bản xem nhẹ
-  v.className = "pv"; v.style.opacity = "0"; v.addEventListener("loadeddata", () => { v.style.opacity = "1"; });
-  const old = $("preview").querySelector("video"); if (old) { old.pause(); old.remove(); }
-  $("preview").appendChild(v);
+  const v = plEl();
+  if (v.parentNode !== $("preview")) $("preview").appendChild(v);
   if (lutGL() && LUT.cv.parentNode !== $("preview")) $("preview").appendChild(LUT.cv);
-  PL.vid = v; $("player").classList.remove("hidden");
+  SK.want = null; SK.busy = false; SK.drag = false; PL.kf = null; PL.open = { uid, transcode: !!transcode };
+  v.style.opacity = "0"; PL.vid = v; PL.ok = false;
+  v.src = r.url;
+  $("player").classList.remove("hidden");
   lutAttach(c, v);
+  if (!transcode) api().keyframes(uid).then((k) => { if (PL.uid === uid && k && k.kf) PL.kf = k.kf; });
 }
 $("plPlay").onclick = plToggle;
 $("preview").addEventListener("click", () => { PL.focus = true; plToggle(); });
@@ -265,7 +295,11 @@ $("waveBox").addEventListener("mousedown", (ev) => {              // bấm vào 
   PL.focus = true; const r = $("waveBox").getBoundingClientRect();
   plSeek(Math.max(0, Math.min(c.dur, (ev.clientX - r.left) / r.width * c.dur)));
 });
-$("plSeek").addEventListener("input", () => { if (PL.vid) plSeek($("plSeek").value / 1000 * PL.dur); });
+$("plSeek").addEventListener("mousedown", () => { SK.drag = true; });
+$("plSeek").addEventListener("input", () => { if (PL.vid) plSeek($("plSeek").value / 1000 * PL.dur, { fast: SK.drag }); });
+const plSeekRelease = () => { if (!SK.drag) return; SK.drag = false; if (PL.vid) plSeek($("plSeek").value / 1000 * PL.dur); };     // thả: nhảy chính xác
+$("plSeek").addEventListener("change", plSeekRelease);
+document.addEventListener("mouseup", plSeekRelease);
 $("plRate").addEventListener("change", () => { if (PL.vid) PL.vid.playbackRate = +$("plRate").value; });
 document.addEventListener("mousedown", (e) => {               // bấm ra ngoài cột phải: mũi tên lại đi chuyển clip
   if (!e.target.closest(".col-right, .p3-center")) { PL.focus = false; PL.edge = null; }

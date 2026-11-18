@@ -25,6 +25,7 @@ import troly_thumbs as tt         # noqa: E402
 import troly_ai as ai             # noqa: E402
 import troly_dur as td            # noqa: E402
 import troly_lut as tl            # noqa: E402
+import troly_kf as tkf            # noqa: E402
 
 SUB_COLORS = ["#4FC1A6", "#E88AB0", "#F2A33A", "#5B9BF5", "#C98BE0", "#EF7D65", "#A9CF62", "#E0B860", "#7FB7E8",
               "#8A8A94"]
@@ -934,6 +935,18 @@ class TrolyApi(object):
         if not url:
             return {"error": "Không phát được file này."}
         return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "transcoded": bool(transcode)}
+
+    def keyframes(self, uid):
+        """Keyframe của proxy (giây) để lướt mượt; chỉ đọc proxy trong proxy_root. {'kf': [...]} hoặc {'error': ...}."""
+        import troly_play as tp
+        c = self._by_uid.get(uid)
+        if c is None or not self._proxy_root:
+            return {"error": "Không thấy clip hoặc chưa cấu hình proxy_root."}
+        src = c.proxy
+        if not src or not os.path.isfile(src) or not tp.inside(src, [self._proxy_root]):
+            return {"error": "Chưa có proxy"}
+        kf = tkf.get(src, os.path.join(self._root, "cache", "troly_kf", tc._safe(self._project)), tkf.ffprobe_path(self._thumbs.ffmpeg))
+        return {"kf": kf} if kf else {"error": "Không đọc được keyframe"}
 
     def lut_cube(self, uid):
         """Dữ liệu LUT .cube của clip để giao diện áp bằng WebGL lên khung xem (Việc 1, ADR-0023). Chỉ ĐỌC file LUT; không có LUT thì {'none': True}."""

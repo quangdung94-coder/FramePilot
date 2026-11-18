@@ -113,7 +113,7 @@ class PlayerFallback(unittest.TestCase):
     def test_chuyen_ban_xem_nhe_khi_khong_co_hinh(self):
         js = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app", "troly_web", "player.js"), encoding="utf-8").read()
         self.assertIn("if (!v.videoWidth) return fallback();", js)
-        self.assertIn('v.addEventListener("error", fallback)', js)
+        self.assertIn('v.addEventListener("error", () => { if (v.getAttribute("src")) fallback(); })', js)
         i = js.index("const fallback = () => {")
         body = js[i:i + 400]
         self.assertIn("plOpen(curClip(), true)", body)                      # tạo bản xem nhẹ ffmpeg

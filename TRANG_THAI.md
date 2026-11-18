@@ -96,7 +96,8 @@
 
 ## Lượt 18/11 (nhánh lut-smooth-aiauto): LUT, lướt mượt, AI tự xếp (ADR-0023)
 - Việc 1 XONG (CHỜ ANH THỬ): khung xem trước áp LUT .cube bằng WebGL2 (player.js, nút LUT bật/tắt), không tạo file mới; máy chủ phát thêm CORS để WebGL đọc khung. Đo trong cửa sổ pywebview thật (4K 150%): sai khác trung bình so với ảnh ffmpeg+LUT 4,5-4,9/255 (tắt LUT: 26-30/255). Chưa thử LUT khác ngoài Sony SLog3 ... TypeA; LUT 1D/ cỡ > 65 chưa hỗ trợ (hiện màu gốc).
-- Việc 2 (lướt mượt), Việc 3 (AI tự xếp): đang làm.
+- Việc 2 XONG (CHỜ ANH THỬ): lướt mượt, KHÔNG tạo proxy mới: chỉ gửi lệnh nhảy khi lệnh trước xong (seeked), lệnh cũ chưa gửi bị thay bằng lệnh mới nhất; kéo thanh/mép In/Out thì nhảy theo keyframe (ffprobe chỉ đọc chỉ mục gói tin, cache troly_kf), thả thì nhảy chính xác; dùng lại MỘT thẻ <video>. Đo trong cửa sổ pywebview thật, clip 83 giây, kéo 100 bước trong 1,7 s: TRƯỚC 3 lần nhảy xong, 13 khung hình hiện; SAU 67 lần nhảy, 63 khung hiện; thả ra dừng đúng chỗ (75,17 s) sau 56 ms. Phát 1x: 0/299 khung rớt (trước và sau). Phát 2x: rớt ~217/595 cả trước lẫn sau, kể cả tắt LUT (proxy 50 khung/s x2 = 100 khung/s > 60 Hz màn hình, không phải lỗi của panel). Chuyển 8 clip liên tiếp: 1 thẻ video, hình đầu hiện sau 14-165 ms.
+- Việc 3 (AI tự xếp): đang làm.
 
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
