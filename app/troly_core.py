@@ -883,9 +883,11 @@ def write_timeline_log(data_root, project, record, stamp=None):
 
 
 def cut_frames(in_s, out_s, fps, frames):
-    """Đoạn cắt (giây) -> (frame vào, frame ra) tính từ ĐẦU FILE, kẹp trong [0, frames-1]; ra > vào."""
+    """Đoạn cắt (giây) -> (startFrame, endFrame) cho clipInfo của DaVinci, tính từ ĐẦU FILE. ĐO THẬT 18/11/2026 (DaVinci Resolve Studio 21.1.1):
+    độ dài trên timeline = endFrame - startFrame (endFrame là điểm kết thúc, không tính frame đó), nên endFrame = round(ra × fps).
+    Kẹp endFrame <= frames - 1 (an toàn, mất tối đa 1 frame ở cuối clip); ra > vào."""
     a = max(0, secs_to_frames(in_s, fps))
-    b = secs_to_frames(out_s, fps) - 1
+    b = secs_to_frames(out_s, fps)
     if frames:
         b = min(b, int(frames) - 1)
         a = min(a, max(0, int(frames) - 2))

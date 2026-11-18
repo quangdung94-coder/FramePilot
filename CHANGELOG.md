@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Bước 5 Thời lượng (ADR-0013) - CHỜ NGƯỜI DỰNG THỬ; số mặc định là ĐỀ XUẤT
+- Ô Video mục tiêu (12 phút), thanh chia tỉ lệ giai đoạn kéo được (tổng luôn khớp), bảng Min-Max TỔNG từng bin (Decor 10-20 s, Beauty 20-30 s, bin khác tự suy ra từ bảng quy tắc Bước 3), cảnh báo bin thiếu/dư, "Cắt gọt cho vừa" (chỉ kế hoạch trong panel), "Đưa lên Timeline mới" (hộp xác nhận, nhật ký trước, chỉ tạo timeline MỚI bằng clip con theo In/Out, không SetMarkInOut lên clip gốc, kiểm lại số timeline).
+- Lưu plan["durations"] (chỉ khi anh sửa, có .bak). Đo thật 1 timeline thử trên DaVinci: độ dài = endFrame - startFrame (đã sửa công thức frame). Mã mới: app/troly_dur.py, step5.js, do_create_cut_timeline.
+- 37 bài test mới (283 bài). Demo: design/4_thoi_luong (bản tĩnh dựng lại: design/4_thoi_luong_tinh).
+
 ## 2026-11-18 – Rà soát lỗi toàn bộ (chỉ sửa lỗi, không thêm tính năng)
 - Sửa 7 lỗi (mỗi lỗi có bài test đỏ trước, xanh sau, tests/test_ra_soat.py): (1) tạo bin lỗi giữa chừng làm mất nhật ký các clip đã chuyển (không Hoàn tác được); (2) việc ghi DaVinci không kiểm đang mở đúng project; (3) Huỷ tắt máy bấm lúc lưu lần cuối vẫn bị tắt; (4) thumbnail ném lỗi làm kẹt hàng đợi; (5) Dừng chép lời vẫn chạy hết cả lô; (6) ffmpeg/Whisper/AI mồ côi khi đóng cửa sổ (Job Object) và AI nền nhận cờ dừng khi đóng; (7) chữ lỗi thời "AI gợi ý · chưa có dữ liệu".
 - Kiểm chứng không có lỗi: máy chủ phát proxy (junction, UNC, ổ khác, URL kép, Range), kế hoạch cũ đọc-ghi vòng (4 file thật trên bản sao). 242 bài test đạt.

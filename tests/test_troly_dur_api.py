@@ -310,7 +310,8 @@ class DurApi(unittest.TestCase):
 
 class Pure(unittest.TestCase):
     def test_cut_frames_tu_dau_file_va_ke_kep(self):
-        self.assertEqual(tc.cut_frames(1.0, 4.0, 50.0, 1000), (50, 199))
+        self.assertEqual(tc.cut_frames(1.0, 4.0, 50.0, 1000), (50, 200))               # độ dài = end - start = 150 frame = 3 s (đo thật)
+        self.assertEqual(tc.cut_frames(0.9, 3.9, 50.0, 240), (45, 195))
         self.assertEqual(tc.cut_frames(18.0, 40.0, 50.0, 1000), (900, 999))         # vượt độ dài thì kẹp
         a, b = tc.cut_frames(5.0, 5.0, 50.0, 1000)
         self.assertGreater(b, a)

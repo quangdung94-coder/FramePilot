@@ -71,11 +71,12 @@ Quy trình:
 - app/troly_speech.py (kéo âm lượng, VAD, Whisper, câu nghi bịa), troly_speech_store.py (kho SQLite mỗi project), troly_speech_run.py (chạy cả bin nền), troly_speech_srt.py (xuất/đọc lại SRT), do_loi_noi.py (đo). Giao diện bước 4: app/troly_web/speech.js. Quyết định: docs/adr/0014.
 - app/troly_ai.py: Bước 6 AI (ADR-0020): nhúng thumbnail bằng OpenCLIP ViT-B/32, gợi ý bin theo mô tả, trang báo cáo tĩnh. Chạy bằng venv AI: `C:\VideoAI_ai_venv\Scripts\python.exe app\troly_ai.py all --project "<tên>"`. Giao diện gợi ý ở Bước 2 (app/troly_web/ai.js, ADR-0022; demo design/6_ai_goi_y). Chỉ gợi ý, Nhận chỉ gán nhãn.
 - tools/inout_dump.py + tools/inout_stats.py: đọc In/Out thật từ project đã dựng (chỉ đọc DaVinci, đổi project rồi trả lại) và thống kê ra số (ADR-0021).
+- app/troly_dur.py + app/troly_web/step5.js: Bước 5 Thời lượng (ADR-0013): chia thời lượng, cắt gọt, timeline mới bằng clip con. Số mặc định là ĐỀ XUẤT; demo design/4_thoi_luong (bản tĩnh design/4_thoi_luong_tinh).
 - app/troly_env.py: đọc config.json, kết nối DaVinci, hộp báo lỗi.
 - install.py: cài mục menu "VideoAI Trợ lý File Quay" vào Workspace > Scripts. Sửa code trong app\ không cần cài lại,
   chỉ đóng và mở lại cửa sổ Trợ lý.
 - design/: demo đã duyệt (1_giai_doan, 2_phan_loai_inout, 4_thoi_luong = Bước 5 Thời lượng từ 17/11/2026) và loi_noi_demo/ (Bước 4 Lời nói: ảnh 4a, 4b + HTML). Mở bằng trình duyệt.
-- Số bước: 1 Giai đoạn, 2 Phân loại bin, 3 In/Out, 4 Lời nói, 5 Thời lượng (AI sau). Bước Lời nói làm theo docs/de_bai_loi_noi_A.md.
+- Số bước: 1 Giai đoạn, 2 Phân loại bin, 3 In/Out, 4 Lời nói, 5 Thời lượng (đã làm, ADR-0013), 6 AI (gợi ý ở Bước 2, ADR-0020/0022). Bước Lời nói làm theo docs/de_bai_loi_noi_A.md.
 
 ## Chạy
 - Cài thư viện: `& $py -m pip install -r requirements.txt`
