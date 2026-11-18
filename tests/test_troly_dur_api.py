@@ -135,8 +135,8 @@ class DurApi(unittest.TestCase):
         self.assertTrue(v["proposed"])
         self.assertEqual(v["target_min"], 12.0)
         self.assertNotIn("durations", self.api._plan)
-        self.api.dur_cut()
-        self.assertNotIn("durations", self.api._plan)
+        self.assertIn(v["state"], ("ok", "short"))
+        self.assertIn("advice", v)
 
     def test_sua_muc_tieu_tile_va_min_max_luu_trong_ke_hoach_co_bak(self):
         self.star_all()
@@ -160,15 +160,44 @@ class DurApi(unittest.TestCase):
         for args in ((0, "Decor", 20, 10), (0, "Decor", -1, 5), (0, "Decor", "x", 5), (7, "Decor", 1, 2)):
             self.assertIn("error", self.api.dur_set_bin(*args), args)
         self.assertNotIn("durations", self.api._plan)
-        self.assertIn("error", self.api.dur_set_share(9, 0.5))
+        for bad in ("abc", -5, 99999, float("nan")):
+            self.assertIn("error", self.api.dur_set_stage(0, bad), bad)
+        self.assertIn("error", self.api.dur_set_stage(9, 30))
+        self.assertIn("error", self.api.dur_toggle_lock(9))
+        self.assertNotIn("durations", self.api._plan)
 
-    def test_keo_ti_le_tong_luon_bang_1(self):
+    def test_go_so_chot_giai_doan_khoa_va_mo_khoa(self):
         plan = self.api._plan
         plan["stages"].append({"name": "Sau", "start": 0.0, "end": 100000.0, "color": "#eee", "bins": ["Khác"]})
         self.star_all()
-        v = self.api.dur_set_share(0, 0.7)
-        self.assertAlmostEqual(sum(s["share"] for s in v["stages"]), 1.0, places=2)
-        self.assertAlmostEqual(v["stages"][0]["share"], 0.7, places=2)
+        v = self.api.dur_set_stage(0, 5)
+        self.assertEqual((v["stages"][0]["pinned"], v["stages"][0]["locked"], v["stages"][0]["budget_s"]), (True, False, 5.0))
+        v = self.api.dur_toggle_lock(0)                                                 # khóa giữ số đã chốt
+        self.assertTrue(v["stages"][0]["locked"])
+        self.assertEqual(self.api._plan["durations"]["stage_s"]["Chuẩn bị"], 5.0)
+        v = self.api.dur_toggle_lock(0)                                                 # mở khóa: co giãn trở lại
+        self.assertFalse(v["stages"][0]["pinned"])
+        self.assertNotIn("locked", self.api._plan["durations"])
+        v = self.api.dur_toggle_lock(1)                                                 # khóa giai đoạn chưa chốt: khóa đúng số hiện tại
+        self.assertTrue(v["stages"][1]["locked"])
+        v = self.api.dur_set_stage(1, "")                                               # gõ rỗng: bỏ chốt và bỏ khóa
+        self.assertFalse(v["stages"][1]["pinned"] or v["stages"][1]["locked"])
+
+    def test_goi_y_chia_lai_va_ha_muc_tieu_qua_api(self):
+        self.star_all()
+        v = self.api.dur_set_stage(0, 600)                                               # chốt nhiều hơn số clip có
+        self.assertEqual(v["advice"]["state"], "short")
+        self.assertIsNone(v["advice"]["lower"])                                            # chỉ có vài giây clip sao: dưới mức mục tiêu tối thiểu 1 phút
+        self.assertIn("error", self.api.dur_lower_target())
+        self.assertIn("error", self.api.dur_rebalance())                                   # chỉ một giai đoạn: không có chỗ dồn
+
+    def test_chia_lai_cho_du_qua_api_khi_co_giai_doan_con_du(self):
+        plan = self.api._plan
+        plan["stages"].append({"name": "Sau", "start": 0.0, "end": 100000.0, "color": "#eee", "bins": ["Khác"]})
+        self.star_all()
+        # giai đoạn 1 "Sau" không có clip; giai đoạn 0 chỉ có vài giây -> không có chỗ dồn, chia lại báo lỗi nhẹ
+        self.api.dur_set_stage(0, 600)
+        self.assertIn("error", self.api.dur_rebalance())
 
     def test_dat_lai_ve_de_xuat(self):
         self.star_all()
@@ -180,40 +209,45 @@ class DurApi(unittest.TestCase):
     def test_doi_ten_giai_doan_va_bin_giu_min_max(self):
         self.star_all()
         self.api.dur_set_bin(0, "Decor", 5, 12)
-        self.api.dur_set_share(0, 1.0)
+        self.api.dur_set_stage(0, 30)
+        self.api.dur_toggle_lock(0)
         self.api.rename("bin", 0, "Decor", "Chi tiết")
         self.assertEqual(self.api._plan["durations"]["bins"]["Chuẩn bị"]["Chi tiết"], [5.0, 12.0])
         self.assertNotIn("Decor", self.api._plan["durations"]["bins"]["Chuẩn bị"])
         self.api.rename("stage", 0, "Chuẩn bị", "Nhà gái")
         self.assertIn("Nhà gái", self.api._plan["durations"]["bins"])
-        self.assertIn("Nhà gái", self.api._plan["durations"]["stage_share"])
-        self.assertNotIn("Chuẩn bị", self.api._plan["durations"]["stage_share"])
+        self.assertIn("Nhà gái", self.api._plan["durations"]["stage_s"])
+        self.assertNotIn("Chuẩn bị", self.api._plan["durations"]["stage_s"])
+        self.assertEqual(self.api._plan["durations"]["locked"], ["Nhà gái"])
 
     # ------------------------------------------------------------------ tạo timeline
-    def test_chua_cat_got_thi_khong_cho_tao_timeline(self):
+    def test_doi_so_lieu_truoc_khi_bam_thi_timeline_theo_so_moi_nhat(self):
         self.star_all()
+        self.api.dur_set_bin(0, "Decor", 1, 3)                                         # đổi Max: không cần "cắt gọt" lại, bấm là tính lại ngay
         r = self.api.dur_create_timeline()
-        self.assertIn("error", r)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["count"], self.api.dur_state()["n_used"])
         self.assertEqual(self.pool.calls, [])
 
-    def test_doi_so_lieu_sau_khi_cat_got_bat_cat_got_lai(self):
+    def test_con_thieu_van_tao_duoc_va_nhat_ky_ghi_trang_thai(self):
         self.star_all()
-        self.api.dur_cut()
-        self.api.dur_set_bin(0, "Decor", 1, 3)                                         # đổi Max sau khi đã cắt gọt
-        self.assertIn("error", self.api.dur_create_timeline())
-        self.assertEqual(self.pool.calls, [])
+        self.assertEqual(self.api.dur_state()["state"], "short")                        # 3 clip, mục tiêu 12 phút: thiếu
+        r = self.api.dur_create_timeline()
+        self.assertTrue(r["ok"])
+        logs = glob.glob(os.path.join(self.tmp, "troly", "timeline_log", "*.json"))
+        with open(logs[0], encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["state"], "short")
 
     def test_khong_co_sao_thi_bao_loi(self):
-        self.api.dur_cut()
         self.assertIn("error", self.api.dur_create_timeline())
 
     def test_tao_timeline_moi_dung_in_out_clip_con_ghi_nhat_ky_va_kiem_lai(self):
         self.star_all()
-        cut = self.api.dur_cut()
-        self.assertTrue(cut["cut_ready"])
+        cut = self.api.dur_state()
         r = self.api.dur_create_timeline()
         self.assertTrue(r["ok"])
         self.assertEqual(r["count"], len(cut["items"]))
+        self.assertTrue(r["name"].startswith("Rough Cut sao "))
         logs = glob.glob(os.path.join(self.tmp, "troly", "timeline_log", "*.json"))       # nhật ký ghi TRƯỚC khi tạo
         self.assertEqual(len(logs), 1)
         with open(logs[0], encoding="utf-8") as f:
@@ -236,7 +270,7 @@ class DurApi(unittest.TestCase):
         done = [d for k, d in events if k == "dur_timeline_done"]
         self.assertTrue(done and done[0]["verified"] and (done[0]["before"], done[0]["after"]) == (2, 3))
         self.assertFalse(self.api._busy)
-        self.assertEqual(self.api._dur_cut, None)                                        # phải cắt gọt lại mới tạo tiếp
+        self.assertEqual(len(self.proj.timelines), 3)                                    # đúng MỘT timeline mới
 
     def test_ten_timeline_khong_chua_ky_tu_cam_ke_ca_khi_project_co_and(self):
         api, proj, pool = make_api(tempfile.mkdtemp(), name="2026.10.25.LV_X&Y")
@@ -244,7 +278,6 @@ class DurApi(unittest.TestCase):
             uids = [c["uid"] for c in api.state()["clips"]]
             api.label(uids, 0, "Decor")
             api.toggle_star(uids)
-            api.dur_cut()
             r = api.dur_create_timeline()
             for ch in ':&/\\*?"<>|':
                 self.assertNotIn(ch, r["name"])
@@ -262,7 +295,6 @@ class DurApi(unittest.TestCase):
                 uids = [c["uid"] for c in api.state()["clips"]]
                 api.label(uids, 0, "Decor")
                 api.toggle_star(uids)
-                api.dur_cut()
                 self.assertTrue(api.dur_create_timeline()["ok"])
                 events = []
                 api._emit_fn = lambda k, d, ev=events: ev.append((k, d))
@@ -282,7 +314,6 @@ class DurApi(unittest.TestCase):
 
     def test_ghi_dang_khac_project_bi_tu_choi(self):
         self.star_all()
-        self.api.dur_cut()
         self.assertTrue(self.api.dur_create_timeline()["ok"])
         self.api._worker.pm.project = TlProject("Project khác", self.pool)
         events = []
@@ -293,7 +324,6 @@ class DurApi(unittest.TestCase):
 
     def test_dang_ban_thi_khong_tao_va_nhat_ky_loi_thi_chua_cham_davinci(self):
         self.star_all()
-        self.api.dur_cut()
         self.api._busy = True
         self.assertIn("error", self.api.dur_create_timeline())
         self.api._busy = False

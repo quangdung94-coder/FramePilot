@@ -87,7 +87,7 @@ class Short(unittest.TestCase):
         plan, clips, assign, st = mk([])
         r = td.build(plan, clips, assign, st)
         self.assertEqual((r["items"], r["n_used"], r["total_s"]), ([], 0, 0.0))
-        self.assertAlmostEqual(sum(r["shares"]), 1.0)
+        self.assertEqual(r["state"], "no_star")
 
 
 class Over(unittest.TestCase):
@@ -171,22 +171,19 @@ class Target(unittest.TestCase):
         plan = mk(self.spec(), durations={"target_min": "hỏng"})            # giá trị hỏng trong file: dùng mặc định 12
         self.assertEqual(td.build(*plan)["target_min"], 12.0)
 
-    def test_ti_le_giai_doan_tong_luon_bang_1_va_theo_anh_keo(self):
-        plan = mk(self.spec(), durations={"target_min": 1.5, "stage_share": {"S1": 0.8, "S2": 0.2}})
+    def test_giai_doan_anh_chot_giu_nguyen_con_lai_co_gian(self):
+        plan = mk(self.spec(), durations={"target_min": 1.5, "stage_s": {"S1": 72}})
         r = td.build(*plan)
-        self.assertAlmostEqual(sum(r["shares"]), 1.0)
-        self.assertAlmostEqual(r["stages"][0]["share"], 0.8)
         self.assertAlmostEqual(r["stages"][0]["budget_s"], 72.0, places=0)
-        v = td.normalize_shares([0.5, 0.3, 0.2], 0, 0.7)
+        self.assertAlmostEqual(r["stages"][1]["budget_s"], 18.0, places=0)
+        self.assertTrue(r["stages"][0]["pinned"])
+        self.assertFalse(r["stages"][1]["pinned"])
+        v = td.normalize_shares([0.5, 0.3, 0.2], 0, 0.7)                     # hàm cũ vẫn đúng
         self.assertAlmostEqual(sum(v), 1.0)
         self.assertAlmostEqual(v[0], 0.7)
-        self.assertAlmostEqual(v[1] / v[2], 1.5)
-        v = td.normalize_shares([0.5, 0.5], 1, 1.0)                          # không cho giai đoạn khác về 0
-        self.assertGreaterEqual(min(v), td.MIN_STAGE_SHARE - 1e-9)
-        self.assertAlmostEqual(sum(v), 1.0)
 
     def test_tong_min_vuot_phan_chia_thi_canh_bao(self):
-        plan = mk(self.spec(), durations={"target_min": 1.5, "stage_share": {"S1": 0.05, "S2": 0.95},
+        plan = mk(self.spec(), durations={"target_min": 1.5, "stage_s": {"S1": 5},
                                           "bins": {"S1": {"Nghi lễ": [40, 50]}}})
         r = td.build(*plan)
         self.assertIn("stage_over", kinds(r))

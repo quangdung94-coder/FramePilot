@@ -107,9 +107,9 @@ function render(rebuildItems) {
     a.className = "step" + (n === page ? " on" : "");
   });
   $("right1").classList.toggle("hidden", page !== 1);
-  $("right2").classList.toggle("hidden", page !== 2 && page !== 3);
+  $("right2").classList.toggle("hidden", page !== 2 && page !== 3 && page !== 5);          // Bước 5 cũng cần ô Kiểu quay (Truyền thống chỉ bỏ nguyên clip)
+  $("segMode").classList.toggle("hidden", page === 5);
   $("right4").classList.toggle("hidden", page !== 4);
-  $("right5").classList.toggle("hidden", page !== 5);
   $("page1").classList.toggle("hidden", page !== 1);
   $("page2").classList.toggle("hidden", page !== 2);
   $("page3").classList.toggle("hidden", page !== 3);
@@ -870,5 +870,6 @@ $("styleSel").onchange = async (e) => {
   const st = await api().set_shoot_style(e.target.value);
   if (st && st.error) return status(st.error, "warn");
   setState(st);
+  if (page === 5) renderPage5();
   status(e.target.value ? "Đã chọn kiểu quay " + (e.target.value === "psc" ? "PSC" : "Truyền thống") + ": chỉ đổi gợi ý màu xanh, In/Out anh đặt tay vẫn thắng." : "Đã bỏ chọn kiểu quay: gợi ý như mặc định.", "ok");
 };

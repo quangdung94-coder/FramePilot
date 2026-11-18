@@ -1,4 +1,4 @@
-# Trạng thái Trợ lý File Quay (cập nhật 17/11/2026, khuya)
+# Trạng thái Trợ lý File Quay (cập nhật 18/11/2026, chiều)
 
 ## Đã chạy được
 - Bước 1: đọc giờ quay thật, chia giai đoạn bằng thanh thời gian kéo được, mẫu giai đoạn, tạo bin giai đoạn trong
@@ -88,11 +88,12 @@
 - Chưa làm/chưa đo: project 500+ clip (không đổi project DaVinci nên chỉ có 376 clip), chép lời thật rồi đóng cửa sổ (chỉ thử Job Object với AI nền và tiến trình mẫu), kiểm JS bằng node (máy không có node, kiểm cú pháp bằng trình duyệt).
 - Lỗi nhẹ chưa sửa: trang tải font Inter từ Google Fonts (cần mạng, mất mạng thì dùng font hệ thống); favicon 404; mã vé của máy chủ phát proxy không hết hạn (chỉ trong bộ nhớ).
 
-## Bước 5 Thời lượng (18/11/2026, nhánh buoc5) - CHỜ NGƯỜI DỰNG THỬ
-- Đã làm theo demo design/4_thoi_luong (ADR-0013): mục tiêu phút, chia tỉ lệ giai đoạn (kéo vạch), Min-Max TỔNG từng bin, cảnh báo, Cắt gọt cho vừa, Đưa lên Timeline mới (timeline MỚI, clip con theo In/Out).
-- CÁC SỐ CÒN LÀ ĐỀ XUẤT (người dựng chưa xác nhận): mục tiêu 12 phút; Decor 10-20 s, Beauty cô dâu 20-30 s; bin khác Max = min(90, tổng độ dài gợi ý của clip sao), Min = 0,6 × tự nhiên; ngưỡng 70%/cách bỏ clip. Độ dài từng clip dùng lại bin_rules Bước 3.
-- Đã chạy THẬT trên DaVinci: tạo 1 timeline thử (project 0 -> 1 timeline, 6 đoạn, clip gốc không bị ghi In/Out). Mới chạy GIẢ LẬP: các nhánh dự phòng, lỗi, đổi project giữa chừng (test). Cửa sổ pywebview thật: đã mở Bước 5 ở 4K 150% (dữ liệu bản sao), đối chiếu demo ~85%. Chưa thử với nhiều timeline/nhiều clip sao thật của anh; công thức frame sau khi sửa chưa kiểm lại bằng timeline thứ hai.
-- Timeline thử còn trong project đang mở ("Rough Cut thoi luong ..."): anh xóa tay nếu không cần. Backup .drp trước khi thử: D:\VideoAI\backup\drp_*_truoc_thu_timeline.
+## Bước 5 Thời lượng LÀM LẠI (18/11/2026, nhánh buoc5-moi) - CHỜ NGƯỜI DỰNG THỬ (ADR-0013)
+- Làm theo demo đã duyệt (design/5_thoi_luong_moi, bản sao đọc của canvas): mỗi giai đoạn một hàng gõ phút:giây + ổ khóa; giai đoạn khóa/gõ số giữ nguyên, giai đoạn khác co giãn theo clip sao có (không vượt, thiếu thì báo thiếu); tự tính lại khi sửa (bỏ nút Cắt gọt, bỏ vạch kéo); bin con xổ ra Có/Giữ/Bỏ/Min-Max; chip clip sẽ bỏ; xem trước timeline; cột phải "Chưa đạt mục tiêu" + gợi ý Chia lại cho đủ / Hạ mục tiêu / Quay lại Bước 3; "Đưa lên Timeline mới" luôn bấm được, hộp xác nhận ghi số thiếu, chỉ tạo MỘT timeline mới "Rough Cut sao <project> <ngày giờ>".
+- CÁC SỐ VẪN LÀ ĐỀ XUẤT: mục tiêu 12 phút; Decor 10-20 s, Beauty cô dâu 20-30 s; bin khác Max = min(90, tổng gợi ý), Min = 0,6 x tự nhiên (Min mặc định co theo số chia); đạt = chênh <= 10 giây.
+- Đã thử bằng chuột/phím thật ở BÀN THỬ trình duyệt (giao diện thật + TrolyApi thật + Media Pool GIẢ + dữ liệu tạm, không đụng DaVinci/dữ liệu thật): gõ mục tiêu và số giai đoạn, khóa ngay sau khi gõ, các gợi ý, hộp xác nhận, tạo timeline (giả), mở Bước 3 đúng bin; không lẹm mép ở 1100x700, 1440x900, 1707x960 (= 4K 150%). Đối chiếu demo: bố cục khớp (~90%); panel cuộn dọc ở 900 cao khi giai đoạn đầu xổ ra.
+- CHƯA chạy thật: cửa sổ pywebview thật (chưa mở panel thật, chưa chụp panel thật so cạnh demo); tạo timeline thật trên DaVinci sau bản làm lại (đã đo 1 timeline thử ở bản đầu, mã tạo giữ nguyên); Bước 5 với Truyền thống cắt đầu/đuôi theo bin bằng tay; bin Đón khách/Tiễn khách thật; project nhiều clip sao thật của anh; gợi ý (b) khi giai đoạn bị khóa quá số clip.
+- Timeline thử của bản đầu còn trong project đang mở ("Rough Cut thoi luong ..."): anh xóa tay nếu không cần. Sao lưu kế hoạch trước khi làm: D:\VideoAI\backup\projects_<ngày giờ> (18/11/2026).
 
 ## Lượt 18/11 (nhánh lut-smooth-aiauto): LUT, lướt mượt, AI tự xếp (ADR-0023)
 - Việc 1 XONG (CHỜ ANH THỬ): khung xem trước áp LUT .cube bằng WebGL2 (player.js, nút LUT bật/tắt), không tạo file mới; máy chủ phát thêm CORS để WebGL đọc khung. Đo trong cửa sổ pywebview thật (4K 150%): sai khác trung bình so với ảnh ffmpeg+LUT 4,5-4,9/255 (tắt LUT: 26-30/255). Chưa thử LUT khác ngoài Sony SLog3 ... TypeA; LUT 1D/ cỡ > 65 chưa hỗ trợ (hiện màu gốc).
@@ -111,8 +112,7 @@
 
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
-2. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin
-   (Decor 10-20s, Beauty 20-30s), "Cắt gọt cho vừa", đưa lên timeline MỚI (không sửa timeline cũ).
+2. Bước 5 Thời lượng: XONG bản làm lại (ADR-0013), chờ anh thử bằng clip sao thật và cho biết số muốn đổi.
 3. Ý tưởng người dựng đã nêu (chưa thiết kế):
    - Nhiều máy quay (2-4 camera): nghiên cứu layout dễ nhìn (mỗi máy một làn trên thanh thời gian, màu theo máy, lọc theo máy).
      Panel đã có khóa máy quay + ô lệch giờ theo máy, chưa có giao diện.
@@ -125,5 +125,5 @@
 - Khi sửa logic trong troly_core.py nên thêm test vào tests/ rồi chạy bộ kiểm thử.
 - Code sao/In-Out gợi ý ban đầu do Antigravity viết, phần nối giao diện + tạo timeline do Claude viết (15/11).
 - Kho Git riêng: https://github.com/quangdung94-coder/TroLyFileQuay (riêng tư). Lịch sử kho riêng bắt đầu ở commit 5e9090c (đã gỡ tên khách; mã cũ 8945cc9 không còn dùng). Lịch sử trước 17/11/2026 nằm ở kho cũ D:\VideoAI\repo (v0.2.5 = commit b13c7fb). Menu DaVinci trỏ vào thư mục này (app\), `install.py --check` đạt.
-- Bộ kiểm thử: tests/ (202 bài, `& $py -m unittest discover -s tests -q`; trên Windows đặt PYTHONUTF8=1). ADR trong docs/adr/ (0009, 0010, 0011, 0014 đến 0019).
+- Bộ kiểm thử: tests/ (383 bài, `& $py -m unittest discover -s tests -q`; trên Windows đặt PYTHONUTF8=1). ADR trong docs/adr/ (0009, 0010, 0011, 0014 đến 0019).
 - Số ADR sắp tới: Bước 3 trang riêng = ADR-0019 (đã làm), Bước 5 chia thời lượng = ADR-0013 (ADR-0011 = timeline mới, ADR-0014 = Lời nói A, đã có).

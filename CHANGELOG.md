@@ -1,5 +1,11 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Bước 5 Thời lượng làm lại (ADR-0013, theo demo đã duyệt) - CHỜ NGƯỜI DỰNG THỬ
+- Mỗi giai đoạn MỘT hàng (mũi tên xổ, ổ khóa, ô gõ phút:giây, thanh màu giữ/bỏ/thiếu, dòng "Có X, được chia Y, phải bỏ Z"); "Video mục tiêu" gõ phút:giây; thanh tổng "Đang giữ X, thiếu/dư Y". Bỏ vạch kéo tỉ lệ, bỏ nút "Cắt gọt cho vừa": mọi sửa tính lại ngay (gõ dở chưa tính, kết quả cũ bị bỏ, không vẽ lại khi đang giữ chuột).
+- Khóa/gõ số làm giai đoạn khác co giãn theo tỉ lệ clip sao có, không vượt quá số có (thiếu thì báo thiếu, không bịa clip). Lưu plan["durations"]["stage_s"] và ["locked"]; khóa cũ stage_share bỏ qua; đổi tên giai đoạn đổi theo. Min mặc định co theo số chia; Min anh sửa là cứng. Truyền thống chỉ bỏ nguyên clip, "clip sao có thể cho" tính theo nguyên clip, số dư được bù lại.
+- Bin con xổ ra (Có/Giữ/Bỏ/Min-Max), chip clip sẽ bỏ, xem trước timeline, cột phải "Chưa đạt mục tiêu" + 3 gợi ý (Chia lại cho đủ / Hạ mục tiêu / Quay lại Bước 3 mở đúng bin còn clip chưa sao). "Đưa lên Timeline mới" luôn bấm được, hộp xác nhận ghi số thiếu; tên "Rough Cut sao <project> <ngày giờ>" (không có `:`). Ô Kiểu quay hiện ở Bước 5.
+- Test: +23 (tests/test_troly_dur_moi.py, API, web), sửa test cũ theo hành vi mới; 383 bài đạt. Đã thử bằng chuột/phím thật ở bàn thử trình duyệt (Media Pool giả, dữ liệu tạm) 1440x900, 1100x700, 1707x960; chưa mở cửa sổ pywebview thật.
+
 ## 2026-11-18 – Bước 3 sửa 3 điểm (ADR-0025) - CHỜ NGƯỜI DỰNG THỬ
 - Cây clip thu gọn/mở (▸/▾, cả giai đoạn mặc định thu gọn); nút "Chạy gợi ý cho N clip sao" nổi bật, tiến độ trên nút, "Chạy lại", lỗi hiện rõ; Truyền thống cắt đầu/đuôi riêng theo bin (plan["trad_trim"]) và mặc định chung tách đầu/đuôi, giữ khóa cũ trad_trim_s. 18 bài test mới (358 bài).
 
