@@ -460,3 +460,47 @@ button, input, select { font-family: inherit; }
 /* cột phải Bước 2 dài hơn màn hình thấp: hai nút Áp dụng luôn dính đáy, phần còn lại cuộn */
 #page2 .col-right .v8 { position: sticky; bottom: -20px; background: var(--right); padding: 10px 0 20px; margin-bottom: -20px; z-index: 3; }
 #page2 .col-right > :not(.flex1) { flex-shrink: 0; }          /* cột dài hơn màn hình thì cuộn, không bóp nút/ô */
+
+/* ===== Bước 5: Thời lượng (ADR-0013; demo design/4_thoi_luong, bản tĩnh design/4_thoi_luong_tinh) ===== */
+.d5 { flex: 1; min-width: 0; min-height: 0; padding: 24px 32px; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; }
+.d5 > * { flex-shrink: 0; }
+.d5-cards { display: flex; gap: 16px; }
+.d5-card { flex: 1; padding: 18px 20px; border-radius: 12px; background: var(--bar); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.d5-wide { flex: 2; gap: 10px; }
+.d5-big { font-size: 30px; font-weight: 700; line-height: 1.15; }
+.d5-sub { font-size: 12px; color: var(--dim); }
+.d5-sub.ok { color: #A9CF62; } .d5-sub.warn { color: var(--accent); }
+.d5-hint { color: #71717A; }
+.d5-stagebar { position: relative; display: flex; height: 32px; border-radius: 6px; overflow: hidden; gap: 2px; user-select: none; }
+.d5-seg { min-width: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #18181B; white-space: nowrap; overflow: hidden; cursor: pointer; position: relative; }
+.d5-seg.sel { box-shadow: inset 0 0 0 2px #fff; }
+.d5-grip { position: absolute; right: -3px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 2; }
+.d5-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--dim2); }
+.d5-legend span { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.d5-legend span.sel { color: #fff; font-weight: 600; }
+.d5-legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.d5-block { display: flex; flex-direction: column; gap: 10px; }
+.d5-strip { display: flex; height: 56px; gap: 3px; }
+.d5-bin { min-width: 0; border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.d5-bin b { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d5-bin span { font-size: 11px; color: var(--dim2); }
+.d5-table { border-radius: 12px; background: var(--bar); border: 1px solid var(--line); padding: 8px 20px; display: flex; flex-direction: column; }
+.d5-row { display: grid; grid-template-columns: 200px 190px minmax(0, 1fr) 90px 80px; gap: 16px; align-items: center; padding: 9px 0; border-bottom: 1px solid #26262B; font-size: 13px; }
+.d5-row:last-child { border-bottom: 0; }
+.d5-head { padding: 10px 0; font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--line); }
+.d5-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.d5-name i { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.d5-name em { font-style: normal; font-size: 10px; color: #71717A; border: 1px dashed #4A4A52; border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
+.d5-mm { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.d5-mm .num { width: 52px; }
+.d5-track { position: relative; height: 14px; border-radius: 7px; background: #26262B; }
+.d5-range { position: absolute; top: 0; bottom: 0; border-radius: 7px; box-sizing: border-box; }
+.d5-mark { position: absolute; top: -4px; width: 4px; height: 22px; border-radius: 2px; background: #fff; }
+.d5-warn { margin: 8px 0 6px; padding: 10px 12px; border-radius: 8px; background: #2A2418; border: 1px solid #664A1C; color: #F2D6A0; font-size: 12.5px; line-height: 1.55; display: flex; flex-direction: column; gap: 3px; }
+.d5-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.d5-foot .dim12 { max-width: 760px; line-height: 1.5; }
+.d5-btns { display: flex; gap: 12px; flex-shrink: 0; }
+.btn-48 { height: 48px; padding: 0 22px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+.btn-accent:disabled { opacity: .45; cursor: default; }
+@media (max-width: 1250px) { .d5-row { grid-template-columns: 150px 180px minmax(0, 1fr) 70px 60px; gap: 10px; } .d5 { padding: 18px 20px; } }
+.d5-foot { position: sticky; bottom: -24px; background: var(--bg); padding: 12px 0 24px; margin-bottom: -24px; z-index: 3; border-top: 1px solid var(--line); }
