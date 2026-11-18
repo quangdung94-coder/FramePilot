@@ -176,13 +176,18 @@ TRAD_HEAD_S, TRAD_TAIL_S = 1.5, 1.5               # Truyền thống: chỉ gợ
 
 
 # --- Quy tắc gợi ý từng bin (ADR-0019) ---
-# Bộ mặc định = đúng các số của bản trước khi có bảng quy tắc (kiểm thử so khớp từng số). Cột: từ khóa nhãn bin, chữ giải thích,
+# Bộ mặc định theo số đo thật (ADR-0021, anh duyệt 18/11/2026): p25–p75 độ dài anh giữ trên timeline thành phẩm, làm tròn 0,5s. Cột: từ khóa nhãn bin, chữ giải thích,
 # giữ tối thiểu (giây), tối đa (giây; None = không giới hạn), trọn câu (giữ đến gần hết clip, không chặn tối đa).
 BUILTIN_RULES = (
     (("decor", "chi tiết", "trang trí"), "Decor: 3.0s ổn định", 3.0, 3.0, False),
-    (("cô dâu", "chú rể", "beauty", "nhẫn"), "CD-CR: 4.0s cảm xúc", 4.0, 4.0, False),
-    (("nghi lễ", "gia tiên", "lễ", "chào bàn", "đón khách"), "Nghi lễ: giữ 5–7s", 3.0, 7.0, False),
-    (("phỏng vấn",), "Phỏng vấn: giữ trọn câu", 3.0, None, True),
+    (("phỏng vấn",), "Phỏng vấn: trích 4–8.5s", 4.0, 8.5, False),                 # ADR-0021: anh chỉ trích ~7s từ clip dài, không giữ trọn câu
+    (("gia đình", "họ hàng"), "Gia đình: giữ 3–4s", 3.0, 4.0, False),
+    (("beauty", "nhẫn"), "Beauty: 4.0s cảm xúc", 4.0, 4.0, False),                  # chưa có mẫu thật, giữ số cũ
+    (("cô dâu", "chú rể"), "CD-CR: giữ 2–3s", 2.0, 3.0, False),
+    (("chào bàn",), "Chào bàn: giữ 3–4s", 3.0, 4.0, False),
+    (("nhà trai đến",), "Nhà trai đến: giữ 3–4.5s", 3.0, 4.5, False),
+    (("khách",), "Khách: giữ 2.5–4s", 2.5, 4.0, False),
+    (("nghi lễ", "gia tiên", "lễ"), "Nghi lễ: giữ 2.5–5s", 2.5, 5.0, False),
 )
 DEFAULT_RULE = ("Quy tắc v4: vào +1.2s, giữ 3s", 3.0, 3.0, False)
 RULE_MAX_S = 600.0

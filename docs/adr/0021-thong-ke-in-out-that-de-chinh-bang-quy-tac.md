@@ -50,3 +50,6 @@ Nghi lễ 2,5–5 · Chào bàn 3–4 · Khách 2,5–4 · Gia đình 3–4 · N
 - Chỉ 2 project; P1 không có bin con; chỉ 8–61 mẫu mỗi bin. Mẫu là đoạn người dựng DÙNG (có thiên lệch: clip bị bỏ không có mặt).
 - Đoạn dùng trên timeline có thể đã chỉnh sau khi cắt (trượt/trim trên timeline), không hẳn là In/Out ban đầu.
 - Chưa tách Truyền thống/PSC.
+
+## Đã áp (18/11/2026, sau khi anh duyệt)
+`BUILTIN_RULES` (app/troly_core.py) đổi sang: Nghi lễ 2,5–5 · Chào bàn 3–4 · Khách (gồm Đón khách) 2,5–4 · Gia đình 3–4 · Nhà trai đến 3–4,5 · Cô dâu chú rể 2–3 · Phỏng vấn 4–8,5 (bỏ trọn câu) · Decor 3 (giữ) · Beauty/nhẫn 4 (giữ, chưa có mẫu thật). Thứ tự xét: "gia đình" trước "cô dâu". Quy tắc anh tự sửa trong bảng vẫn thắng. Test baseline cũ chỉ còn kiểm các bin không đổi; thêm test cho bảng mới.
