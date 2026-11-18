@@ -458,8 +458,13 @@ def advise(plan, clips, assign, stages, r):
         out["reasons"].append("Hiện Tại %s trên mục tiêu %s. Có thể đưa lên Timeline mới." % (mmss(r["total_s"]), mmss(r["target_s"])))
         return out
     if st == "over":
-        out["reasons"].append("Hiện Tại %s, dài hơn mục tiêu %s. Thường do Min anh đặt trong “Giới hạn nâng cao” hoặc số giây các giai đoạn anh chốt/khóa "
-                              "lớn hơn phần còn lại; hạ Min hoặc mở khóa giai đoạn." % (mmss(r["total_s"]), mmss(r["target_s"])))
+        fixed = [x for x in r["stages"] if x["pinned"]]
+        if fixed and sum(x["total_s"] for x in fixed) >= r["target_s"] - TOL_S:
+            out["reasons"].append("Giai đoạn anh kéo/gõ/khóa (%s) đã lấy %s, bằng hoặc hơn mục tiêu %s nên các giai đoạn khác chỉ còn lấy ít hoặc không lấy. "
+                                  "Kéo bớt số đó, mở khóa hoặc nâng mục tiêu." % (", ".join(x["name"] for x in fixed), mmss(sum(x["total_s"] for x in fixed)), mmss(r["target_s"])))
+        else:
+            out["reasons"].append("Hiện Tại %s, dài hơn mục tiêu %s. Thường do Min anh đặt trong “Giới hạn nâng cao” lớn hơn phần còn lại; hạ Min hoặc mở khóa giai đoạn."
+                                  % (mmss(r["total_s"]), mmss(r["target_s"])))
         return out
     with_star = [s for s in r["stages"] if s["n_starred"]]
     maxed = [s for s in with_star if s["maxed"]]

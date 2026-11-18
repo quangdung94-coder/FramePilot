@@ -26,19 +26,20 @@ class DurWeb(unittest.TestCase):
         self.assertNotIn("right5", self.html + self.app)
 
     def test_nhan_theo_demo(self):
-        for t in ("VIDEO MỤC TIÊU", "phút:giây", "Chia thời lượng cho từng giai đoạn", "XEM TRƯỚC TIMELINE MỚI", "đậm: giữ", "sọc: bỏ", "nét đứt: thiếu",
+        for t in ("VIDEO MỤC TIÊU", "phút:giây", "Chia thời lượng cho từng giai đoạn", "XEM TRƯỚC TIMELINE MỚI", "mỗi khối là một clip sẽ lên timeline",
                   "Gợi ý cách xử lý", "Cách dùng ổ khóa", "Đưa lên Timeline mới", "Chưa ghi gì vào DaVinci"):
             self.assertIn(t, self.p5, t)
-        for t in ("BIN CON", "MIN – MAX (tổng bin)", "Có <b>", "được chia", "Phải bỏ", "Thiếu ", "Sẽ bỏ", "tự cắt gọt khi sửa", "chỉ bỏ nguyên clip"):
+        for t in ("BIN CON", "CÓ (thanh đầy)", "KÉO CHẤM ĐỂ CHỌN", "LẤY", "BỎ", "Thanh đầy = <b>", "lấy <b>", "Bỏ <b>", "Kéo hết cỡ rồi", "muốn dài hơn phải gắn thêm sao",
+                  "Hiện Tại", "thiếu", "Giới hạn nâng cao", "Sẽ bỏ", "tự cắt gọt khi sửa", "chỉ bỏ nguyên clip", "Kéo chấm trên thanh hoặc gõ số"):
             self.assertIn(t, self.js + self.p5, t)
 
     def test_khong_con_nut_cat_got_va_vach_keo(self):
-        for bad in ('id="d5Cut"', "d5-grip", "dur_cut", "dur_set_share", "cut_ready"):
+        for bad in ('id="d5Cut"', "d5-grip", "dur_cut", "dur_set_share", "cut_ready", "được chia", "Có / được chia"):
             self.assertNotIn(bad, self.html + self.js + self.css, bad)
         self.assertNotIn(">Cắt gọt cho vừa<", self.p5)
 
     def test_chuc_nang_nhu_chu_tren_trang_co_that(self):
-        for fn in ("dur_state", "dur_set_target", "dur_set_bin", "dur_set_stage", "dur_toggle_lock", "dur_rebalance", "dur_lower_target", "dur_reset", "dur_create_timeline"):
+        for fn in ("dur_state", "dur_set_target", "dur_set_bin", "dur_set_stage", "dur_set_bin_take", "dur_toggle_lock", "dur_rebalance", "dur_lower_target", "dur_reset", "dur_create_timeline"):
             self.assertIn("api()." + fn, self.js, fn)
         self.assertIn("renderPage5()", self.app)
         self.assertIn("goPage(3)", self.js)                                                      # (c) mở Bước 3 ở đúng bin
@@ -48,6 +49,11 @@ class DurWeb(unittest.TestCase):
         self.assertIn("d5Stable", self.js)                                                       # gõ dở "4:3" chưa tính lại
         self.assertIn("D5.seq", self.js)                                                         # kết quả cũ đến muộn bị bỏ
         self.assertIn("e.code", self.js)                                                         # phím đọc bằng event.code
+        self.assertIn("pointerdown", self.js)                                                    # kéo chấm bằng pointer events (chuột + cảm ứng)
+        self.assertIn("touch-action: none", self.css)
+        self.assertIn("ew-resize", self.css)
+        self.assertIn("Math.min(dg.avail", self.js)                                              # không kéo vượt Có
+        self.assertIn("e.shiftKey", self.js)                                                     # giữ Shift: tinh chỉnh
         self.assertNotIn("e.key", self.js)
 
     def test_tao_timeline_chi_sau_hop_xac_nhan(self):
