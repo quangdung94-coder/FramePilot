@@ -131,6 +131,8 @@ class SpeechRun(object):
         from concurrent.futures import ThreadPoolExecutor
 
         def one(k):
+            if self.stop:                                           # Dừng: file chưa bắt đầu thì bỏ (file đang chạy thì để xong)
+                return None
             p = preps[k]
             t = time.time()
             sents, _ = sp.whisper_run(self.cfg, p["wav"], lang, self.prompt)
@@ -147,7 +149,10 @@ class SpeechRun(object):
             for k, fut in futs.items():
                 it, sig, p = by_key[k], sigs[k], preps[k]
                 try:
-                    sents, use_lang, took = fut.result()
+                    got = fut.result()
+                    if got is None:                                 # bị bỏ vì Dừng: không ghi gì, clip vẫn "cần chép" cho lần sau
+                        continue
+                    sents, use_lang, took = got
                     res = sp.finish_clip(p, sents, self.index if use_lang == "vi" else self._en_index(), took)
                     self.store.put_result(k, it.get("uid"), it.get("name"), sig, it.get("tc"), res, use_lang)
                 except Exception as e:                              # noqa: BLE001

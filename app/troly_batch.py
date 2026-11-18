@@ -90,6 +90,8 @@ class AnalyzeAll(object):
                 return self._cancel()
             if self.save_fn() is not True:                         # lưu lại lần cuối, lỗi thì thôi
                 return self._skip(res, "lưu project DaVinci lỗi (lần cuối)")
+            if self.cancel_shutdown or self.stop:                  # Huỷ/Dừng bấm trong lúc lưu lần cuối: kiểm lại ngay trước khi tắt
+                return self._cancel()
             self._phase("shutdown", "Đang tắt máy...")
             self.shutdown_fn()
             self.emit("analyze_shutdown", {"state": "sent"})

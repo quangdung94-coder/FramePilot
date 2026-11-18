@@ -933,16 +933,21 @@ class TrolyApi(object):
                     continue
                 self._inflight.add(c.uid)
                 fut = self._thumbs.submit(c.uid, c.path, c.proxy, c.lut, c.dur)
-                fut.add_done_callback(self._thumb_ready)
+                fut.add_done_callback(lambda f, u=c.uid: self._thumb_ready(f, u))
                 n += 1
                 if n >= THUMB_INFLIGHT:
                     break
 
-    def _thumb_ready(self, fut):
+    def _thumb_ready(self, fut, uid_hint=None):
         try:
             uid, p, note = fut.result()
-        except Exception as e:            # noqa: BLE001
-            return self._emit("status", {"text": "Lỗi thumbnail: %s" % e, "kind": "warn"})
+        except Exception as e:            # noqa: BLE001  làm thumbnail ném ngoại lệ: giải phóng chỗ, tính là lỗi (không kẹt hàng đợi)
+            if uid_hint is not None:
+                with self._lock:
+                    self._inflight.discard(uid_hint)
+                    self._thumb_done[uid_hint] = (None, "lỗi: %s" % e)
+            self._emit("status", {"text": "Lỗi thumbnail: %s" % e, "kind": "warn"})
+            return self._pump_thumbs()
         with self._lock:
             self._inflight.discard(uid)
             self._thumb_done[uid] = (p, note)
@@ -1410,6 +1415,8 @@ class TrolyApi(object):
             self._analyze.cancel_shutdown = True
         if self._speech_run is not None:
             self._speech_run.stop = True
+        if self._ai_job is not None and self._ai_job.running():       # AI nền: gửi cờ dừng (dừng sau lô ảnh hiện tại, chạy lại thì làm tiếp)
+            self._ai_job.stop()
         if self._save_timer:
             self._save_timer.cancel()
         self._save_now()

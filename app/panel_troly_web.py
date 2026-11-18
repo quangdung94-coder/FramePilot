@@ -43,6 +43,7 @@ def main():
     except ImportError:
         fail("Thiếu pywebview. Chạy: & $py -m pip install pywebview")
     import troly_env
+    troly_env.kill_children_on_exit()          # đóng cửa sổ thì ffmpeg/Whisper/AI do panel chạy ra cũng tắt theo
     data_root = troly_env.data_root()
     if not data_root:
         fail("Không đọc được config.json (data_root).")
