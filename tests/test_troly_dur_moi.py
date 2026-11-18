@@ -104,6 +104,25 @@ class Chia(unittest.TestCase):
         self.assertAlmostEqual(s1["natural_s"] - s1["total_s"], s1["dropped_s"], delta=0.11)
 
 
+class TruyenThong(unittest.TestCase):
+    def test_clip_sao_co_the_cho_la_so_nguyen_clip_vua_max(self):
+        spec = [("t%d" % i, 0, "Nghi lễ", 1, i, 30) for i in range(4)]
+        r = td.build(*mk(spec, shoot_style="traditional", durations={"bins": {"S1": {"Nghi lễ": [10, 70]}}}))
+        b = r["stages"][0]["bins"][2]
+        self.assertEqual(b["avail_s"], 54.0)                                       # 2 clip x 27 s vừa Max 70 s; không phải 70
+        self.assertEqual(r["stages"][0]["avail_s"], 54.0)
+
+    def test_bu_lai_so_du_do_bo_nguyen_clip(self):
+        stages = [{"name": "S1", "bins": ["Nghi lễ", "Khác"], "start": 0, "end": 99999}]
+        spec = [("a%d" % i, 0, "Nghi lễ", 1, i, 30) for i in range(4)] + [("b%d" % i, 0, "Khác", 1, 50 + i, 30) for i in range(4)]
+        r = td.build(*mk(spec, stages=stages, shoot_style="traditional", durations={"target_min": 5, "stage_s": {"S1": 150}}))
+        s1 = r["stages"][0]
+        self.assertAlmostEqual(s1["total_s"], 135.0)                                # 5 clip x 27 s: bù thêm 1 clip, lệch dưới 1 clip so với 150 s
+        self.assertLessEqual(s1["total_s"], s1["budget_s"] + 1e-6)
+        self.assertEqual({round(i["dur"], 1) for i in r["items"]}, {27.0})          # vẫn không rút ngắn clip nào
+        self.assertEqual(s1["dropped_n"], 3)
+
+
 class GoiY(unittest.TestCase):
     def test_trang_thai_ok_short_over_no_star(self):
         self.assertEqual(td.build(*scene())["state"], "ok")

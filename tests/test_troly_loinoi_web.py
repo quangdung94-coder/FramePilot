@@ -28,7 +28,6 @@ class TabsLoiNoi(unittest.TestCase):
         for pid in ("page1", "page2", "page4", "page5"):
             self.assertIn('id="%s"' % pid, self.html)
         self.assertIn('$("page5").classList.toggle("hidden", page !== 5)', self.js)
-        self.assertIn('$("right5").classList.toggle("hidden", page !== 5)', self.js)
         self.assertIn("[1, 2, 3, 4, 5].includes(ui.page)", self.js)
 
     def test_script_loi_noi_nap_sau_app(self):

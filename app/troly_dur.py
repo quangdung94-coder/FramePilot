@@ -172,15 +172,17 @@ def build(plan, clips, assign, stages):
         user = (ranges.get(stages[si]["name"]) or {}).get(name)
         ok2, v = check_bin_minmax(*user) if isinstance(user, (list, tuple)) and len(user) == 2 else (False, None)
         mn, mx = v if ok2 else (dmn, dmx)
+        kept_all, _gone = fit_bin(lst, min(nat, mx))              # số giây TỐI ĐA bin này cho được (Truyền thống: chỉ nguyên clip, nên có thể < Max)
+        avail = sum(e["use"] for e in kept_all)
         return {"name": name, "min": mn, "max": mx, "default_min": dmn, "default_max": dmx, "default_kind": kind, "edited": bool(ok2),
-                "natural_s": round(nat, 1), "n_starred": len(lst)}
+                "natural_s": round(nat, 1), "n_starred": len(lst), "avail_s": round(avail, 1)}
 
     stage_rows = []
     for si, s in enumerate(stages):
         names = list(s["bins"]) + ([UNSORTED] if (si, UNSORTED) in groups else [])
         bins = [bin_info(si, n, groups.get((si, n), [])) for n in names]
         stage_rows.append({"i": si, "name": s["name"], "bins": bins,
-                           "nat_cap": sum(min(b["natural_s"], b["max"]) for b in bins)})
+                           "nat_cap": sum(b["avail_s"] for b in bins)})
     # mỗi giai đoạn MỘT số giây: giai đoạn anh gõ/khóa (stage_s) giữ nguyên, còn lại chia theo clip sao có (allocate_stages)
     stage_s = d.get("stage_s") if isinstance(d.get("stage_s"), dict) else {}
     locked_names = set(x for x in d.get("locked", []) if isinstance(x, str)) if isinstance(d.get("locked"), list) else set()
@@ -195,7 +197,7 @@ def build(plan, clips, assign, stages):
     for r, share, budget in zip(stage_rows, shares, budgets):
         si = r["i"]
         dropped_clips = []
-        caps = [min(b["natural_s"], b["max"]) for b in r["bins"]]
+        caps = [b["avail_s"] for b in r["bins"]]
         mins = [min(b["min"], c) for b, c in zip(r["bins"], caps)]
         # Min mặc định (chưa sửa, chỉ là đề xuất) co lại cho vừa phần được chia, để số anh gõ cho giai đoạn luôn được tôn trọng;
         # Min anh tự sửa là CỨNG: vượt thì giữ Min và báo "stage_over".
@@ -213,11 +215,26 @@ def build(plan, clips, assign, stages):
             warnings.append({"kind": "stage_over", "stage": r["name"],
                              "text": "Giai đoạn “%s”: tổng Min các bin (%d giây) vượt phần chia (%d giây). Hãy tăng tỉ lệ giai đoạn hoặc giảm Min." % (
                                  r["name"], round(sum(mins)), round(budget))})
-        stage_total = 0.0
+        parts = []
         for b, cap, mn_eff in zip(r["bins"], caps, mins):
             lst = groups.get((si, b["name"]), [])
             B = mn_eff + (cap - mn_eff) * ratio
             kept, dropped = fit_bin(lst, B)
+            parts.append({"b": b, "B": B, "kept": kept, "dropped": dropped})
+        # Bù lại: số dư do chỉ bỏ NGUYÊN clip (Truyền thống) thì thử đặt lại clip quan trọng nhất đã bỏ, miễn vừa phần dư của giai đoạn và Max của bin
+        left = budget - sum(e["use"] for p_ in parts for e in p_["kept"])
+        for p_ in sorted(parts, key=lambda q: -len(q["dropped"])):
+            for e in reversed(list(p_["dropped"])):
+                btot = sum(x["use"] for x in p_["kept"])
+                ln = e["cut"]["len"]
+                if ln <= left + 1e-9 and btot + ln <= p_["b"]["max"] + 1e-9:
+                    e["use"] = ln
+                    p_["kept"].append(e)
+                    p_["dropped"].remove(e)
+                    left -= ln
+        stage_total = 0.0
+        for p_ in parts:
+            b, B, kept, dropped = p_["b"], p_["B"], p_["kept"], p_["dropped"]
             for e in dropped:
                 dropped_clips.append({"name": e["clip"].rel.rsplit("/", 1)[-1], "len": round(e["cut"]["len"], 1), "bin": b["name"]})
             btotal = sum(e["use"] for e in kept)

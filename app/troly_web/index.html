@@ -37,7 +37,7 @@
       <option value="traditional" title="Giữ source dài, chỉ gợi ý cắt khoảng một đến hai giây đầu và đuôi">Truyền thống</option>
       <option value="psc" title="Clip ngắn khoảng 3-7 giây theo loại bin">PSC</option>
     </select>
-    <div class="seg" role="group" aria-label="Chế độ phân loại">
+    <div class="seg" id="segMode" role="group" aria-label="Chế độ phân loại">
       <button class="seg-on">Tự phân loại</button>
       <button class="seg-off" disabled title="Gợi ý AI nằm ở hộp bên phải của Bước 2 (hạng 1-3, Nhận / Bỏ qua)">AI gợi ý · hộp bên phải</button>
     </div>
@@ -47,11 +47,6 @@
       <button class="seg-on">Tầng 1 · Bản đồ</button>
       <button class="seg-off" disabled title="Sắp có">Tầng 2 · Đọc kỹ</button>
     </div>
-  </div>
-  <div class="top-right hidden" id="right5">
-    <label class="lbl" for="durTarget">Video mục tiêu</label>
-    <input id="durTarget" class="inp center" type="number" min="1" max="120" step="0.5" value="12" style="width:84px" title="Số phút video muốn có (gợi ý 10–15)">
-    <span class="lbl">phút · gợi ý 10 – 15</span>
   </div>
 </header>
 
@@ -330,35 +325,47 @@
 </main>
 
 <!-- ======================= BƯỚC 5: THỜI LƯỢNG ======================= -->
-<!-- Bước 5 · Thời lượng (ADR-0013, theo design/4_thoi_luong) -->
+<!-- Bước 5 · Thời lượng làm lại (ADR-0013, theo design/5_thoi_luong_moi): mỗi giai đoạn một hàng, ổ khóa, gõ phút:giây, tự cắt gọt khi sửa -->
 <main class="page hidden" id="page5">
   <section class="d5">
-    <div class="d5-cards">
-      <div class="d5-card"><span class="dim12">Tổng sau khi cắt gọt</span><span class="d5-big" id="d5Total">0:00</span><span class="d5-sub" id="d5TotalSub"></span></div>
-      <div class="d5-card"><span class="dim12">Shot được dùng</span><span class="d5-big" id="d5Shots">0 / 0</span><span class="d5-sub dim" id="d5ShotsSub"></span></div>
-      <div class="d5-card d5-wide">
-        <span class="dim12">Chia thời gian cho từng giai đoạn <span class="d5-hint">· kéo vạch giữa hai giai đoạn để đổi tỉ lệ (tổng luôn khớp mục tiêu)</span></span>
-        <div class="d5-stagebar" id="d5Stages"></div>
-        <div class="d5-legend" id="d5Legend"></div>
+    <div class="d5-body">
+      <div class="d5-center">
+        <div class="row-between baseline"><h1 class="h20">Chia thời lượng cho từng giai đoạn</h1><span class="dim13">Chỉ tính clip có sao · số tự cập nhật ngay khi anh sửa</span></div>
+        <div class="d5-card d5-tgt">
+          <div class="d5-tgtr">
+            <span class="d5-caps"><label for="durTarget">VIDEO MỤC TIÊU</label></span>
+            <input id="durTarget" class="d5-inp big" type="text" inputmode="numeric" value="12:00" autocomplete="off" aria-label="Video mục tiêu, phút:giây" title="Gõ phút:giây, ví dụ 12:00 (gợi ý 10:00 – 15:00). Gõ số không có dấu hai chấm = phút.">
+            <span class="dim12">phút:giây</span>
+            <div class="d5-res" id="d5Res"></div>
+          </div>
+          <div class="d5-seg" id="d5Seg"></div>
+        </div>
+        <div class="d5-stages" id="d5Stages"></div>
+        <div class="d5-card d5-pv">
+          <div class="row-between center"><span class="d5-caps" id="d5PvT">XEM TRƯỚC TIMELINE MỚI</span>
+            <span class="d5-lgd"><span><i class="d5-dot" style="background:#E7E7EA"></i>đậm: giữ</span><span><i class="d5-dot d5-dot-cut"></i>sọc: bỏ</span><span><i class="d5-dot d5-dot-gap"></i>nét đứt: thiếu</span></span></div>
+          <div class="d5-pvs" id="d5Pv"></div>
+          <div class="dim12">Xếp theo giai đoạn rồi giờ quay. Đây chỉ là hình xem trước, chưa chạm vào DaVinci.</div>
+        </div>
+        <div class="d5-warn hidden" id="d5Warn"></div>
       </div>
+      <aside class="d5-right">
+        <div class="d5-rt"><span id="d5RTitle">Chưa đạt mục tiêu</span><span class="d5-tag" id="d5RTag"></span></div>
+        <div class="d5-box" id="d5Why"></div>
+        <div class="d5-rt sm" id="d5SugH">Gợi ý cách xử lý</div>
+        <button class="d5-sug main" id="d5SugA"><b></b><span></span></button>
+        <button class="d5-sug" id="d5SugB"><b></b><span></span></button>
+        <button class="d5-sug" id="d5SugC"><b></b><span></span></button>
+        <div class="d5-box d5-grow">
+          <b>Cách dùng ổ khóa</b>
+          Khóa giai đoạn nào thì giai đoạn khác tự co giãn để tổng vẫn đủ mục tiêu. Anh chỉ cần gõ số vào giai đoạn muốn đổi.
+          <a href="#" id="d5Reset" class="hidden">Đặt lại về đề xuất</a>
+        </div>
+        <button class="d5-go" id="d5Create" disabled>Đưa lên Timeline mới</button>
+        <div class="dim12 d5-hint" id="d5CreateHint"></div>
+      </aside>
     </div>
-    <div class="d5-block">
-      <div class="row-between baseline"><h2 id="d5StageTitle">Giai đoạn trên timeline</h2><span class="dim12">Các bin xếp đúng thứ tự giờ quay thực tế · bấm tên giai đoạn ở trên để chọn</span></div>
-      <div class="d5-strip" id="d5Strip"></div>
-    </div>
-    <div class="d5-table">
-      <div class="d5-row d5-head"><span>Bin</span><span>Tổng cả bin (Min – Max)</span><span>Khoảng cho phép và thực tế (thang 0 – 90 giây)</span><span>Sau cắt</span><span>Số shot</span></div>
-      <div id="d5Rows"></div>
-      <div class="d5-warn hidden" id="d5Warn"></div>
-    </div>
-    <div class="d5-foot">
-      <span class="dim12" id="d5Note">Số mặc định là ĐỀ XUẤT, anh sửa được. Min – Max là TỔNG thời lượng của cả bin (khác độ dài từng clip ở Bước 3). Chỉnh xong bấm "Cắt gọt cho vừa" để xem trước; chưa chạm DaVinci.
-        <a href="#" id="d5Reset" class="hidden">Đặt lại về đề xuất</a></span>
-      <div class="d5-btns">
-        <button class="btn btn-48" id="d5Cut">Cắt gọt cho vừa</button>
-        <button class="btn-accent btn-48" id="d5Create" disabled title="Bấm Cắt gọt cho vừa trước">Đưa lên Timeline mới</button>
-      </div>
-    </div>
+    <div class="d5-foot"><span id="d5FootL">Chưa có clip sao</span><span>Chưa ghi gì vào DaVinci</span></div>
   </section>
 </main>
 
