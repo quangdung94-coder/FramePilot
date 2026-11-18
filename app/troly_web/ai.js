@@ -22,6 +22,7 @@ async function aiTick() {
     AI.cache = {};
     if (AI.group) await aiGroupLoad();
     status(AI.info.has_data ? "AI đã chạy xong. Có gợi ý cho clip chưa xếp." : "AI đã dừng. Bấm Chạy AI để làm tiếp.");
+    if (AI.info.has_data && AI.auto && AI.auto.after_run) await aiAutoRun();
   }
   aiBoxRender();
 }
@@ -46,6 +47,7 @@ async function aiBoxRender() {
   const info = AI.info || await aiRefreshInfo();
   if (mySeq !== AI.seq) return;
   const c = items[cur];
+  aiAutoPaint(info);
   $("aiSrc").textContent = info && info.has_data ? aiSrcText(info.mode) : "";
   if (!info) { $("aiBody").innerHTML = '<span class="ai-msg">Chưa đọc được trạng thái AI.</span>'; aiButtons([]); return; }
   if (info.running) {
@@ -128,4 +130,42 @@ document.addEventListener("keydown", (e) => {                   // A nhận hạ
   e.preventDefault();
   if (e.code === "KeyX") { const b = $("aiSkip"); if (b) b.click(); return; }
   const first = document.querySelector("#aiBody [data-ai-take]"); if (first) first.click();
+});
+
+/* ---- Việc 3 (ADR-0023): AI tự xếp theo ngưỡng. Chỉ gán nhãn trong Trợ lý (dấu "AI xếp"), có Hoàn tác, không tính vào dữ liệu AI học, không đụng DaVinci ---- */
+AI.auto = null;
+async function aiAutoRefresh() { try { AI.auto = await api().ai_auto_info(); } catch (e) { AI.auto = null; } return AI.auto; }
+function aiAutoPaint(info) {
+  const box = $("aiAuto"); if (!box) return;
+  const show = !!(info && info.has_data && !info.running);
+  box.classList.toggle("hidden", !show);
+  if (!show) return;
+  const au = AI.auto;
+  if (!au) { aiAutoRefresh().then(() => { if (AI.auto) aiAutoPaint(AI.info); }); return; }
+  if (document.activeElement !== $("aiThr")) $("aiThr").value = Math.round(au.threshold * 100);
+  $("aiAutoAfter").checked = !!au.after_run;
+  $("aiAutoUndo").classList.toggle("hidden", !au.batches);
+  $("aiAutoUndo").textContent = "Hoàn tác AI xếp (" + au.last_n + ")";
+}
+async function aiAutoRun() {
+  const r = await api().ai_auto_run($("aiThr").value);
+  if (r.error) return status(r.error, "warn");
+  AI.cache = {}; setState(r); await aiAutoRefresh(); aiBoxRender();
+  const x = r.ai_auto;
+  status(`AI đã xếp ${x.n} clip (hạng 1 từ ${Math.round(x.threshold * 100)}%); ${x.below} clip dưới ngưỡng để anh duyệt` + (x.skipped ? `, ${x.skipped} clip đã bỏ qua` : "") +
+    `. Chỉ nhãn trong Trợ lý (dấu "AI xếp"); chưa chuyển gì trong DaVinci. Bấm Hoàn tác AI xếp để bỏ.`, x.n ? "ok" : "info");
+}
+$("aiThr").addEventListener("change", async () => {
+  const r = await api().ai_auto_set($("aiThr").value);
+  if (r.error) { status(r.error, "warn"); await aiAutoRefresh(); return aiBoxRender(); }
+  AI.auto = r; aiBoxRender();
+});
+$("aiAutoAfter").addEventListener("change", async () => { AI.auto = await api().ai_auto_set(null, $("aiAutoAfter").checked); });
+$("aiAutoRun").addEventListener("click", aiAutoRun);
+$("aiAutoUndo").addEventListener("click", async () => {
+  const r = await api().ai_auto_undo();
+  if (r.error) return status(r.error, "warn");
+  AI.cache = {}; setState(r); await aiAutoRefresh(); aiBoxRender();
+  const u = r.ai_auto_undo;
+  status(`Đã hoàn tác AI xếp: bỏ nhãn ${u.undone} clip` + (u.kept ? `, giữ nguyên ${u.kept} clip anh đã đổi nhãn` : "") + ".", "ok");
 });

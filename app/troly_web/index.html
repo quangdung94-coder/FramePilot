@@ -154,6 +154,7 @@
         <div class="player-ctl" id="plCtl">
           <button class="btn pl-play" id="plPlay" title="Phát / dừng (phím Space)">▶</button>
           <input type="range" id="plSeek" min="0" max="1000" value="0" aria-label="Lướt clip">
+          <button class="btn pl-lut" id="plLut" type="button" aria-pressed="false" disabled title="Bật/tắt LUT trên khung xem">LUT</button>
           <select id="plRate" title="Tốc độ"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
         </div>
         <div class="row-between dim12"><span id="plTime">00:00:00 / 00:00:00</span><span id="plNote"></span></div>
@@ -163,6 +164,12 @@
       <div class="ai-head"><span class="ai-title">Gợi ý AI</span><span class="ai-src" id="aiSrc"></span></div>
       <div id="aiBody"></div>
       <div class="ai-acts" id="aiActs"></div>
+      <div class="ai-auto" id="aiAuto">
+        <div class="ai-auto-row"><span>AI tự xếp khi hạng 1 từ</span><input class="num" id="aiThr" type="number" min="1" max="100" step="1" value="50" title="Ngưỡng điểm hạng 1 (phần trăm). Mặc định 50."><span>%</span>
+          <button class="btn" id="aiAutoRun" title="Gán nhãn cho mọi clip chưa xếp có gợi ý hạng 1 từ ngưỡng này. Chỉ nhãn trong Trợ lý, có dấu riêng AI xếp, có Hoàn tác.">AI tự xếp</button>
+          <button class="btn hidden" id="aiAutoUndo" title="Bỏ nhãn các clip AI vừa tự xếp (clip anh đã đổi thì giữ nguyên)">Hoàn tác AI xếp</button></div>
+        <label class="chk ai-auto-chk"><input type="checkbox" id="aiAutoAfter"> Tự xếp luôn sau khi AI chạy xong</label>
+      </div>
       <span class="ai-msg">Phím <b>A</b> nhận hạng 1 · <b>X</b> bỏ qua. Nhận chỉ gán nhãn, chưa chuyển clip trong DaVinci.</span>
     </div>
     <button class="btn btn-star btn-44" id="starToggleBtn">☆ Gắn sao (phím J)</button>

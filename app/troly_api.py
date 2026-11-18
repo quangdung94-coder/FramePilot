@@ -24,7 +24,12 @@ import troly_resolve as tr        # noqa: E402
 import troly_thumbs as tt         # noqa: E402
 import troly_ai as ai             # noqa: E402
 import troly_dur as td            # noqa: E402
+import troly_lut as tl            # noqa: E402
+import troly_kf as tkf            # noqa: E402
 
+AI_AUTO_BY = "ai_auto"                 # dấu riêng của nhãn do AI tự xếp (Việc 3, ADR-0023)
+AI_AUTO_DEFAULT = 0.5
+AI_AUTO_KEEP = 10                      # số lần AI tự xếp giữ lại để Hoàn tác
 SUB_COLORS = ["#4FC1A6", "#E88AB0", "#F2A33A", "#5B9BF5", "#C98BE0", "#EF7D65", "#A9CF62", "#E0B860", "#7FB7E8",
               "#8A8A94"]
 THUMB_INFLIGHT = 8
@@ -196,7 +201,7 @@ class TrolyApi(object):
                 sug = tc.suggest_inout(c.dur, lb, self._plan.get("shoot_style") or "", self._plan.get("bin_rules"), self._plan.get("trad_trim_s"))
                 clips.append({"uid": c.uid, "name": c.name, "m0": m[0] if m else None, "m1": m[1] if m else None,
                               "time": c.t_start.strftime("%H:%M:%S") if c.t_start else "--:--:--",
-                              "dur": c.dur or 0, "stage": si, "label": lb,
+                              "dur": c.dur or 0, "stage": si, "label": lb, "label_by": ((tc.label_of(self._plan, c) or {}).get("by") if lb else None),
                               "manual": bool(tc.manual_of(self._plan, c)), "camera": c.camera, "src": c.t_src, "lut": c.lut or "", "bin_path": c.bin_path,
                               "thumb": c.uid in self._thumb_done and bool(self._thumb_done[c.uid][0]),
                               "in_s": in_s, "out_s": out_s, "io_src": io_src, "dv": dv, "fps": fps, "tc": c.tc or "", "sug": sug,
@@ -690,7 +695,7 @@ class TrolyApi(object):
     def _ai_labeled(self):
         out = {}
         for rel, v in (self._plan.get("labels") or {}).items():
-            if isinstance(v, dict) and v.get("bin"):
+            if isinstance(v, dict) and v.get("bin") and v.get("by") != AI_AUTO_BY:        # nhãn AI tự xếp KHÔNG tính vào dữ liệu AI học
                 out[ai.ck(rel)] = v["bin"]
         return out
 
@@ -751,6 +756,102 @@ class TrolyApi(object):
                 if top:
                     out[u] = {"src": src, "top": top}
             return out
+
+    # ------------------------------------------------------------------ Việc 3: AI TỰ XẾP khi điểm hạng 1 >= ngưỡng (ADR-0023)
+    # Chỉ ghi NHÃN trong kế hoạch panel với dấu by="ai_auto" (không tính vào dữ liệu AI học), có Hoàn tác từng lần. Không đụng DaVinci:
+    # chuyển clip vào bin DaVinci vẫn do nút "Áp dụng vào Media Pool" (có hộp xác nhận, nhật ký, Hoàn tác). Khóa plan["ai_auto"] chỉ có khi anh dùng.
+    def _auto_cfg(self):
+        return self._plan.get("ai_auto") or {}
+
+    def ai_auto_info(self):
+        with self._lock:
+            cfg = self._auto_cfg()
+            b = cfg.get("batches") or []
+            n_ai = sum(1 for v in (self._plan.get("labels") or {}).values() if isinstance(v, dict) and v.get("by") == AI_AUTO_BY)
+            return {"threshold": float(cfg.get("threshold", AI_AUTO_DEFAULT)), "after_run": bool(cfg.get("after_run", False)), "batches": len(b),
+                    "last_n": len(b[-1]["items"]) if b else 0, "n_ai_labels": n_ai, "default": AI_AUTO_DEFAULT}
+
+    def ai_auto_set(self, threshold=None, after_run=None):
+        """Chỉnh ngưỡng (phần trăm 1-100) và/hoặc ô "tự xếp sau khi AI chạy xong". Sai thì báo lỗi, không ghi gì."""
+        with self._lock:
+            cfg = dict(self._auto_cfg())
+            if threshold is not None:
+                try:
+                    pct = float(threshold)
+                except (TypeError, ValueError):
+                    return {"error": "Ngưỡng phải là số phần trăm."}
+                if pct != pct or not 1.0 <= pct <= 100.0:
+                    return {"error": "Ngưỡng từ 1 đến 100 phần trăm."}
+                cfg["threshold"] = round(pct / 100.0, 4)
+            if after_run is not None:
+                cfg["after_run"] = bool(after_run)
+            self._plan["ai_auto"] = cfg
+            self._save_soon()
+            return self.ai_auto_info()
+
+    def ai_auto_run(self, threshold=None):
+        """AI tự xếp: mọi clip CHƯA xếp, chưa bị Bỏ qua, có gợi ý hạng 1 >= ngưỡng -> gán nhãn by="ai_auto". Ghi một lần (batch) để Hoàn tác."""
+        with self._lock:
+            if not self._clips:
+                return {"error": "Chưa có clip. Hãy bấm 'Đọc clip' trước."}
+            cfg = self._auto_cfg()
+            thr = float(threshold) / 100.0 if threshold is not None else float(cfg.get("threshold", AI_AUTO_DEFAULT))
+            if not 0.0 < thr <= 1.0:
+                return {"error": "Ngưỡng từ 1 đến 100 phần trăm."}
+            vec, desc = self._ai_data()
+            if not vec and not desc:
+                return {"error": "Chưa chạy AI cho project này (hộp Gợi ý AI > Chạy AI)."}
+            sug = self.ai_for([c.uid for c in self._clips])
+            items, below, skipped = [], 0, 0
+            for c in self._clips:
+                r = sug.get(c.uid)
+                if not r:
+                    continue
+                if r.get("skipped"):
+                    skipped += 1
+                    continue
+                top = r["top"][0]
+                if top["score"] + 1e-9 < thr:
+                    below += 1
+                    continue
+                si = self._assign.get(c.uid)
+                stage = self._stages[si]
+                tc.set_label(self._plan, c, stage["name"], top["bin"], by=AI_AUTO_BY)
+                items.append({"uid": c.uid, "rel": c.rel or c.name, "stage": stage["name"], "bin": top["bin"], "score": top["score"]})
+            if items:
+                cfg = dict(self._auto_cfg())
+                batches = list(cfg.get("batches") or [])
+                batches.append({"at": datetime.datetime.now().isoformat(timespec="seconds"), "threshold": thr, "items": items})
+                cfg["batches"] = batches[-AI_AUTO_KEEP:]
+                self._plan["ai_auto"] = cfg
+                self._save_soon()
+            st = self.state()
+            st["ai_auto"] = {"n": len(items), "below": below, "skipped": skipped, "threshold": thr}
+            return st
+
+    def ai_auto_undo(self):
+        """Hoàn tác lần AI tự xếp gần nhất: bỏ nhãn các clip đó NẾU nhãn vẫn là của AI tự xếp và chưa bị anh đổi; clip anh đã đổi thì để nguyên."""
+        with self._lock:
+            cfg = dict(self._auto_cfg())
+            batches = list(cfg.get("batches") or [])
+            if not batches:
+                return {"error": "Chưa có lần AI tự xếp nào để hoàn tác."}
+            last = batches.pop()
+            labels = self._plan.get("labels") or {}
+            undone, kept = 0, 0
+            for it in last["items"]:
+                lab = labels.get(it["rel"])
+                if isinstance(lab, dict) and lab.get("by") == AI_AUTO_BY and lab.get("bin") == it["bin"]:
+                    labels.pop(it["rel"], None)
+                    undone += 1
+                else:
+                    kept += 1
+            cfg["batches"] = batches
+            self._plan["ai_auto"] = cfg
+            self._save_soon()
+            st = self.state()
+            st["ai_auto_undo"] = {"undone": undone, "kept": kept}
+            return st
 
     def ai_accept(self, pairs):
         """Nhận gợi ý: pairs = [[uid, tên bin]]. Chỉ gán NHÃN trong kế hoạch (by='ai_duyet'); không đụng DaVinci."""
@@ -933,6 +1034,36 @@ class TrolyApi(object):
         if not url:
             return {"error": "Không phát được file này."}
         return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "transcoded": bool(transcode)}
+
+    def keyframes(self, uid):
+        """Keyframe của proxy (giây) để lướt mượt; chỉ đọc proxy trong proxy_root. {'kf': [...]} hoặc {'error': ...}."""
+        import troly_play as tp
+        c = self._by_uid.get(uid)
+        if c is None or not self._proxy_root:
+            return {"error": "Không thấy clip hoặc chưa cấu hình proxy_root."}
+        src = c.proxy
+        if not src or not os.path.isfile(src) or not tp.inside(src, [self._proxy_root]):
+            return {"error": "Chưa có proxy"}
+        kf = tkf.get(src, os.path.join(self._root, "cache", "troly_kf", tc._safe(self._project)), tkf.ffprobe_path(self._thumbs.ffmpeg))
+        return {"kf": kf} if kf else {"error": "Không đọc được keyframe"}
+
+    def lut_cube(self, uid):
+        """Dữ liệu LUT .cube của clip để giao diện áp bằng WebGL lên khung xem (Việc 1, ADR-0023). Chỉ ĐỌC file LUT; không có LUT thì {'none': True}."""
+        c = self._by_uid.get(uid)
+        if c is None:
+            return {"error": "Không thấy clip."}
+        if not c.lut:
+            return {"none": True}
+        path = self._thumbs.lut_for(c.lut)
+        if not path:
+            return {"error": "Không thấy file LUT %s" % c.lut}
+        cache = self.__dict__.setdefault("_lut_payloads", {})
+        if path not in cache:
+            try:
+                cache[path] = tl.payload(path)
+            except (tl.LutError, OSError) as e:
+                cache[path] = {"error": str(e)}
+        return cache[path]
 
     def _pump_thumbs(self):
         with self._lock:

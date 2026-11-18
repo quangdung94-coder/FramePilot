@@ -345,7 +345,9 @@ async function confirmApply(thenPage2) {
     Hoàn tác được bằng "Hoàn tác lần chuyển gần nhất".`;
   const note = (pv.emptied && pv.emptied.length) ? `<p><b>Bin cũ trong Media Pool sẽ còn lại RỖNG</b> (do đã đổi tên hoặc xếp lại): ${pv.emptied.map((x) => "<b>" + esc(x) + "</b>").join(", ")}.
     Trợ lý không tự xóa bin, anh xóa tay trong DaVinci nếu không cần.</p>` : "";
-  if (!(await ask("Áp dụng vào Media Pool", body + note, "Đồng ý, chuyển " + pv.total + " clip"))) return status("Đã hủy, chưa ghi gì vào DaVinci.", "info");
+  const nAi = S.clips.filter((c) => c.label_by === "ai_auto").length;
+  const aiNote = nAi ? `<p>Trong đó <b>${nAi} clip do AI tự xếp</b> (dấu "AI xếp" trên thẻ). Muốn bỏ thì Hoàn tác AI xếp trước khi áp dụng.</p>` : "";
+  if (!(await ask("Áp dụng vào Media Pool", body + note + aiNote, "Đồng ý, chuyển " + pv.total + " clip"))) return status("Đã hủy, chưa ghi gì vào DaVinci.", "info");
   gotoAfterApply = thenPage2;
   api().apply();
 }
@@ -466,12 +468,13 @@ function sameItems() {
 function tagHtml(c) {
   const s = stageObj();
   const b = s && c.label ? s.bins.find((x) => x.name === c.label) : null;
+  if (b && c.label_by === "ai_auto") return `<span class="tag aiauto" title="AI xếp (chưa phải anh xếp, không tính vào dữ liệu AI học): ${esc(b.name)}" style="border-color:${b.color}">AI xếp · ${esc(b.name)}</span>`;
   if (b) return `<span class="tag" style="background:${b.color}33;color:var(--text);border:1px solid ${b.color}">${esc(b.name)}</span>`;
   const g = !c.label && AI.group && AI.group[c.uid];                      // gợi ý AI của cả nhóm (ai.js): viền đứt, chờ anh duyệt
   if (g && g.top) return `<span class="tag ai" title="${esc("AI gợi ý (chờ anh duyệt): " + g.top.map((t) => t.bin + " " + Math.round(t.score * 100) + "%").join(" · "))}">AI · ${esc(g.top[0].bin)} ${Math.round(g.top[0].score * 100)}%</span>`;
   return `<span class="tag none">Chưa xếp</span>`;
 }
-function cardKey(c) { return (c.label || "") + "|" + aiKey(c.uid); }
+function cardKey(c) { return (c.label || "") + "|" + (c.label_by || "") + "|" + aiKey(c.uid); }
 function setThumb(box, src) {
   let img = box.querySelector("img");
   if (!img) { img = document.createElement("img"); img.draggable = false; box.prepend(img); const ic = box.querySelector("svg"); if (ic) ic.remove(); }
@@ -795,7 +798,7 @@ async function showCur() {
   $("starToggleBtn").classList.toggle("active", !!c.star);
   renderPage3Cur(c);
   aiBoxRender();                                           // hộp Gợi ý AI (ai.js)
-  $("curBin").textContent = c.label ? c.label : "Chưa xếp";
+  $("curBin").textContent = c.label ? c.label + (c.label_by === "ai_auto" ? " (AI xếp)" : "") : "Chưa xếp";
   const src = { created: "Date Created", modified: "Date Modified − độ dài", none: "không rõ" }[c.src] || c.src;
   $("curInfo").textContent = `Giờ quay ${c.time} (${src}) · dài ${durTxt(c.dur)}\nMáy ${c.camera}\nHình: ${notes[c.uid] || "đang làm..."}\nLUT: ${c.lut || "(không gắn)"}` +
     (sel.size > 1 ? `\nĐang chọn ${sel.size} clip` : "");
@@ -804,7 +807,7 @@ async function showCur() {
 
   const uid = c.uid;
   if (PL.uid !== uid) { plStop(); PL.uid = uid; plOpen(c); }          // trình phát proxy (player.js); thumbnail là nền
-  const showImg = (src) => { const v = $("preview").querySelector("video"); $("preview").innerHTML = `<img src="${src}">`; if (v) $("preview").appendChild(v); };
+  const showImg = (src) => { const v = $("preview").querySelector("video"), lc = $("preview").querySelector("canvas.pv-lut"); $("preview").innerHTML = `<img src="${src}">`; if (v) $("preview").appendChild(v); if (lc) $("preview").appendChild(lc); };
   if (bigs[uid]) { showImg(bigs[uid]); return; }
   if (thumbs[uid]) showImg(thumbs[uid]); else if (!$("preview").querySelector("video")) $("preview").innerHTML = "<span>Đang làm hình xem trước...</span>";
   const r = await api().big(uid);

@@ -118,6 +118,8 @@ class PlayServer(object):
         h.send_response(206 if rng else 200)
         h.send_header("Content-Type", mimetypes.guess_type(path)[0] or "video/mp4")
         h.send_header("Accept-Ranges", "bytes")
+        h.send_header("Access-Control-Allow-Origin", "*")          # trang panel (cổng khác) đọc khung hình để áp LUT bằng WebGL; vé ngẫu nhiên vẫn là khóa
+        h.send_header("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges")
         h.send_header("Content-Length", str(b - a + 1 if size else 0))
         if rng:
             h.send_header("Content-Range", "bytes %d-%d/%d" % (a, b, size))
