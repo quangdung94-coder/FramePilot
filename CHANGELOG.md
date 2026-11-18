@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Thống kê In/Out thật từ project đã dựng (ADR-0021) - CHỜ NGƯỜI DỰNG DUYỆT ĐỀ XUẤT
+- tools/inout_dump.py (chỉ đọc DaVinci; sao lưu .drp trước; đổi project rồi mở lại đúng project gốc) + tools/inout_stats.py (số liệu, không tên khách). 2 project (P1, P2), 245 + 150 đoạn dùng trên timeline.
+- Kết quả: độ dài giữ ~3-4 s ở mọi bin; quy tắc hiện có trúng điểm vào 23%, ra 26% (P2); Phỏng vấn thực tế giữ ~7 s trích, không trọn câu. Đề xuất bảng mới trong ADR, CHƯA áp. Hình giống nhau không giúp đoán cách cắt (OpenCLIP).
+- 5 bài test mới (214 bài đạt).
+
 ## 2026-11-18 – Bước 6 AI: OpenCLIP nhúng ảnh, gợi ý bin theo mô tả (ADR-0020) - CHỜ NGƯỜI DỰNG XEM
 - Đã tải (đúng danh sách được duyệt): model OpenCLIP ViT-B/32 laion2B (605 MB, .safetensors, MIT) vào D:\VideoAI\data\models\openclip_vitb32_laion2b\; thư viện trong venv RIÊNG C:\VideoAI_ai_venv (~3,1 GB). Venv panel không đụng.
 - app/troly_ai.py: ghép thumbnail với clip (dựng lại mã băm từ proxy), nhúng nền có dừng/làm tiếp, gợi ý bin theo mô tả (hạng 1-2-3 + điểm), đo độ khớp với nhãn tay (từ 20 clip), trang báo cáo tĩnh. Chỉ gợi ý, không ghi DaVinci/kế hoạch.
