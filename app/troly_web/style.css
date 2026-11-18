@@ -573,3 +573,5 @@ button, input, select { font-family: inherit; }
 .p3-clips { padding-left: 0; }
 .p3-clips .p3-clip { gap: 6px; padding: 7px 6px; }
 .p3-ln.in.sg { background: rgba(91,155,245,.14); border-left-color: #5B9BF5; }
+#stageHost3 .preview { max-width: 444px; margin: 0 auto; }          /* như demo: khung xem 444x250, chừa chỗ cho khung chữ */
+#stageHost3 .preview { width: 444px; height: 250px; max-width: 100%; aspect-ratio: auto; }

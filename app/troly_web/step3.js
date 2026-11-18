@@ -229,7 +229,8 @@ function renderPage3Cur(c) {
   $("p3Meta").textContent = `${c.label || "Chưa xếp"} · ${c.time} · dài ${durTxt(c.dur)}`;
   $("p3Tag").textContent = c.label || "Chưa xếp";
   $("p3Star").textContent = c.star ? "★ Bỏ sao (J)" : "☆ Gắn sao (J)";
-  $("p3Star").classList.toggle("active", !!c.star);
+  $("p3Star").classList.toggle("active", !!c.star); $("p3Star").classList.toggle("btn-star", true);
+  $("ioWriteStar").textContent = "Ghi clip sao (" + (S.n_starred || 0) + ")";
   $("p3Accept").disabled = !c.sug;
   const f = c.fps || 25, sug = c.sug, rg = (a, b) => `${fmtF(a, f)} → ${fmtF(b, f)}`;
   let h = "";
