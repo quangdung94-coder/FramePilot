@@ -83,7 +83,7 @@ def clip_cut(plan, clip, label):
         return {"in_s": a, "out_s": b, "len": b - a, "lmin": b - a, "fixed": True}
     style = plan.get("shoot_style") or ""
     rules = plan.get("bin_rules") or None
-    s = tc.suggest_inout(dur, label, style, rules, plan.get("trad_trim_s"))
+    s = tc.suggest_plan(plan, dur, label)
     if s is None:                                           # clip < 1 giây: lấy nguyên clip
         return {"in_s": 0.0, "out_s": dur, "len": dur, "lmin": dur, "fixed": True}
     ln = s["out_s"] - s["in_s"]

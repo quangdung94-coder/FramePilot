@@ -298,46 +298,78 @@ function renderRules() {
   names.push({ name: "*", color: "#6A6A72" });
   const byName = new Map(R.bins.map((b) => [b.name, b]));
   const rows = names.map((x) => ({ ...x, r: byName.get(x.name) })).filter((x) => x.r);
-  const sig = JSON.stringify([rows.map((x) => [x.name, x.r]), R.style, R.trad_trim]);
+  const trad = R.style === "traditional";
+  const sig = JSON.stringify([rows.map((x) => [x.name, x.r]), R.style, R.trad_head, R.trad_tail, R.trad_bins]);
   if (sig === P3.rulesSig) return;
-  if (tbl.contains(document.activeElement) || document.activeElement === $("tradTrim")) return;    // đang gõ: không dựng lại
+  if (tbl.contains(document.activeElement) || document.activeElement === $("tradHead") || document.activeElement === $("tradTail")) return;    // đang gõ: không dựng lại
   P3.rulesSig = sig;
-  tbl.className = "rt" + (R.style === "traditional" ? " off" : "");
-  tbl.innerHTML = '<tr><th>Bin</th><th>Tối thiểu (s)</th><th>Tối đa (s)</th><th>Trọn câu</th></tr>' + rows.map((x) =>
-    `<tr data-bin="${esc(x.name)}"><td class="nm"><i style="background:${x.color}"></i>${x.name === "*" ? "Bin khác" : esc(x.name)}</td>` +
-    `<td><input class="num${x.r.edited ? " ed" : ""}" data-f="min" inputmode="decimal" value="${num(x.r.min)}" aria-label="Tối thiểu ${esc(x.name)}"></td>` +
-    `<td><input class="num${x.r.edited ? " ed" : ""}" data-f="max" inputmode="decimal" value="${x.r.whole ? "" : num(x.r.max)}" placeholder="—"${x.r.whole ? " disabled" : ""} aria-label="Tối đa ${esc(x.name)}"></td>` +
-    `<td><input type="checkbox" data-f="whole"${x.r.whole ? " checked" : ""} aria-label="Giữ trọn câu ${esc(x.name)}"></td></tr>`).join("");
+  if (trad) {                                                   // Truyền thống: cắt ĐẦU / ĐUÔI riêng từng bin (ADR-0025); min/max bị ẩn
+    tbl.className = "rt trad";
+    tbl.innerHTML = '<tr><th>Bin</th><th>Cắt đầu (s)</th><th>Cắt đuôi (s)</th><th></th></tr>' + rows.filter((x) => x.name !== "*").map((x) => {
+      const t = (R.trad_bins || {})[x.name] || { head: R.trad_head, tail: R.trad_tail, edited: false };
+      return `<tr data-bin="${esc(x.name)}" data-trad="1"><td class="nm"><i style="background:${x.color}"></i>${esc(x.name)}</td>` +
+        `<td><input class="num${t.edited ? " ed" : ""}" data-f="head" inputmode="decimal" value="${num(t.head)}" aria-label="Cắt đầu ${esc(x.name)}"></td>` +
+        `<td><input class="num${t.edited ? " ed" : ""}" data-f="tail" inputmode="decimal" value="${num(t.tail)}" aria-label="Cắt đuôi ${esc(x.name)}"></td>` +
+        `<td>${t.edited ? `<button class="btn-link" data-reset="1" title="Bin này quay về dùng cắt đầu / đuôi chung">chung</button>` : ""}</td></tr>`;
+    }).join("");
+  } else {
+    tbl.className = "rt";
+    tbl.innerHTML = '<tr><th>Bin</th><th>Tối thiểu (s)</th><th>Tối đa (s)</th><th>Trọn câu</th></tr>' + rows.map((x) =>
+      `<tr data-bin="${esc(x.name)}"><td class="nm"><i style="background:${x.color}"></i>${x.name === "*" ? "Bin khác" : esc(x.name)}</td>` +
+      `<td><input class="num${x.r.edited ? " ed" : ""}" data-f="min" inputmode="decimal" value="${num(x.r.min)}" aria-label="Tối thiểu ${esc(x.name)}"></td>` +
+      `<td><input class="num${x.r.edited ? " ed" : ""}" data-f="max" inputmode="decimal" value="${x.r.whole ? "" : num(x.r.max)}" placeholder="—"${x.r.whole ? " disabled" : ""} aria-label="Tối đa ${esc(x.name)}"></td>` +
+      `<td><input type="checkbox" data-f="whole"${x.r.whole ? " checked" : ""} aria-label="Giữ trọn câu ${esc(x.name)}"></td></tr>`).join("");
+  }
   $("rulesStyle").textContent = STYLE_NAME[R.style] || R.style;
   $("trStyleName").textContent = "Kiểu quay: " + (STYLE_NAME[R.style] || R.style);
-  $("trStyleText").textContent = R.style === "traditional" ? "Đang dùng Truyền thống: bảng bên trên chưa áp dụng, chỉ cắt đầu/đuôi mỗi clip."
-    : R.style === "psc" ? "Đang dùng PSC: gợi ý theo bảng bên trên. Chọn Truyền thống ở thanh trên thì bảng bị bỏ qua."
+  $("trStyleText").textContent = R.style === "traditional" ? "Đang dùng Truyền thống: bảng bên trên là cắt ĐẦU / ĐUÔI riêng từng bin (giữ dài, bảng tối thiểu/tối đa bị bỏ qua). Ô bên dưới là mặc định cho bin chưa sửa."
+    : R.style === "psc" ? "Đang dùng PSC: gợi ý theo bảng bên trên. Chọn Truyền thống ở thanh trên thì bảng chuyển sang cắt đầu / đuôi."
     : "Chưa chọn kiểu quay: gợi ý theo bảng bên trên, y như mặc định cũ. Chọn kiểu ở ô trên cùng.";
-  $("tradTrim").value = num(R.trad_trim);
-  $("tradTrim").classList.toggle("ed", Math.abs(R.trad_trim - R.trad_default) > 1e-9);
-  $("rulesNote").textContent = R.bins.some((b) => b.edited) ? "Ô viền cam = anh đã sửa." : "Chưa sửa gì: đang dùng số mặc định.";
+  $("tradHead").value = num(R.trad_head); $("tradTail").value = num(R.trad_tail);
+  $("tradHead").classList.toggle("ed", Math.abs(R.trad_head - R.trad_default) > 1e-9);
+  $("tradTail").classList.toggle("ed", Math.abs(R.trad_tail - (R.trad_default_tail == null ? R.trad_default : R.trad_default_tail)) > 1e-9);
+  const anyEd = trad ? Object.values(R.trad_bins || {}).some((b) => b.edited) || $("tradHead").classList.contains("ed") || $("tradTail").classList.contains("ed") : R.bins.some((b) => b.edited);
+  $("rulesNote").textContent = anyEd ? "Ô viền cam = anh đã sửa." : "Chưa sửa gì: đang dùng số mặc định.";
 }
 async function rulesChanged(e) {
   const tr = e.target.closest("tr[data-bin]"); if (!tr) return;
   const v = (f) => tr.querySelector(`[data-f="${f}"]`);
-  const whole = v("whole").checked, val = (el) => String(el.value).trim().replace(",", ".");
+  const val = (el) => String(el.value).trim().replace(",", ".");
+  if (tr.dataset.trad) {                                        // Truyền thống: cắt đầu / đuôi của bin
+    const st = await api().set_trad_bin(tr.dataset.bin, val(v("head")), val(v("tail")));
+    P3.rulesSig = "";
+    if (st && st.error) { status(st.error, "warn"); renderRules(); return; }
+    setState(st);
+    status(`Đã lưu cắt đầu / đuôi của bin ${tr.dataset.bin}. Chỉ đổi gợi ý màu xanh; bấm "Chạy lại" ở nút gợi ý để áp dụng cho clip sao.`, "ok");
+    return;
+  }
+  const whole = v("whole").checked;
   const st = await api().set_bin_rule(tr.dataset.bin, val(v("min")), whole ? null : val(v("max")), whole);
   P3.rulesSig = "";
   if (st && st.error) { status(st.error, "warn"); renderRules(); return; }
   setState(st);
   status("Đã lưu quy tắc " + (tr.dataset.bin === "*" ? "Bin khác" : tr.dataset.bin) + ". Chỉ đổi gợi ý màu xanh.", "ok");
 }
+$("rulesTbl").addEventListener("click", async (e) => {          // nút "chung": bin quay về dùng cắt đầu / đuôi chung
+  const b = e.target.closest("[data-reset]"), tr = e.target.closest("tr[data-bin]"); if (!b || !tr) return;
+  const st = await api().reset_trad_bin(tr.dataset.bin);
+  P3.rulesSig = "";
+  if (st && st.error) return status(st.error, "warn");
+  setState(st); status(`Bin ${tr.dataset.bin} dùng cắt đầu / đuôi chung.`, "ok");
+});
 $("rulesTbl").addEventListener("change", rulesChanged);
 $("rulesTbl").addEventListener("keydown", (e) => { if (e.code === "Enter" && e.target.tagName === "INPUT") e.target.blur(); });
-$("tradTrim").onchange = async () => {
-  const st = await api().set_trad_trim(String($("tradTrim").value).trim().replace(",", "."));
+async function tradDefaultChanged() {
+  const st = await api().set_trad_default(String($("tradHead").value).trim().replace(",", "."), String($("tradTail").value).trim().replace(",", "."));
   P3.rulesSig = "";
   if (st && st.error) { status(st.error, "warn"); renderRules(); return; }
-  setState(st); status("Đã lưu số giây cắt của Truyền thống.", "ok");
-};
-$("tradTrim").addEventListener("keydown", (e) => { if (e.code === "Enter") e.target.blur(); });
+  setState(st); status("Đã lưu cắt đầu / đuôi chung của Truyền thống (mặc định cho bin chưa sửa).", "ok");
+}
+$("tradHead").onchange = tradDefaultChanged;
+$("tradTail").onchange = tradDefaultChanged;
+for (const id of ["tradHead", "tradTail"]) $(id).addEventListener("keydown", (e) => { if (e.code === "Enter") e.target.blur(); });
 $("rulesReset").onclick = async () => {
-  const ok = await ask("Về mặc định?", "<p>Xóa mọi chỗ anh đã sửa trong bảng quy tắc và số giây cắt của Truyền thống. In/Out anh đã đặt tay không bị đụng.</p>", "Về mặc định");
+  const ok = await ask("Về mặc định?", "<p>Xóa mọi chỗ anh đã sửa trong bảng quy tắc và số giây cắt đầu / đuôi của Truyền thống (chung và từng bin). In/Out anh đã đặt tay không bị đụng.</p>", "Về mặc định");
   if (!ok) return;
   const st = await api().reset_bin_rule();
   P3.rulesSig = "";

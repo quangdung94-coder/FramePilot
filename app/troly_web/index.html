@@ -252,7 +252,9 @@
     <div class="p3-box">
       <b id="trStyleName">Kiểu quay: chưa chọn</b>
       <span id="trStyleText"></span>
-      <label class="tr-row" for="tradTrim">Truyền thống cắt đầu/đuôi <input id="tradTrim" class="num" inputmode="decimal" title="Số giây cắt ở đầu và đuôi mỗi clip (kiểu Truyền thống)"> giây</label>
+      <div class="tr-row" id="tradRow">Truyền thống, chung cho bin chưa sửa:
+        <label for="tradHead">cắt đầu <input id="tradHead" class="num" inputmode="decimal" title="Số giây cắt ở ĐẦU clip (mặc định 1,5). Làm mặc định cho bin chưa sửa trong bảng."></label>
+        <label for="tradTail">cắt đuôi <input id="tradTail" class="num" inputmode="decimal" title="Số giây cắt ở ĐUÔI clip (mặc định 1,5). Làm mặc định cho bin chưa sửa trong bảng."></label> giây</div>
     </div>
     <div class="flex1"></div>
     <span class="dim12">In/Out chỉ vào DaVinci khi anh bấm nút Ghi, có hộp xác nhận và sao lưu; gợi ý màu xanh không bao giờ tự ghi.</span>

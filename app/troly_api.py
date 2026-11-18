@@ -260,9 +260,13 @@ class TrolyApi(object):
             for b in st.get("bins") or []:
                 if b not in names:
                     names.append(b)
-        tt_ = self._plan.get("trad_trim_s")
-        return {"bins": tc.rules_view(self._plan, names), "trad_trim": tc.TRAD_HEAD_S if tt_ is None else tt_,
-                "trad_default": tc.TRAD_HEAD_S, "style": self._plan.get("shoot_style") or ""}
+        h, t = tc.trad_default(self._plan)
+        tb = {}
+        for n in names:
+            own = tc.trad_for(self._plan, n)
+            tb[n] = {"head": (own or (h, t))[0], "tail": (own or (h, t))[1], "edited": own is not None}
+        return {"bins": tc.rules_view(self._plan, names), "trad_trim": h, "trad_head": h, "trad_tail": t,
+                "trad_default": tc.TRAD_HEAD_S, "trad_default_tail": tc.TRAD_TAIL_S, "trad_bins": tb, "style": self._plan.get("shoot_style") or ""}
 
     def set_bin_rule(self, name, mn, mx, whole=False):
         """Sửa quy tắc gợi ý của một bin (name = tên bin, hoặc '*' cho dòng 'Bin khác'). Lưu trong kế hoạch project.
@@ -286,6 +290,7 @@ class TrolyApi(object):
             else:
                 br = {}
                 self._plan.pop("trad_trim_s", None)
+                self._plan.pop("trad_trim", None)
             if br:
                 self._plan["bin_rules"] = br
             else:
@@ -294,18 +299,50 @@ class TrolyApi(object):
         return self.state()
 
     def set_trad_trim(self, seconds):
-        """Số giây cắt đầu và đuôi của kiểu Truyền thống (mặc định 1.5)."""
+        """Số giây cắt đầu VÀ đuôi bằng nhau (khóa cũ, giữ để tương thích). Dùng set_trad_default để tách đầu / đuôi."""
         try:
             v = float(seconds)
         except (TypeError, ValueError):
             return {"error": "Số giây phải là số."}
         if v != v or v < 0 or v > 30:
             return {"error": "Số giây cắt phải từ 0 đến 30."}
+        return self.set_trad_default(v, v)
+
+    def set_trad_default(self, head, tail):
+        """Cắt ĐẦU và cắt ĐUÔI chung (kiểu Truyền thống), làm mặc định cho bin chưa sửa. Mặc định 1,5 / 1,5. Sai thì báo lỗi, không ghi gì.
+        Lưu vào trad_trim_s: số khi đầu = đuôi (kế hoạch cũ đọc được), cặp [đầu, đuôi] khi khác nhau; về mặc định thì xóa khóa."""
+        ok, v = tc.check_trad(head, tail)
+        if not ok:
+            return {"error": v}
         with self._lock:
-            if abs(v - tc.TRAD_HEAD_S) < 1e-9:
+            if v == (tc.TRAD_HEAD_S, tc.TRAD_TAIL_S):
                 self._plan.pop("trad_trim_s", None)
             else:
-                self._plan["trad_trim_s"] = round(v, 2)
+                self._plan["trad_trim_s"] = v[0] if v[0] == v[1] else [v[0], v[1]]
+            self._save_now()
+        return self.state()
+
+    def set_trad_bin(self, name, head, tail):
+        """Cắt đầu / đuôi RIÊNG của một bin (plan["trad_trim"][bin] = [đầu, đuôi]). Chỉ đổi gợi ý xanh; gợi ý đã lưu thành "cũ" cho tới khi chạy lại."""
+        if not name or not isinstance(name, str):
+            return {"error": "Thiếu tên bin."}
+        ok, v = tc.check_trad(head, tail)
+        if not ok:
+            return {"error": v}
+        with self._lock:
+            self._plan.setdefault("trad_trim", {})[name] = [v[0], v[1]]
+            self._save_now()
+        return self.state()
+
+    def reset_trad_bin(self, name):
+        """Bin quay về dùng cắt đầu / đuôi chung."""
+        with self._lock:
+            d = self._plan.get("trad_trim") or {}
+            d.pop(name, None)
+            if d:
+                self._plan["trad_trim"] = d
+            else:
+                self._plan.pop("trad_trim", None)
             self._save_now()
         return self.state()
 
@@ -916,7 +953,7 @@ class TrolyApi(object):
             a, b = saved["in"], saved["out"]
             return {"in_s": a, "out_s": b, "dur": round(b - a, 2), "rule": saved.get("rule") or "", "src": saved.get("src") or "rule",
                     "stale": saved.get("sig") != tc.sug_signature(self._plan, lb)}
-        r = tc.suggest_inout(c.dur, lb, self._plan.get("shoot_style") or "", self._plan.get("bin_rules"), self._plan.get("trad_trim_s"))
+        r = tc.suggest_plan(self._plan, c.dur, lb)
         if r is None:
             return None
         r = dict(r)

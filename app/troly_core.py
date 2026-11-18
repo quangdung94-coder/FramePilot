@@ -256,22 +256,75 @@ def rules_view(plan, labels):
     return out
 
 
-def suggest_inout(dur, label=None, style="", rules=None, trad_trim=None):
+TRAD_MAX_S = 600.0
+
+
+def check_trad(head, tail):
+    """Kiểm số giây cắt ĐẦU và ĐUÔI (kiểu Truyền thống) anh nhập: số, không âm, tối đa 600. Trả (True, (đầu, đuôi)) hoặc (False, lời báo)."""
+    try:
+        h, t = float(head), float(tail)
+    except (TypeError, ValueError):
+        return False, "Số giây cắt phải là số."
+    for v in (h, t):
+        if v != v or v in (float("inf"), float("-inf")):
+            return False, "Số giây cắt phải là số."
+        if v < 0:
+            return False, "Số giây cắt không được âm."
+        if v > TRAD_MAX_S:
+            return False, "Số giây cắt tối đa là %d." % TRAD_MAX_S
+    return True, (round(h, 2), round(t, 2))
+
+
+def trad_pair(v):
+    """Giá trị lưu trong kế hoạch -> (đầu, đuôi) hoặc None. Nhận số (khóa cũ trad_trim_s: đầu = đuôi) hoặc cặp [đầu, đuôi]; hỏng thì None."""
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        ok, r = check_trad(v, v)
+        return r if ok else None
+    if isinstance(v, (list, tuple)) and len(v) == 2:
+        ok, r = check_trad(v[0], v[1])
+        return r if ok else None
+    return None
+
+
+def trad_default(plan):
+    """Cắt đầu / đuôi dùng chung cho bin chưa sửa (khóa trad_trim_s: số hoặc cặp; chưa có -> 1,5 / 1,5)."""
+    return trad_pair(plan.get("trad_trim_s")) or (TRAD_HEAD_S, TRAD_TAIL_S)
+
+
+def trad_for(plan, label):
+    """Cắt đầu / đuôi RIÊNG của một bin (plan["trad_trim"][tên bin]) hoặc None nếu bin chưa sửa."""
+    d = plan.get("trad_trim")
+    return trad_pair(d.get(label)) if isinstance(d, dict) and label else None
+
+
+def suggest_plan(plan, dur, label):
+    """Gợi ý mức 1 theo MỌI thông số của kế hoạch (kiểu quay, bảng min/max, cắt đầu/đuôi chung và theo bin)."""
+    return suggest_inout(dur, label, plan.get("shoot_style") or "", plan.get("bin_rules") or None, trad_default(plan), trad_for(plan, label))
+
+
+def suggest_inout(dur, label=None, style="", rules=None, trad_trim=None, trad_bin=None):
     """Gợi ý in/out (giây) theo quy tắc ADR-0004 kết hợp nhãn phân loại bin con:
     - Decor / Chi tiết: cần đoạn 2.5 - 3.5s ổn định, bỏ 1s đầu bấm máy.
     - Cô dâu chú rể / Beauty: cần đoạn 3.5 - 4.5s khoảnh khắc đẹp.
     - Nghi lễ / Gia tiên: giữ đoạn dài 5 - 8s (hoặc gần hết clip nếu ngắn).
     - Phỏng vấn: giữ trọn câu nói.
     - Mặc định (ADR-0004 v4): vào 1.2s, ra = vào + 3.0s, cách cuối >= 1.0s.
+    Truyền thống: trad_trim = số (đầu = đuôi, khóa cũ) hoặc cặp (đầu, đuôi) dùng chung; trad_bin = cặp riêng của bin (thắng trad_trim).
     """
     dur = float(dur or 0)
     if dur < 1.0:
         return None
     if style == "traditional":
-        # Truyền thống (ADR-0018): giữ source dài nhất có thể, chỉ cắt đầu và đuôi; không phân biệt bin. Clip ngắn thì cắt ít hơn
-        # để vẫn còn ít nhất 1 giây. Số giây cắt chỉnh được (ADR-0019, mặc định 1.5). Chỉ là bộ tham số gợi ý (màu xanh).
-        cut = TRAD_HEAD_S if trad_trim is None else max(0.0, float(trad_trim))
-        head = tail = min(cut, max(0.0, (dur - 1.0) / 2.0))
+        # Truyền thống (ADR-0018): giữ source dài nhất có thể, chỉ cắt đầu và đuôi. Cắt đầu / đuôi chỉnh được riêng từng bin (ADR-0025),
+        # mặc định 1.5 / 1.5. Clip ngắn thì cắt ít hơn (co đều cả hai đầu) để vẫn còn ít nhất 1 giây. Chỉ là bộ tham số gợi ý (màu xanh).
+        h, t = trad_pair(trad_bin) or trad_pair(trad_trim) or (TRAD_HEAD_S, TRAD_TAIL_S)
+        room = max(0.0, dur - 1.0)
+        if h + t > room and h + t > 0:
+            k = room / (h + t)
+            h, t = h * k, t * k
+        head, tail = h, t
         return {"in_s": round(head, 2), "out_s": round(dur - tail, 2), "dur": round(dur - head - tail, 2),
                 "rule": "Truyền thống: giữ dài, cắt %.1fs đầu và %.1fs đuôi" % (head, tail)}
     rule, mn, mx, whole, _ed = rule_for(label, rules)
@@ -935,7 +988,7 @@ def speech_span(lines, dur, pad=SUG_PAD_DEFAULT):
 def sug_signature(plan, label):
     """Chữ ký các thông số làm nên gợi ý (kiểu quay, quy tắc của bin, số giây Truyền thống, đệm) để biết gợi ý đã lưu có cũ không."""
     t = rule_for(label, plan.get("bin_rules") or None)
-    return "|".join(str(x) for x in (plan.get("shoot_style") or "", t[1], t[2], t[3], plan.get("trad_trim_s"), sug_pad(plan)))
+    return "|".join(str(x) for x in (plan.get("shoot_style") or "", t[1], t[2], t[3], trad_default(plan), trad_for(plan, label), sug_pad(plan)))
 
 
 def compute_sug(plan, clip, label, lines):
@@ -945,7 +998,7 @@ def compute_sug(plan, clip, label, lines):
     sp = speech_span(lines, dur, pad) if lines else None
     if sp:
         return {"in": sp[0], "out": sp[1], "src": "speech", "rule": "Theo lời nói (đệm %g s)" % pad, "sig": sug_signature(plan, label), "pad": pad}
-    r = suggest_inout(dur, label, plan.get("shoot_style") or "", plan.get("bin_rules") or None, plan.get("trad_trim_s"))
+    r = suggest_plan(plan, dur, label)
     if r is None:
         return None
     return {"in": r["in_s"], "out": r["out_s"], "src": "rule", "rule": r["rule"], "sig": sug_signature(plan, label), "pad": pad}
