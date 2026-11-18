@@ -1,5 +1,11 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Bước 6 AI: OpenCLIP nhúng ảnh, gợi ý bin theo mô tả (ADR-0020) - CHỜ NGƯỜI DỰNG XEM
+- Đã tải (đúng danh sách được duyệt): model OpenCLIP ViT-B/32 laion2B (605 MB, .safetensors, MIT) vào D:\VideoAI\data\models\openclip_vitb32_laion2b\; thư viện trong venv RIÊNG C:\VideoAI_ai_venv (~3,1 GB). Venv panel không đụng.
+- app/troly_ai.py: ghép thumbnail với clip (dựng lại mã băm từ proxy), nhúng nền có dừng/làm tiếp, gợi ý bin theo mô tả (hạng 1-2-3 + điểm), đo độ khớp với nhãn tay (từ 20 clip), trang báo cáo tĩnh. Chỉ gợi ý, không ghi DaVinci/kế hoạch.
+- Số đo: 350-530 clip nhúng trong 4-9 giây; project có nhãn: hạng 1 trùng 17%, trong 3 đầu 58% (lần viết lại mô tả đã nhìn nhãn nên không độc lập). Học từ nhãn tay (kNN) ~81%.
+- CLAUDE.md thêm quy tắc tải model/thư viện; requirements_ai.txt; 7 bài test mới (209 bài đạt, 1 bỏ qua).
+
 ## 2026-11-18 – Trang Bước 3 In/Out riêng (ADR-0019)
 - Demo design/3_inout (CHƯA được người dựng duyệt) + trang Bước 3: clip theo bin, trình phát, sóng âm từ proxy (app/troly_wave.py, cache, chỉ đọc), thanh In/Out kéo tay, bảng quy tắc gợi ý từng bin chỉnh được (lưu theo project, chưa sửa = như cũ), số giây cắt Truyền thống chỉnh được. Bước 2 không còn thanh In/Out. 30 bài kiểm thử mới, tổng 202.
 
