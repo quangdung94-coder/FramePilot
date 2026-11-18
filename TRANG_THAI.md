@@ -72,6 +72,16 @@
 - Một project không còn proxy nên thumbnail không ghép được tên clip.
 - Chưa làm: giao diện trong panel, học từ nhãn (few-shot), dùng giai đoạn/giờ quay để thu hẹp bin.
 
+## Thống kê In/Out thật (18/11/2026, nhánh inout-ai) - CHỜ ANH DUYỆT ĐỀ XUẤT
+- Đã đọc 2 project đã dựng (P1, P2; media online) bằng tools/inout_dump.py; sao lưu .drp ở D:\VideoAIackup\drp_20261118-102823 (15 MB). Đã mở lại đúng project gốc.
+- Số liệu: D:\VideoAI\data	roly\inout_stats\ (index.html, by_bin.csv, vs_rules.csv). Giải thích + bảng đề xuất: docs/adr/0021. CHƯA áp vào panel; chờ anh duyệt bảng ghép tên bin và giá trị đề xuất.
+- Chưa tách Truyền thống/PSC (kế hoạch panel chưa chọn kiểu quay).
+
+## Bước 6 AI nhúng vào panel (18/11/2026) - CHỜ ANH THỬ; demo + giao diện CHƯA được anh duyệt
+- Bước 2 có hộp "Gợi ý AI" (hạng 1-3, Nhận, Bỏ qua, gợi ý cả nhóm, phím A/X, Chạy/Dừng AI nền). Nhận chỉ gán nhãn trong Trợ lý, KHÔNG chuyển clip trong DaVinci. Demo: design/6_ai_goi_y. Quyết định + số đo: docs/adr/0022.
+- Đủ 20 nhãn tay thì học từ nhãn, không thì theo mô tả. Số đo: mô tả 47%/86% (hạng 1 / trong 3 đầu); học từ nhãn chia theo giờ 53%/90%.
+- Đã thử: bộ test, bàn thử trình duyệt với giao diện + TrolyApi thật + DaVinci thật (chỉ đọc), 1440x900 / 1100x700 / 1707x960. CHƯA mở cửa sổ pywebview thật. Chưa đo chéo project (chỉ 1 project đủ nhãn). Bảng ghép tên bin giữa project: file đề xuất, chờ anh duyệt.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
 2. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin

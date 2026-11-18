@@ -440,3 +440,23 @@ button, input, select { font-family: inherit; }
 .p3-box .num { width: 52px; height: 26px; margin: 0 4px; }
 @media (max-width: 1250px) { .p3-left { width: 230px; } .p3-right { width: 320px; } }
 .p3-center .io-write { position: sticky; bottom: -20px; background: var(--bg); padding: 8px 0 12px; margin-top: auto; flex-shrink: 0; }
+
+/* ===== Bước 2: gợi ý AI (ADR-0022, demo design/6_ai_goi_y) ===== */
+.ai-box { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #1F1B14; border: 1px dashed var(--accent); }
+.ai-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ai-title { font-size: 12px; color: var(--link); font-weight: 600; }
+.ai-src { font-size: 11px; color: var(--dim); white-space: nowrap; }
+.ai-row { display: grid; grid-template-columns: minmax(0, 1fr) 54px 40px 52px; align-items: center; gap: 8px; font-size: 13px; }
+.ai-row .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-row.first .nm { font-weight: 600; }
+.ai-bar { height: 6px; border-radius: 3px; background: #33302A; overflow: hidden; }
+.ai-bar i { display: block; height: 100%; background: var(--accent); }
+.ai-row .pc { text-align: right; color: var(--dim2); font-size: 12px; }
+.ai-row .btn { height: 26px; padding: 0 8px; font-size: 12px; }
+.ai-msg { font-size: 12.5px; color: var(--dim2); line-height: 1.5; }
+.ai-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.ai-acts .btn { height: 30px; padding: 0 10px; font-size: 12px; }
+.tag.ai { border: 1px dashed var(--accent); color: var(--link); background: transparent; }
+/* cột phải Bước 2 dài hơn màn hình thấp: hai nút Áp dụng luôn dính đáy, phần còn lại cuộn */
+#page2 .col-right .v8 { position: sticky; bottom: -20px; background: var(--right); padding: 10px 0 20px; margin-bottom: -20px; z-index: 3; }
+#page2 .col-right > :not(.flex1) { flex-shrink: 0; }          /* cột dài hơn màn hình thì cuộn, không bóp nút/ô */

@@ -307,6 +307,7 @@ def run_suggest(project, data_root, proxy_root):
         stem_key = (c["rel"].split("/")[0].casefold(), c["name"].casefold())
         items.append({"clip": c["rel"], "name": c["name"], "thumb": c["thumb"],
                       "top": [{"bin": bins[j], "score": round(float(p[j]), 4)} for j in order],
+                      "scores": [round(float(x), 4) for x in p],
                       "label": lab.get(stem_key)})
     out = {"project_tag": project[:10], "model": "OpenCLIP %s laion2b_s34b_b79k" % MODEL_ARCH, "bins": bins,
            "prompts": {b: prompts_for(b) for b in bins}, "count": len(items), "items": items,
@@ -397,9 +398,136 @@ def build_review(project, data_root):
     return p
 
 
+# ---------------------------------------------------------------------------
+# Dùng trong panel (ADR-0022): chỉ ĐỌC file gợi ý + vector; gợi ý hạng 1-3 trong các bin của giai đoạn clip đang ở
+# ---------------------------------------------------------------------------
+MIN_FEWSHOT_LABELS = 20          # từ ngần này clip có nhãn tay (có vector) trong project thì học từ nhãn thay vì chỉ theo mô tả
+MIN_FEWSHOT_IN_STAGE = 3         # ... và ít nhất ngần này clip đã xếp trong các bin của giai đoạn đang xét
+KNN_K = 7
+KNN_TEMP = 20.0
+
+
+def ck(rel):
+    """Khóa so khớp clip panel <-> vector/gợi ý: (thư mục cha, tên không đuôi) không phân biệt hoa thường. Đuôi proxy (.mov) khác file gốc (.MP4)."""
+    parts = (rel or "").replace("\\", "/").split("/")
+    return ((parts[-2] if len(parts) > 1 else "").casefold(), os.path.splitext(parts[-1])[0].casefold())
+
+
+def load_vectors(data_root, project):
+    """{ck: vector} từ cache nhúng, hoặc {} nếu chưa có. Cần numpy."""
+    import numpy as np
+    f = os.path.join(embed_dir(data_root, project), "vectors.npz")
+    if not os.path.isfile(f):
+        return {}
+    with np.load(f, allow_pickle=False) as z:
+        keys, vecs = list(z["keys"]), z["vecs"].copy()
+    out = {}
+    for k, v in zip(keys, vecs):
+        stem, _, parent = str(k).partition("|")
+        out[(parent.casefold(), stem.casefold())] = v
+    return out
+
+
+def load_suggest(data_root, project):
+    """(bins, {ck: scores theo bins}, mô tả) từ file gợi ý theo mô tả, hoặc None nếu chưa chạy."""
+    p = os.path.join(data_root, "troly", "ai_suggest", tc._safe(project) + ".json")
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return None
+    out = {}
+    for it in d.get("items", []):
+        if it.get("scores"):
+            out[ck(it["clip"])] = it["scores"]
+    return d.get("bins", []), out
+
+
+def _top3(pairs, skip=()):
+    pairs = [(b, s) for b, s in pairs if b not in skip]
+    pairs.sort(key=lambda x: -x[1])
+    return [{"bin": b, "score": round(float(s), 3)} for b, s in pairs[:3]]
+
+
+def rank_for_clip(key, cand_bins, vectors, labeled, desc, k=KNN_K, temp=KNN_TEMP):
+    """Gợi ý hạng 1-3 cho một clip trong các bin cand_bins (bin của giai đoạn clip đang ở).
+    labeled = {ck: bin} nhãn tay (của anh); desc = (bins, {ck: scores}) theo mô tả.
+    Trả (nguồn 'nhan'|'mo_ta'|None, [{'bin','score'}...]). Điểm đã chuẩn hóa trong các bin của giai đoạn (cộng lại = 1)."""
+    import numpy as np
+    v = vectors.get(key)
+    if v is not None and len(labeled) >= MIN_FEWSHOT_LABELS:
+        pool = [(kk, b) for kk, b in labeled.items() if b in cand_bins and kk != key and kk in vectors]
+        if len(pool) >= MIN_FEWSHOT_IN_STAGE:
+            M = np.stack([vectors[kk] for kk, _ in pool])
+            sims = M @ v
+            idx = np.argsort(-sims)[:k]
+            w = np.exp(temp * (sims[idx] - sims[idx].max()))
+            sc = {}
+            for j, wi in zip(idx, w):
+                sc[pool[j][1]] = sc.get(pool[j][1], 0.0) + float(wi)
+            tot = sum(sc.values()) or 1.0
+            return "nhan", _top3([(b, x / tot) for b, x in sc.items()])
+    if desc and key in desc[1]:
+        bins, table = desc
+        sc = [(b, x) for b, x in zip(bins, table[key]) if b in cand_bins]
+        tot = sum(x for _, x in sc)
+        if sc and tot > 0:
+            return "mo_ta", _top3([(b, x / tot) for b, x in sc])
+    return None, []
+
+
+def ai_python(cfg_value=None):
+    return cfg_value or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+
+
+class AiJob(object):
+    """Chạy nhúng + gợi ý bằng venv AI trong tiến trình con (nền). Dừng bằng cờ STOP (làm tiếp được: chạy lại). Không tự chạy gì khác."""
+
+    def __init__(self, project, data_root, python=None):
+        self.project, self.root = project, data_root
+        self.python = ai_python(python)
+        self._proc = None
+
+    def available(self):
+        return os.path.isfile(self.python) and os.path.isfile(model_path(self.root))
+
+    def running(self):
+        return self._proc is not None and self._proc.poll() is None
+
+    def start(self):
+        if self.running():
+            return True
+        if not self.available():
+            return False
+        import subprocess
+        d = embed_dir(self.root, self.project)
+        os.makedirs(d, exist_ok=True)
+        stop = os.path.join(d, "STOP")
+        if os.path.isfile(stop):
+            os.remove(stop)
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        self._proc = subprocess.Popen([self.python, "-X", "utf8", os.path.join(APP, "troly_ai.py"), "run", "--project", self.project],
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
+        return True
+
+    def stop(self):
+        d = embed_dir(self.root, self.project)
+        os.makedirs(d, exist_ok=True)
+        open(os.path.join(d, "STOP"), "w").close()
+
+    def last_log(self):
+        log = os.path.join(self.root, "logs", "ai_embed_%s.log" % hashlib.sha1(self.project.encode("utf-8")).hexdigest()[:8])
+        try:
+            with open(log, "r", encoding="utf-8") as f:
+                lines = f.read().strip().splitlines()
+            return lines[-1][9:] if lines else ""
+        except OSError:
+            return ""
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("embed", "suggest", "review", "all"))
+    ap.add_argument("cmd", choices=("embed", "suggest", "review", "all", "run"))
     ap.add_argument("--project", required=True)
     ap.add_argument("--stop", action="store_true")
     a = ap.parse_args(argv)
@@ -411,6 +539,12 @@ def main(argv=None):
         print("Đã đặt cờ dừng.")
         return 0
     res = {}
+    if a.cmd == "run":                                      # panel gọi: nhúng rồi gợi ý; bị dừng giữa chừng thì không gợi ý
+        res["embed"] = run_embed(a.project, dr, pr)
+        if not os.path.isfile(os.path.join(embed_dir(dr, a.project), "STOP")):
+            res["suggest"] = run_suggest(a.project, dr, pr)
+        print(json.dumps(res, ensure_ascii=False))
+        return 0
     if a.cmd in ("embed", "all"):
         res["embed"] = run_embed(a.project, dr, pr)
     if a.cmd in ("suggest", "all"):

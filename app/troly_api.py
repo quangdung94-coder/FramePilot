@@ -22,6 +22,7 @@ sys.path.insert(0, HERE)
 import troly_core as tc           # noqa: E402
 import troly_resolve as tr        # noqa: E402
 import troly_thumbs as tt         # noqa: E402
+import troly_ai as ai             # noqa: E402
 
 SUB_COLORS = ["#4FC1A6", "#E88AB0", "#F2A33A", "#5B9BF5", "#C98BE0", "#EF7D65", "#A9CF62", "#E0B860", "#7FB7E8",
               "#8A8A94"]
@@ -62,6 +63,7 @@ class TrolyApi(object):
         self._save_timer = None
         self._speech_st, self._speech_run, self._speech_last = None, None, None
         self._analyze = None
+        self._ai_cache, self._ai_job = {}, None            # Bước 6 AI (ADR-0022)
         import troly_batch as _tb
         self._shutdown_fn = _tb.system_shutdown     # kiểm thử thay bằng bản giả
         self._analyze_countdown, self._analyze_sleep = _tb.COUNTDOWN_S, time.sleep      # kiểm thử rút ngắn
@@ -652,6 +654,121 @@ class TrolyApi(object):
         self._emit("state", self.state())
         self._emit("status", {"text": msg, "kind": "warn" if failed else "ok"})
         self._worker.jobs.put(("bins", None))
+
+    # ------------------------------------------------------------------ Bước 6 AI: gợi ý bin (ADR-0022) - CHỈ GỢI Ý
+    # Gợi ý lấy từ file riêng + vector (chỉ đọc). "Nhận" chỉ gán NHÃN trong kế hoạch panel (như anh xếp tay); chuyển clip trong DaVinci vẫn do
+    # nút "Áp dụng vào Media Pool" (có nhật ký + Hoàn tác). AI không bao giờ gọi DaVinci.
+    def _ai_files(self):
+        d = ai.embed_dir(self._root, self._project)
+        return os.path.join(d, "vectors.npz"), os.path.join(self._root, "troly", "ai_suggest", tc._safe(self._project) + ".json")
+
+    def _ai_data(self):
+        """(vectors, desc) nạp lại khi file đổi."""
+        vf, sf = self._ai_files()
+        sig = tuple((os.path.getmtime(f) if os.path.isfile(f) else 0) for f in (vf, sf))
+        if self._ai_cache.get("sig") != sig:
+            try:
+                self._ai_cache = {"sig": sig, "vec": ai.load_vectors(self._root, self._project), "desc": ai.load_suggest(self._root, self._project)}
+            except Exception:                                 # noqa: BLE001  numpy thiếu / file hỏng: coi như chưa có
+                self._ai_cache = {"sig": sig, "vec": {}, "desc": None}
+        return self._ai_cache["vec"], self._ai_cache["desc"]
+
+    def _ai_labeled(self):
+        out = {}
+        for rel, v in (self._plan.get("labels") or {}).items():
+            if isinstance(v, dict) and v.get("bin"):
+                out[ai.ck(rel)] = v["bin"]
+        return out
+
+    def _ai_jobobj(self):
+        if self._ai_job is None:
+            import troly_env
+            self._ai_job = ai.AiJob(self._project, self._root, (troly_env.config() or {}).get("ai_python"))
+        return self._ai_job
+
+    def ai_info(self):
+        with self._lock:
+            vec, desc = self._ai_data()
+            job = self._ai_jobobj()
+            lab = self._ai_labeled()
+            n_lab = sum(1 for k in lab if k in vec)
+            return {"has_data": bool(desc and desc[1]), "running": job.running(), "can_run": job.available(), "log": job.last_log(),
+                    "n_vectors": len(vec), "n_labeled": n_lab, "mode": "nhan" if n_lab >= ai.MIN_FEWSHOT_LABELS else "mo_ta",
+                    "min_labels": ai.MIN_FEWSHOT_LABELS}
+
+    def ai_run(self):
+        """Chạy nhúng + gợi ý bằng venv AI trong nền (dừng được bằng ai_stop, chạy lại thì làm tiếp)."""
+        with self._lock:
+            job = self._ai_jobobj()
+            if not job.available():
+                return {"error": "Chưa có venv AI hoặc model (xem docs/adr/0020)."}
+            job.start()
+            return self.ai_info()
+
+    def ai_stop(self):
+        with self._lock:
+            self._ai_jobobj().stop()
+            return self.ai_info()
+
+    def ai_for(self, uids, include_labeled=False):
+        """{uid: {'src': 'nhan'|'mo_ta', 'top': [{'bin','score'}...]}} cho các clip; clip đã bị bỏ qua -> {'skipped': True};
+        chưa có dữ liệu -> {}. Chỉ xét các bin của giai đoạn clip đang ở. Clip đã xếp bị bỏ qua trừ khi include_labeled."""
+        with self._lock:
+            vec, desc = self._ai_data()
+            if not vec and not desc:
+                return {}
+            lab = self._ai_labeled()
+            skip = self._plan.get("ai_skip") or {}
+            out = {}
+            for u in uids:
+                c = self._by_uid.get(u)
+                si = self._assign.get(u)
+                if not c or si is None or si < 0 or si >= len(self._stages):
+                    continue
+                if not include_labeled and self._label_in_stage(c, si):
+                    continue
+                if skip.get(c.rel or c.name):
+                    out[u] = {"skipped": True}
+                    continue
+                cand = self._stages[si]["bins"]
+                key = ai.ck(c.rel or c.name)
+                train = {k: b for k, b in lab.items() if k != key}
+                src, top = ai.rank_for_clip(key, cand, vec, train, desc)
+                if top:
+                    out[u] = {"src": src, "top": top}
+            return out
+
+    def ai_accept(self, pairs):
+        """Nhận gợi ý: pairs = [[uid, tên bin]]. Chỉ gán NHÃN trong kế hoạch (by='ai_duyet'); không đụng DaVinci."""
+        with self._lock:
+            n, bad = 0, 0
+            for u, b in pairs:
+                c = self._by_uid.get(u)
+                si = self._assign.get(u)
+                if not c or si is None or si < 0 or si >= len(self._stages) or b not in self._stages[si]["bins"]:
+                    bad += 1
+                    continue
+                tc.set_label(self._plan, c, self._stages[si]["name"], b, by="ai_duyet")
+                (self._plan.get("ai_skip") or {}).pop(c.rel or c.name, None)
+                n += 1
+            self._save_soon()
+            st = self.state()
+            st["ai_accepted"], st["ai_bad"] = n, bad
+            return st
+
+    def ai_skip(self, uids, undo=False):
+        """Bỏ qua gợi ý của clip (lưu trong kế hoạch panel; undo=True để hiện lại)."""
+        with self._lock:
+            sk = self._plan.setdefault("ai_skip", {})
+            for u in uids:
+                c = self._by_uid.get(u)
+                if c:
+                    if undo:
+                        sk.pop(c.rel or c.name, None)
+                    else:
+                        sk[c.rel or c.name] = True
+            self._save_soon()
+            return {"ok": True}
 
     # ------------------------------------------------------------------ thumbnail
     def want_thumbs(self, uids):

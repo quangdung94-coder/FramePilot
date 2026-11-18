@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>Demo Bước 2: Gợi ý AI (CHƯA được duyệt)</title>
+<link rel="stylesheet" href="../../app/troly_web/style.css">
+<style>.pool-demo{display:flex;flex-direction:column;gap:6px;font-size:13px}.pool-demo div{padding:6px 8px;border-radius:6px;background:var(--card)}.pool-demo .on{border:1px solid var(--accent)}</style></head>
+<body><div id="app">
+<header class="top"><div class="brand"><div class="brand-text"><span class="brand-title">Trợ lý File Quay</span><span class="brand-sub">Demo LV_Ten</span></div></div>
+<nav class="steps"><a class="step">1 · Giai đoạn</a><a class="step active">2 · Phân loại bin</a><a class="step">3 · In / Out</a><a class="step">4 · Lời nói</a><a class="step">5 · Thời lượng</a></nav><div class="top-right"></div></header>
+<main class="page" id="page2">
+<aside class="col-pool"><span class="caps">Media Pool</span><div class="pool-demo"><div>1 · Chuẩn bị nhà gái</div><div class="on">2 · Rước dâu</div><div>3 · Đón dâu</div></div></aside>
+<section class="col-grid">
+  <div class="row-between end"><div class="title-block"><h1 class="h20">2 · Rước dâu</h1><span class="dim13">Kéo thumbnail vào bin bên trái, hoặc bấm phím số. Mỗi lần anh xếp, AI ghi lại để học.</span></div><span class="dim13b">Đã xếp 6/12 · AI gợi ý 5</span></div>
+  <div class="grid-scroll"><div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+    <div class="card"><div class="thumb" style="background:linear-gradient(135deg,#6b5a45,#2c2a30)"><span class="badge tl">07:12</span><span class="badge br">0:08</span></div><div class="card-foot"><span class="f">DG0101</span><span class="tag" style="background:#3E7BFA33;border:1px solid #3E7BFA">Nhà trai đến</span></div></div>
+    <div class="card cur"><div class="thumb" style="background:linear-gradient(135deg,#7a6b88,#2c2a30)"><span class="badge tl">07:14</span><span class="badge br">0:06</span></div><div class="card-foot"><span class="f">DG0102</span><span class="tag ai">AI · Trao lễ vật 82%</span></div></div>
+    <div class="card"><div class="thumb" style="background:linear-gradient(135deg,#8a5a5a,#2c2a30)"><span class="badge tl">07:15</span><span class="badge br">0:11</span></div><div class="card-foot"><span class="f">DG0103</span><span class="tag ai">AI · Trao lễ vật 64%</span></div></div>
+    <div class="card"><div class="thumb" style="background:linear-gradient(135deg,#5a7a6b,#2c2a30)"><span class="badge tl">07:21</span><span class="badge br">0:05</span></div><div class="card-foot"><span class="f">DG0104</span><span class="tag none">Chưa xếp</span></div></div>
+    <div class="card"><div class="thumb" style="background:linear-gradient(135deg,#4d5f8a,#2c2a30)"><span class="badge tl">07:25</span><span class="badge br">0:09</span></div><div class="card-foot"><span class="f">DG0105</span><span class="tag ai">AI · Khách 58%</span></div></div>
+    <div class="card"><div class="thumb" style="background:linear-gradient(135deg,#8a7a4d,#2c2a30)"><span class="badge tl">07:26</span><span class="badge br">0:07</span></div><div class="card-foot"><span class="f">DG0106</span><span class="tag" style="background:#3E7BFA33;border:1px solid #3E7BFA">Nhà trai đến</span></div></div>
+  </div></div>
+  <div class="legend"><span><i class="pill-solid"></i>Đã xếp</span><span><i class="pill-ai"></i>AI gợi ý, chờ anh duyệt</span><span><i class="pill-none"></i>Chưa xếp</span></div>
+</section>
+<aside class="col-right">
+  <div class="row-between baseline"><h2>Clip đang xem</h2><span class="dim12">DG0102</span></div>
+  <div class="preview" style="background:linear-gradient(135deg,#7a6b88,#2c2a30);height:180px"></div>
+  <div class="ai-box">
+    <div class="ai-head"><span class="ai-title">Gợi ý AI</span><span class="ai-src">theo nhãn anh xếp</span></div>
+    <div class="ai-row first"><span class="nm">Trao lễ vật</span><span class="ai-bar"><i style="width:82%"></i></span><span class="pc">82%</span><button class="btn">Nhận</button></div>
+    <div class="ai-row"><span class="nm">Nhà trai đến</span><span class="ai-bar"><i style="width:13%"></i></span><span class="pc">13%</span><button class="btn">Nhận</button></div>
+    <div class="ai-row"><span class="nm">Khác</span><span class="ai-bar"><i style="width:5%"></i></span><span class="pc">5%</span><button class="btn">Nhận</button></div>
+    <div class="ai-acts"><button class="btn">Bỏ qua (X)</button><button class="btn">Gợi ý cho cả nhóm</button></div>
+    <span class="ai-msg">Phím <b>A</b> nhận hạng 1 · <b>X</b> bỏ qua. Nhận chỉ gán nhãn, chưa chuyển clip trong DaVinci.</span>
+  </div>
+  <button class="btn btn-star btn-44">☆ Gắn sao (phím J)</button>
+  <div class="info-box"><span class="dim12">Clip đang chọn</span><span class="b14">Chưa xếp</span></div>
+  <div class="flex1"></div>
+  <div class="v8"><div class="inline8"><button class="btn btn-44">Mở trong DaVinci</button><button class="btn-accent btn-44 flex1">Áp dụng vào Media Pool</button></div></div>
+</aside>
+</main></div></body></html>

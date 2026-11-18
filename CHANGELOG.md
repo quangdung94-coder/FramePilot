@@ -1,5 +1,16 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Gợi ý AI trong Bước 2 của panel (ADR-0022) - CHỜ NGƯỜI DỰNG THỬ, giao diện/demo CHƯA được duyệt
+- Hộp "Gợi ý AI" cột phải Bước 2: hạng 1-3 + điểm, Nhận (gán nhãn, như xếp tay; không chạm DaVinci), Bỏ qua, gợi ý cho cả nhóm (thẻ viền đứt trên lưới, Nhận cả nhóm qua hộp xác nhận), phím A/X, Chạy/Dừng AI nền. Demo design/6_ai_goi_y.
+- Gợi ý chỉ xét bin của giai đoạn clip đang ở; đủ 20 nhãn tay thì học từ nhãn (kNN trên vector OpenCLIP), không thì theo mô tả. Đo (project 324 nhãn): mô tả 47%/86% (hạng 1/trong 3), học từ nhãn 85%/97% (LOO, lạc quan), chia theo giờ 53%/90%.
+- tools/ai_cross.py (đo + đề xuất ghép tên bin, chưa áp; chưa đo chéo project vì chỉ 1 project đủ nhãn). Hai nút Áp dụng dính đáy cột phải Bước 2.
+- 16 bài test mới (230 bài).
+
+## 2026-11-18 – Thống kê In/Out thật từ project đã dựng (ADR-0021) - CHỜ NGƯỜI DỰNG DUYỆT ĐỀ XUẤT
+- tools/inout_dump.py (chỉ đọc DaVinci; sao lưu .drp trước; đổi project rồi mở lại đúng project gốc) + tools/inout_stats.py (số liệu, không tên khách). 2 project (P1, P2), 245 + 150 đoạn dùng trên timeline.
+- Kết quả: độ dài giữ ~3-4 s ở mọi bin; quy tắc hiện có trúng điểm vào 23%, ra 26% (P2); Phỏng vấn thực tế giữ ~7 s trích, không trọn câu. Đề xuất bảng mới trong ADR, CHƯA áp. Hình giống nhau không giúp đoán cách cắt (OpenCLIP).
+- 5 bài test mới (214 bài đạt).
+
 ## 2026-11-18 – Bước 6 AI: OpenCLIP nhúng ảnh, gợi ý bin theo mô tả (ADR-0020) - CHỜ NGƯỜI DỰNG XEM
 - Đã tải (đúng danh sách được duyệt): model OpenCLIP ViT-B/32 laion2B (605 MB, .safetensors, MIT) vào D:\VideoAI\data\models\openclip_vitb32_laion2b\; thư viện trong venv RIÊNG C:\VideoAI_ai_venv (~3,1 GB). Venv panel không đụng.
 - app/troly_ai.py: ghép thumbnail với clip (dựng lại mã băm từ proxy), nhúng nền có dừng/làm tiếp, gợi ý bin theo mô tả (hạng 1-2-3 + điểm), đo độ khớp với nhãn tay (từ 20 clip), trang báo cáo tĩnh. Chỉ gợi ý, không ghi DaVinci/kế hoạch.
