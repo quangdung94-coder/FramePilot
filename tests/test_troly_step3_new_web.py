@@ -34,12 +34,28 @@ class Step3New(unittest.TestCase):
 
     def test_nut_goi_y_chay_nen_co_tien_do_va_da_chay_n_tren_m(self):
         self.assertIn('id="p3Sug"', self.html)
-        self.assertIn("Chạy gợi ý cho", self.html)                                            # chữ trên nút chính (không còn là khung thông tin)
-        self.assertIn("api().inout_suggest_start()", self.s3)
-        self.assertIn("đã chạy ${g.done}/${n}", self.s3)
+        self.assertIn("Tự phân loại In/Out", self.html)                                            # chữ trên nút chính (không còn là khung thông tin)
+        self.assertIn("api().inout_suggest_start(", self.s3)
+        self.assertIn("đã chạy ${g.done} / ${n}", self.s3)
         self.assertIn("inout_sug_progress", self.s3)
         self.assertIn('kind.indexOf("inout_sug_") === 0', self.app)                           # sự kiện nền được nối
         self.assertIn("đã nhận hoặc chỉnh", self.s3)                                          # chân trang đếm số thật
+
+    def test_nut_tu_phan_loai_in_out_nam_duoi_bang_quy_tac_ben_phai_va_cot_trai_chi_con_cay(self):
+        h = self.html
+        left = h[h.index('<aside class="p3-left">'):h.index('</aside>', h.index('<aside class="p3-left">'))]
+        self.assertNotIn("p3Sug", left)                                                        # B6: cột trái không còn nút chạy gợi ý
+        self.assertNotIn("Chạy lại gợi ý", h + self.s3)
+        right = h[h.index('<aside class="p3-right">'):]
+        i_rules, i_btn = right.index('id="rulesTbl"'), right.index('id="p3Sug"')
+        self.assertLess(i_rules, i_btn)                                                        # B7: ngay dưới bảng quy tắc từng bin
+        self.assertIn('id="p3KeepManual" checked', right)                                      # ô tick mặc định bật
+        self.assertIn("Giữ nguyên clip bạn đã đặt tay (viền cam)", right)
+        self.assertIn('id="p3SugBar"', right)
+        self.assertNotIn("MỚI ·", h)                                                           # B9: nhãn của demo không đưa vào panel
+        self.assertNotIn("đã dời", h)
+        for bad in ("api().inout_write", "SetMarkInOut", "api().move(", "api().apply"):
+            self.assertNotIn(bad, self.s3[self.s3.index("async function p3SugStart"):self.s3.index("async function p3SugFinish")], bad)   # B8
 
     def test_cay_thu_gon_mo_bang_mui_ten_va_bam_lai_dong_dang_chon(self):
         seg = self.s3
@@ -58,9 +74,8 @@ class Step3New(unittest.TestCase):
         self.assertIn('e.code === "ArrowUp" || e.code === "ArrowDown"', self.app)              # mũi tên lên/xuống đổi clip vẫn chạy
 
     def test_nut_goi_y_la_nut_chinh_va_khong_im_lang_khi_loi(self):
-        self.assertIn("Chạy gợi ý cho", self.s3)
-        self.assertIn("Chạy lại gợi ý", self.s3)                                               # xong thì đổi thành "Chạy lại"
-        self.assertIn("Đang gợi ý… ${g.n}/${g.total}", self.s3)                                # tiến độ ngay trên nút
+        self.assertIn("Tự phân loại In/Out · ${n} clip sao", self.s3)
+        self.assertIn("Đang chạy… ${g.n}/${g.total}", self.s3)                                 # tiến độ ngay trên nút
         seg = self.s3[self.s3.index("async function p3SugStart"):self.s3.index("async function p3SugFinish")]
         self.assertIn("catch (e)", seg)                                                        # gọi API lỗi cũng bắt
         self.assertIn('p3SugMsg("Không chạy: "', seg)                                          # hiện lỗi rõ

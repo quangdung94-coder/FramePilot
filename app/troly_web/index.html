@@ -37,10 +37,6 @@
       <option value="traditional" title="Giữ source dài, chỉ gợi ý cắt khoảng một đến hai giây đầu và đuôi">Truyền thống</option>
       <option value="psc" title="Clip ngắn khoảng 3-7 giây theo loại bin">PSC</option>
     </select>
-    <div class="seg" id="segMode" role="group" aria-label="Chế độ phân loại">
-      <button class="seg-on">Tự phân loại</button>
-      <button class="seg-off" disabled title="Gợi ý AI nằm ở hộp bên phải của Bước 2 (hạng 1-3, Nhận / Bỏ qua)">AI gợi ý · hộp bên phải</button>
-    </div>
   </div>
   <div class="top-right hidden" id="right4">
     <div class="seg" role="group" aria-label="Tầng hiển thị">
@@ -156,16 +152,24 @@
       </div>
     </div></div>
     <div class="ai-box" id="aiBox">
-      <div class="ai-head"><span class="ai-title">Gợi ý AI</span><span class="ai-src" id="aiSrc"></span></div>
-      <div id="aiBody"></div>
-      <div class="ai-acts" id="aiActs"></div>
+      <div class="ai-head"><span class="ai-title">Tự phân loại</span><span class="ai-src" id="aiSrc"></span></div>
+      <div class="ai-run" id="aiRunBox">
+        <button class="ai-go" id="aiRun" type="button"><span class="gi" id="aiRunI" aria-hidden="true">▶</span><span id="aiRunT">Tự phân loại · 0 clip</span></button>
+        <div class="ai-prog"><div class="ai-pbar"><i id="aiRunBar"></i></div><span class="ai-pn" id="aiRunN"></span></div>
+        <span class="ai-msg" id="aiRunMsg">Bấm là chạy luôn cho cả nhóm đang mở, chạy xong bạn lướt lại và sửa clip nào sai.</span>
+      </div>
       <div class="ai-auto" id="aiAuto">
-        <div class="ai-auto-row"><span>AI tự xếp khi hạng 1 từ</span><input class="num" id="aiThr" type="number" min="1" max="100" step="1" value="50" title="Ngưỡng điểm hạng 1 (phần trăm). Mặc định 50."><span>%</span>
-          <button class="btn" id="aiAutoRun" title="Gán nhãn cho mọi clip chưa xếp có gợi ý hạng 1 từ ngưỡng này. Chỉ nhãn trong Trợ lý, có dấu riêng AI xếp, có Hoàn tác.">AI tự xếp</button>
-          <button class="btn hidden" id="aiAutoUndo" title="Bỏ nhãn các clip AI vừa tự xếp (clip anh đã đổi thì giữ nguyên)">Hoàn tác AI xếp</button></div>
+        <div class="ai-auto-h"><b>Ngưỡng tự xếp</b><span class="ai-pill">kéo tới đâu áp tới đó</span></div>
+        <div class="ai-hist" id="aiHist" aria-label="Độ chắc của AI (hạng 1), 10 cột từ 0 đến 100%"><div class="ai-hbars" id="aiHBars"></div><div class="ai-hline" id="aiHLine"></div></div>
+        <div class="ai-haxis"><span>0%</span><span>độ chắc của AI</span><span>100%</span></div>
+        <div class="ai-auto-row"><span>Tự xếp khi hạng 1 từ</span><input id="aiThrR" type="range" min="1" max="100" step="1" value="50" aria-label="Ngưỡng tự xếp"><input class="num" id="aiThr" type="number" min="1" max="100" step="1" value="50" title="Ngưỡng điểm hạng 1 (phần trăm). Mặc định 50. Kéo thanh hoặc gõ số là áp dụng ngay, không chạy lại AI."><span>%</span></div>
+        <div class="ai-cnt"><div class="ai-c ok"><b id="aiCntOk">0</b>clip tự xếp</div><div class="ai-c wait"><b id="aiCntWait">0</b>chờ bạn duyệt</div></div>
+        <div class="ai-auto-row"><button class="btn hidden" id="aiAutoUndo" title="Bỏ nhãn các clip AI vừa tự xếp (clip bạn đã đổi thì giữ nguyên)">Hoàn tác AI xếp</button></div>
         <label class="chk ai-auto-chk"><input type="checkbox" id="aiAutoAfter"> Tự xếp luôn sau khi AI chạy xong</label>
       </div>
-      <span class="ai-msg">Phím <b>A</b> nhận hạng 1 · <b>X</b> bỏ qua. Nhận chỉ gán nhãn, chưa chuyển clip trong DaVinci.</span>
+      <div id="aiBody"></div>
+      <div class="ai-acts" id="aiActs"></div>
+      <span class="ai-msg">Phím <b>A</b> nhận hạng 1 · <b>X</b> bỏ qua. Tự phân loại chỉ gán nhãn, chưa chuyển clip trong DaVinci.</span>
     </div>
     <button class="btn btn-star btn-44" id="starToggleBtn">☆ Gắn sao (phím J)</button>
     <span class="dim12">Đặt điểm In / Out ở bước 3 · In / Out (có sóng âm và bảng quy tắc).</span>
@@ -196,8 +200,6 @@
     <span class="caps">CLIP CÓ SAO THEO BIN</span>
     <span class="dim12">Cây giống Bước 2. Chỉ hiện clip đã gắn sao để đặt In/Out kỹ.</span>
     <label class="p3-tg"><input type="checkbox" id="p3OnlyStar" checked><span class="sw"><i></i></span>Chỉ hiện clip có sao</label>
-    <button class="p3-gy" id="p3Sug" type="button" title="Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4), không thì theo quy tắc bin. Màu xanh, không tự ghi vào DaVinci."><span class="gi" aria-hidden="true">▶</span><span id="p3SugT">Chạy gợi ý cho 0 clip sao</span><span class="gn" id="p3SugN"></span></button>
-    <span class="p3-gymsg" id="p3SugMsg" role="status"></span>
     <div class="p3-list p3-tree" id="p3List" tabindex="0"></div>
     <div class="p3-leg">
       <span><i class="dot man"></i>đặt tay</span><span><i class="dot dv"></i>có trong DaVinci</span><span><i class="dot sug"></i>gợi ý</span>
@@ -239,12 +241,21 @@
     <div class="p3-box">
       <b>Chữ từ Whisper</b>
       <span>Chép ở Bước 4, chỉ tiếng máy quay. Chữ giúp đọc nhanh để chọn câu; clip chưa chép hoặc không có tiếng nói thì chỉ dùng sóng âm.</span>
-      <label class="tr-row" for="p3Pad">Đệm gợi ý theo lời nói <input id="p3Pad" class="num" inputmode="decimal" value="0.3" title="Số giây thêm vào đầu và cuối đoạn có tiếng nói khi gợi ý (mặc định 0,3). Chạy lại gợi ý để áp dụng."> giây</label>
+      <label class="tr-row" for="p3Pad">Đệm gợi ý theo lời nói <input id="p3Pad" class="num" inputmode="decimal" value="0.3" title="Số giây thêm vào đầu và cuối đoạn có tiếng nói khi gợi ý (mặc định 0,3). Bấm Tự phân loại In/Out để áp dụng."> giây</label>
     </div>
     <div class="row-between baseline"><h2 style="font-size:14px">Quy tắc gợi ý từng bin</h2><span class="p3-pill" id="rulesStyle">chưa chọn kiểu quay</span></div>
     <span class="dim12">Số giây cần giữ cho mỗi bin (gợi ý mức 1). Chưa sửa thì dùng mặc định. Chỉ đổi gợi ý màu xanh, In/Out anh đặt tay luôn thắng.</span>
     <table class="rt" id="rulesTbl"></table>
     <div class="dim12"><span id="rulesNote">Ô viền cam = anh đã sửa.</span> <button class="btn-link" id="rulesReset" title="Xóa mọi chỗ đã sửa trong bảng và số giây cắt của Truyền thống">Về mặc định</button></div>
+    <div class="p3-auto" id="p3Auto">
+      <div class="rt15">Tự phân loại In/Out</div>
+      <span class="dim12 p3-autotx">Đặt quy tắc ở trên xong, bấm nút này là chạy <b>hết clip sao</b>, mỗi clip tự gợi ý điểm In/Out theo bin của nó (theo lời nói nếu đã chép ở Bước 4).</span>
+      <button class="p3-gy" id="p3Sug" type="button" title="Chạy nền một lượt cho mọi clip có sao. Màu xanh, không tự ghi vào DaVinci."><span class="gi" aria-hidden="true">▶</span><span id="p3SugT">Tự phân loại In/Out · 0 clip sao</span></button>
+      <div class="ai-prog"><div class="ai-pbar"><i id="p3SugBar"></i></div><span class="ai-pn" id="p3SugN">chưa có clip sao</span></div>
+      <label class="chk"><input type="checkbox" id="p3KeepManual" checked> Giữ nguyên clip bạn đã đặt tay (viền cam)</label>
+      <span class="dim12">Sửa số giây ở bảng trên rồi bấm lại là chạy lại. Chỉ ghi gợi ý màu xanh, In/Out bạn đặt tay luôn thắng.</span>
+      <span class="p3-gymsg" id="p3SugMsg" role="status"></span>
+    </div>
     <div class="p3-box">
       <b id="trStyleName">Kiểu quay: chưa chọn</b>
       <span id="trStyleText"></span>

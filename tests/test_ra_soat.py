@@ -170,7 +170,8 @@ class StaleText(unittest.TestCase):
             h = f.read()
         self.assertNotIn("AI gợi ý · chưa có dữ liệu", h)
         self.assertNotIn("Cần nhãn của vài project để AI học", h)
-        self.assertIn("AI gợi ý · hộp bên phải", h)
+        self.assertNotIn("AI gợi ý · hộp bên phải", h)                  # Đêm #1: bỏ cặp nút trên cùng
+        self.assertNotIn('id="segMode"', h)
 
 
 class PlaySecurity(unittest.TestCase):

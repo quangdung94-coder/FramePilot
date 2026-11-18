@@ -1,4 +1,8 @@
-# Trạng thái Trợ lý File Quay (cập nhật 18/11/2026, khuya)
+# Trạng thái Trợ lý File Quay (cập nhật 18/11/2026, đêm)
+
+## Đêm 18/11 (4 dòng Notion [Đêm #1]-[Đêm #4]), nhánh xếp chồng, KHÔNG gộp main
+- #1 xong code (nhánh tu-phan-loai-b2-b3, ADR-0026): Tự phân loại chạy luôn ở Bước 2 và 3. Chờ thử bằng chuột thật và AI thật.
+
 
 ## Đã chạy được
 - Bước 1: đọc giờ quay thật, chia giai đoạn bằng thanh thời gian kéo được, mẫu giai đoạn, tạo bin giai đoạn trong

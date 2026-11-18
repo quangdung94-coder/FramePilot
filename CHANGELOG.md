@@ -1,5 +1,12 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 (đêm) – Đêm #1: Tự phân loại chạy luôn ở Bước 2 và 3 (ADR-0026) - CHỜ NGƯỜI DỰNG THỬ
+- Bỏ cặp nút "Tự phân loại | AI gợi ý" ở thanh trên. Bước 2: nút "Tự phân loại · N clip nhóm X" (khung cam, tiến độ a / b) gộp "Chạy lại AI" + "Gợi ý cho cả nhóm"; chỉ gán nhãn, không chuyển clip trong DaVinci.
+- Ngưỡng tự xếp áp ngay khi kéo/gõ, không gọi AI lại; biểu đồ 10 cột độ chắc + vạch ngưỡng + hai số "tự xếp" / "chờ bạn duyệt"; clip dưới ngưỡng viền cam đứt.
+- Bước 3: nút "Tự phân loại In/Out · N clip sao" dời xuống ngay dưới bảng quy tắc từng bin, có ô "Giữ nguyên clip bạn đã đặt tay" (mặc định bật). Cột trái chỉ còn cây clip sao.
+- Sửa lỗi nặng bắt được khi làm: `$("segMode")` còn trong app.js sau khi bỏ nút làm panel đứng; thêm test quét mọi id JS.
+- Test: +11 (API ai_auto_apply/ai_group_scores, keep_manual, giao diện, quét id); 444 bài đạt.
+
 ## 2026-11-18 (khuya) – Bước 5 bản 3: TIMELINE KÉO THẢ (ADR-0013) - CHỜ NGƯỜI DỰNG THỬ
 - Trang Bước 5 thành timeline: thước 0:00 → mục tiêu, V2/V1, khung cụm mẹ + khối con, A1/A2 (vạch chéo = tắt tiếng), bảng thứ tự cụm đang chọn, cột phải + gợi ý. Kéo thả (pointer events): dời cả cụm, đổi thứ tự khối con / sang cụm khác / lên V2, mép phải đổi thời lượng (không vượt Có), kéo dòng bảng; "Xếp lại theo giờ quay" (hỏi xác nhận nếu đã xếp tay). Ổ khóa chỉ khóa thời lượng.
 - Mọi khối (mẹ lẫn con) có Tốc độ (100% / Slow mượt tự tính = fps timeline ÷ fps source từng clip / gõ số; con thắng mẹ) và Tiếng (bật/tắt; con thắng mẹ). Số liệu tính theo RA TIMELINE (= In/Out gốc ÷ tốc độ); khối V2 không cộng vào Hiện Tại. Mục tiêu chỉ là con số nhắm tới: dư/thiếu; nút Đưa lên Timeline mới luôn bấm được, hộp xác nhận ghi dư/thiếu, Slow, tắt tiếng. Gợi ý mới: Đưa khối Slow về 100%, Bỏ clip ít ưu tiên cho vừa (chỉ khi anh bấm).

@@ -40,7 +40,7 @@ class AiWeb(unittest.TestCase):
     def test_khong_goi_davinci_tu_gio_dien_ai(self):
         for bad in ("api().apply", "api().move(", "api().append", "inout_write", "SetMarkInOut", "MoveClips", "api().label(", "api().undo"):
             self.assertNotIn(bad, self.js, bad)
-        self.assertIn("await ask(", self.js[self.js.index('t.id === "aiTakeAll"'):])           # nhận cả nhóm phải qua hộp xác nhận
+        self.assertNotIn("aiTakeAll", self.js)                                                  # Đêm #1: gộp vào nút Tự phân loại (chỉ gán nhãn, có Hoàn tác)
 
 
 if __name__ == "__main__":

@@ -108,7 +108,6 @@ function render(rebuildItems) {
   });
   $("right1").classList.toggle("hidden", page !== 1);
   $("right2").classList.toggle("hidden", page !== 2 && page !== 3 && page !== 5);          // Bước 5 cũng cần ô Kiểu quay (Truyền thống chỉ bỏ nguyên clip)
-  $("segMode").classList.toggle("hidden", page === 5);
   $("right4").classList.toggle("hidden", page !== 4);
   $("page1").classList.toggle("hidden", page !== 1);
   $("page2").classList.toggle("hidden", page !== 2);
@@ -471,11 +470,13 @@ function tagHtml(c) {
   const b = s && c.label ? s.bins.find((x) => x.name === c.label) : null;
   if (b && c.label_by === "ai_auto") return `<span class="tag aiauto" title="AI xếp (chưa phải anh xếp, không tính vào dữ liệu AI học): ${esc(b.name)}" style="border-color:${b.color}">AI xếp · ${esc(b.name)}</span>`;
   if (b) return `<span class="tag" style="background:${b.color}33;color:var(--text);border:1px solid ${b.color}">${esc(b.name)}</span>`;
-  const g = !c.label && AI.group && AI.group[c.uid];                      // gợi ý AI của cả nhóm (ai.js): viền đứt, chờ anh duyệt
-  if (g && g.top) return `<span class="tag ai" title="${esc("AI gợi ý (chờ anh duyệt): " + g.top.map((t) => t.bin + " " + Math.round(t.score * 100) + "%").join(" · "))}">AI · ${esc(g.top[0].bin)} ${Math.round(g.top[0].score * 100)}%</span>`;
+  const w = aiWait(c);                                                   // đã Tự phân loại mà hạng 1 dưới ngưỡng: viền cam đứt, chờ bạn duyệt
+  if (w) return `<span class="tag wait" title="${esc("Chờ bạn duyệt: hạng 1 của AI là " + w.bin + " chỉ " + Math.round(w.score * 100) + "% (dưới ngưỡng). Bấm A để nhận hạng 1, hoặc xếp tay.")}">chờ bạn duyệt</span>`;
+  const g = !c.label && AI.group && AI.group[c.uid];                      // gợi ý AI của cả nhóm (ai.js): viền đứt, chờ bạn duyệt
+  if (g && g.top) return `<span class="tag ai" title="${esc("AI gợi ý (chờ bạn duyệt): " + g.top.map((t) => t.bin + " " + Math.round(t.score * 100) + "%").join(" · "))}">AI · ${esc(g.top[0].bin)} ${Math.round(g.top[0].score * 100)}%</span>`;
   return `<span class="tag none">Chưa xếp</span>`;
 }
-function cardKey(c) { return (c.label || "") + "|" + (c.label_by || "") + "|" + aiKey(c.uid); }
+function cardKey(c) { return (c.label || "") + "|" + (c.label_by || "") + "|" + aiKey(c); }
 function setThumb(box, src) {
   let img = box.querySelector("img");
   if (!img) { img = document.createElement("img"); img.draggable = false; box.prepend(img); const ic = box.querySelector("svg"); if (ic) ic.remove(); }
@@ -484,7 +485,7 @@ function setThumb(box, src) {
 const PLAY = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5l4 2.5-4 2.5z"></path></svg>';
 function renderGrid() {
   $("grid").innerHTML = items.length ? items.map((c, i) => `
-    <div class="card${i === cur ? " cur" : sel.has(i) ? " picked" : ""}${c.star ? " starred" : ""}" data-i="${i}" data-uid="${esc(c.uid)}" data-label="${esc(cardKey(c))}" draggable="true">
+    <div class="card${i === cur ? " cur" : sel.has(i) ? " picked" : ""}${c.star ? " starred" : ""}${aiWait(c) ? " wait" : ""}" data-i="${i}" data-uid="${esc(c.uid)}" data-label="${esc(cardKey(c))}" draggable="true">
       <div class="thumb">${thumbs[c.uid] ? `<img src="${thumbs[c.uid]}" draggable="false">` : PLAY}<span class="badge tl">${c.time}</span><span class="badge br">${durTxt(c.dur)}</span>${c.star ? '<span class="star-badge">★</span>' : ""}</div>
       <div class="card-foot"><span class="f">${esc(c.name)}</span>${tagHtml(c)}</div>
     </div>`).join("") : `<div class="empty">${S && S.n ? "Không có clip." : 'Bấm "Đọc clip" ở bước 1 trước.'}</div>`;
@@ -493,7 +494,7 @@ function renderGrid() {
 function patchGrid() {
   document.querySelectorAll("#grid .card").forEach((el) => {
     const i = +el.dataset.i, c = items[i]; if (!c) return;
-    const cls = "card" + (i === cur ? " cur" : sel.has(i) ? " picked" : "") + (c.star ? " starred" : "");
+    const cls = "card" + (i === cur ? " cur" : sel.has(i) ? " picked" : "") + (c.star ? " starred" : "") + (aiWait(c) ? " wait" : "");
     const hasStar = !!el.querySelector(".star-badge");
     if (!!c.star !== hasStar) { if (c.star) el.querySelector(".thumb").insertAdjacentHTML("beforeend", '<span class="star-badge">★</span>'); else el.querySelector(".star-badge").remove(); }
     if (el.className !== cls) el.className = cls;               // chỉ đổi class, không dựng lại ô

@@ -880,6 +880,77 @@ class TrolyApi(object):
             st["ai_auto"] = {"n": len(items), "below": below, "skipped": skipped, "threshold": thr}
             return st
 
+    def _auto_scope(self, uids):
+        """Điểm hạng 1 của các clip trong nhóm mà AI được phép đụng: clip CHƯA xếp hoặc đang mang nhãn by="ai_auto" (nhãn tay / ai_duyet không bao giờ).
+        Chỉ đọc vector và mô tả đã lưu, KHÔNG gọi AI chạy lại. Trả {uid: (điểm, bin, đang_có_nhãn_ai_auto)}; clip bỏ qua gợi ý thì không có."""
+        sug = self.ai_for(list(uids), include_labeled=True)
+        labels = self._plan.get("labels") or {}
+        out = {}
+        for u, r in sug.items():
+            c = self._by_uid.get(u)
+            if c is None or r.get("skipped") or not r.get("top"):
+                continue
+            si = self._assign.get(u)
+            lab = labels.get(c.rel or c.name)
+            mine = isinstance(lab, dict) and lab.get("by") == AI_AUTO_BY and self._label_in_stage(c, si) == lab.get("bin")
+            if self._label_in_stage(c, si) and not mine:
+                continue
+            out[u] = (r["top"][0]["score"], r["top"][0]["bin"], bool(mine))
+        return out
+
+    def ai_group_scores(self, uids):
+        """Cho biểu đồ độ chắc ở Bước 2: {uid: {"score","bin","auto"}} của các clip trong nhóm (xem _auto_scope). Chỉ đọc."""
+        with self._lock:
+            return {u: {"score": s, "bin": b, "auto": a} for u, (s, b, a) in self._auto_scope(uids).items()}
+
+    def ai_auto_apply(self, threshold=None, uids=None):
+        """Nút "Tự phân loại" và thanh ngưỡng ở Bước 2: áp ngưỡng NGAY cho các clip trong nhóm (uids), không chạy lại AI.
+        Clip chưa xếp có hạng 1 >= ngưỡng -> gán nhãn by="ai_auto"; nhãn ai_auto đang có mà điểm < ngưỡng mới -> bỏ nhãn (về "chờ bạn duyệt").
+        Chỉ nhãn trong kế hoạch panel, KHÔNG chuyển clip trong DaVinci. Lần gán mới ghi một batch để Hoàn tác."""
+        with self._lock:
+            if not self._clips:
+                return {"error": "Chưa có clip. Hãy bấm 'Đọc clip' trước."}
+            cfg = self._auto_cfg()
+            try:
+                thr = float(threshold) / 100.0 if threshold is not None else float(cfg.get("threshold", AI_AUTO_DEFAULT))
+            except (TypeError, ValueError):
+                return {"error": "Ngưỡng phải là số phần trăm."}
+            if not 0.0 < thr <= 1.0:
+                return {"error": "Ngưỡng từ 1 đến 100 phần trăm."}
+            vec, desc = self._ai_data()
+            if not vec and not desc:
+                return {"error": "Chưa chạy AI cho project này (hộp Gợi ý AI > Chạy AI)."}
+            pool = list(uids) if uids is not None else [c.uid for c in self._clips]
+            scope = self._auto_scope(pool)
+            labels = self._plan.get("labels") or {}
+            items, below, released = [], 0, 0
+            for c in self._clips:
+                if c.uid not in scope:
+                    continue
+                score, bn, mine = scope[c.uid]
+                if score + 1e-9 >= thr:
+                    if mine:
+                        continue
+                    stage = self._stages[self._assign.get(c.uid)]
+                    tc.set_label(self._plan, c, stage["name"], bn, by=AI_AUTO_BY)
+                    items.append({"uid": c.uid, "rel": c.rel or c.name, "stage": stage["name"], "bin": bn, "score": score})
+                else:
+                    below += 1
+                    if mine:
+                        labels.pop(c.rel or c.name, None)
+                        released += 1
+            cfg = dict(self._auto_cfg())
+            cfg["threshold"] = round(thr, 4)
+            if items:
+                batches = list(cfg.get("batches") or [])
+                batches.append({"at": datetime.datetime.now().isoformat(timespec="seconds"), "threshold": thr, "items": items})
+                cfg["batches"] = batches[-AI_AUTO_KEEP:]
+            self._plan["ai_auto"] = cfg
+            self._save_soon()
+            st = self.state()
+            st["ai_auto"] = {"n": len(items), "below": below, "released": released, "skipped": 0, "threshold": thr}
+            return st
+
     def ai_auto_undo(self):
         """Hoàn tác lần AI tự xếp gần nhất: bỏ nhãn các clip đó NẾU nhãn vẫn là của AI tự xếp và chưa bị anh đổi; clip anh đã đổi thì để nguyên."""
         with self._lock:
@@ -995,9 +1066,9 @@ class TrolyApi(object):
             return False, []
         return True, st.lines_of(c.rel)
 
-    def inout_suggest_start(self):
-        """Nút "Gợi ý In/Out cho clip sao": chạy NỀN một lượt cho mọi clip sao, lưu vào kế hoạch (plan["inout_sug"]). Không ghi DaVinci,
-        không đụng In/Out đặt tay."""
+    def inout_suggest_start(self, keep_manual=False):
+        """Nút "Tự phân loại In/Out" (Bước 3): chạy NỀN một lượt cho mọi clip sao, lưu vào kế hoạch (plan["inout_sug"]). Không ghi DaVinci,
+        không đụng In/Out đặt tay. keep_manual=True (giao diện luôn gửi theo ô tick, mặc định bật): bỏ qua clip bạn đã đặt tay In/Out (viền cam), không tính lại gợi ý cho chúng."""
         with self._lock:
             if getattr(self, "_sug_run", None):
                 return {"error": "Đang chạy gợi ý rồi."}
@@ -1006,6 +1077,13 @@ class TrolyApi(object):
             todo = [(c, self._label_in_stage(c, self._assign.get(c.uid))) for c in self._clips if tc.is_starred(self._plan, c)]
             if not todo:
                 return {"error": "Chưa có clip nào gắn sao ★. Gắn sao (phím J) ở Bước 2 trước."}
+            kept = 0
+            if keep_manual:
+                rest = [(c, lb) for c, lb in todo if not tc.manual_inout(self._plan, c)]
+                kept = len(todo) - len(rest)
+                if not rest:
+                    return {"error": "Cả %d clip sao đều đã được bạn đặt tay In/Out (viền cam). Bỏ tick \"Giữ nguyên clip bạn đã đặt tay\" nếu muốn chạy lại gợi ý cho chúng." % kept}
+                todo = rest
             self._sug_run = {"n": 0, "total": len(todo)}
 
         def go():
@@ -1033,7 +1111,7 @@ class TrolyApi(object):
                     self._sug_run = None
                 self._emit("inout_sug_done", {"total": len(todo), "speech": n_speech, "rule": len(res) - n_speech})
         threading.Thread(target=go, daemon=True).start()
-        return {"ok": True, "total": len(todo)}
+        return {"ok": True, "total": len(todo), "kept": kept}
 
     def inout_sug_pad(self, pad):
         """Chỉnh đệm hai đầu của gợi ý theo lời nói (giây, 0-3). Sai thì báo lỗi, không ghi gì."""

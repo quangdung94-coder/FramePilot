@@ -673,3 +673,41 @@ button, input, select { font-family: inherit; }
 .p3-tree .sub .p3-ar, .p3-tree .sub-none .p3-ar { margin-left: -6px; margin-right: -4px; }
 .p3-ar { font-size: 15px; width: 16px; color: var(--text); opacity: .75; }
 .p3-ar:hover { opacity: 1; }
+
+/* ===== Đêm #1: Tự phân loại chạy luôn ở Bước 2 (demo Design canvas, bảng "Bước 2 - Tự phân loại") ===== */
+.ai-box { border: 1.5px solid var(--accent); background: #2A2218; border-radius: 12px; padding: 12px 14px; }
+.ai-run { display: flex; flex-direction: column; gap: 8px; }
+.ai-go { display: flex; align-items: center; justify-content: center; gap: 8px; height: 46px; border-radius: 10px; border: 0; background: var(--accent); color: #18181B; font-size: 14px; font-weight: 700; cursor: pointer; padding: 0 12px; }
+.ai-go:hover { background: #F5B45C; }
+.ai-go:disabled { cursor: default; opacity: 1; }
+.ai-go.run { background: #8A6228; cursor: progress; }
+.ai-go #aiRunT { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-prog { display: flex; align-items: center; gap: 10px; }
+.ai-pbar { flex: 1; height: 10px; border-radius: 5px; background: #2A2A30; overflow: hidden; }
+.ai-pbar i { display: block; height: 100%; width: 0; background: #34B58A; transition: width .25s; }
+.ai-pn { font-size: 12px; color: #7FD08A; font-weight: 600; white-space: nowrap; }
+.ai-auto { border: 1.5px solid #2C4A80; background: #1B2230; border-radius: 12px; padding: 12px; gap: 10px; }
+.ai-auto-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+.ai-pill { padding: 3px 8px; border-radius: 999px; background: #1B2740; color: #8DB8F7; font-size: 11px; font-weight: 600; border: 1px solid #2C4A80; white-space: nowrap; }
+.ai-hist { position: relative; height: 84px; border-bottom: 1px solid #3A3A42; }
+.ai-hbars { display: flex; gap: 3px; height: 100%; align-items: flex-end; }
+.ai-hc { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.ai-hc i { display: block; width: 100%; background: #4A4A54; border-radius: 3px 3px 0 0; }
+.ai-hc i.ok { background: #34B58A; }
+.ai-hline { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--accent); pointer-events: none; }
+.ai-haxis { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); }
+.ai-auto-row #aiThrR { flex: 1; min-width: 60px; accent-color: #F2A33A; }
+.ai-cnt { display: flex; gap: 10px; }
+.ai-c { flex: 1; padding: 8px 10px; border-radius: 10px; background: #222226; border: 1px solid #2E2E34; font-size: 12px; color: #C4C4CC; }
+.ai-c b { display: block; font-size: 20px; font-weight: 700; color: #7FD08A; }
+.ai-c.wait { border-color: #664A1C; }
+.ai-c.wait b { color: #F2B256; }
+.card.wait { border: 2px dashed #664A1C; }
+.card.wait.cur { border-color: var(--accent); }
+.tag.wait { border: 1px dashed #664A1C; background: #2A2218; color: #F2B256; }
+.p3-auto { display: flex; flex-direction: column; gap: 10px; border: 1.5px solid var(--accent); background: #2A2218; border-radius: 12px; padding: 14px; }
+.p3-auto .rt15 { font-size: 15px; font-weight: 600; }
+.p3-auto .p3-autotx { color: #C4C4CC; line-height: 1.5; }
+.p3-auto .p3-autotx b { color: var(--text); }
+.p3-auto .p3-gy { margin-bottom: 0; justify-content: center; }
+.p3-auto .p3-gy .gn { display: none; }
