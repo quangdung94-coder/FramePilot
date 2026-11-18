@@ -163,5 +163,76 @@ class OrphanChildren(unittest.TestCase):
             self.assertIn("troly_env.kill_children_on_exit()", f.read())
 
 
+class StaleText(unittest.TestCase):
+    def test_khong_con_chu_ai_chua_co_du_lieu_o_buoc_2(self):
+        """Lỗi chữ: nút nói 'AI gợi ý · chưa có dữ liệu' trong khi Bước 6 đã nhúng hộp Gợi ý AI vào Bước 2."""
+        with open(os.path.join(HERE, "..", "app", "troly_web", "index.html"), encoding="utf-8") as f:
+            h = f.read()
+        self.assertNotIn("AI gợi ý · chưa có dữ liệu", h)
+        self.assertNotIn("Cần nhãn của vài project để AI học", h)
+        self.assertIn("AI gợi ý · hộp bên phải", h)
+
+
+class PlaySecurity(unittest.TestCase):
+    """Máy chủ phát proxy: kiểm chứng (không phát hiện lỗi) các đường tấn công đã nêu."""
+
+    def setUp(self):
+        import troly_play as tp
+        self.tp = tp
+        self.t = tempfile.mkdtemp()
+        self.root = os.path.join(self.t, "px")
+        self.out = os.path.join(self.t, "outside")
+        os.makedirs(self.root)
+        os.makedirs(self.out)
+        with open(os.path.join(self.out, "s.mov"), "wb") as f:
+            f.write(b"secret")
+        with open(os.path.join(self.root, "a.mov"), "wb") as f:
+            f.write(b"0123456789")
+        os.makedirs(self.root + "2")
+        with open(os.path.join(self.root + "2", "x.mov"), "wb") as f:
+            f.write(b"x")
+        self.junction = subprocess.run(["cmd", "/c", "mklink", "/J", os.path.join(self.root, "jn"), self.out], capture_output=True).returncode == 0
+
+    def test_inside_chan_ra_ngoai_thu_muc(self):
+        ins = self.tp.inside
+        self.assertTrue(ins(os.path.join(self.root, "a.mov"), [self.root]))
+        self.assertFalse(ins(os.path.join(self.root, "..", "outside", "s.mov"), [self.root]))      # ..
+        self.assertFalse(ins(os.path.join(self.root + "2", "x.mov"), [self.root]))                  # thư mục anh em trùng tiền tố
+        self.assertFalse(ins(r"\server\share.mov", [self.root]))                                  # UNC
+        self.assertFalse(ins("Z:\a.mov", [self.root]))                                              # ổ khác
+        self.assertFalse(ins(os.path.join(self.root, "a.mov"), []))
+        if self.junction:
+            self.assertFalse(ins(os.path.join(self.root, "jn", "s.mov"), [self.root]))             # liên kết (junction) trỏ ra ngoài
+
+    def test_may_chu_chi_phat_bang_ve_va_range_hop_le(self):
+        import urllib.error
+        import urllib.request
+        s = self.tp.PlayServer([self.root])
+        try:
+            self.assertEqual(s._srv.server_address[0], "127.0.0.1")
+            if self.junction:
+                self.assertIsNone(s.url_for(os.path.join(self.root, "jn", "s.mov")))
+            u = s.url_for(os.path.join(self.root, "a.mov"))
+
+            def get(url, rng=None):
+                rq = urllib.request.Request(url)
+                if rng:
+                    rq.add_header("Range", rng)
+                try:
+                    with urllib.request.urlopen(rq, timeout=5) as f:
+                        return f.status, f.read()
+                except urllib.error.HTTPError as e:
+                    return e.code, b""
+            self.assertEqual(get(u, "bytes=2-4"), (206, b"234"))
+            self.assertEqual(get(u, "bytes=-3"), (206, b"789"))
+            self.assertEqual(get(u, "bytes=99-")[0], 416)
+            self.assertEqual(get(u, "bytes=5-2")[0], 416)
+            base = u.rsplit("/", 1)[0]
+            for bad in ("/..%2f..%2fa", "/%2e%2e/a", "/x", "/"):                                   # mã hóa URL kép, đoán vé
+                self.assertEqual(get(base + bad)[0], 403, bad)
+        finally:
+            s.close()
+
+
 if __name__ == "__main__":
     unittest.main()
