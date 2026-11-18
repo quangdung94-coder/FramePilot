@@ -883,9 +883,13 @@ def rename_in_plan(plan, kind, i, old, new, in_stage_keys=()):
     dur = plan.get("durations")                          # Bước 5: tỉ lệ giai đoạn và Min-Max bin theo TÊN
     if isinstance(dur, dict) and not dup:
         if kind == "stage":
-            sh = dur.get("stage_share")
-            if isinstance(sh, dict) and old in sh:
-                sh[new] = sh.pop(old)
+            for key in ("stage_share", "stage_s"):                # tỉ lệ cũ và số giây anh chốt (Bước 5 làm lại)
+                sh = dur.get(key)
+                if isinstance(sh, dict) and old in sh:
+                    sh[new] = sh.pop(old)
+            lk = dur.get("locked")
+            if isinstance(lk, list) and old in lk:
+                lk[lk.index(old)] = new
             bb = dur.get("bins")
             if isinstance(bb, dict) and old in bb:
                 bb[new] = bb.pop(old)
