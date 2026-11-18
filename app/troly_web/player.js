@@ -3,7 +3,7 @@
    (api.set_inout), ghi vào DaVinci chỉ khi bấm nút + xác nhận. Phím đọc bằng event.code, bỏ qua khi đang gõ ô chữ. */
 "use strict";
 
-const PL = { uid: null, vid: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, tried: false };
+const PL = { range: null, uid: null, vid: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, tried: false };
 const fmtF = (t, fps) => {                                   // giây -> mm:ss:ff theo frame của clip
   t = Math.max(0, t || 0); fps = Math.round(fps || 25);
   const f = Math.round(t * fps), ff = f % fps, s = Math.floor(f / fps);
@@ -21,6 +21,7 @@ function plRenderIo(c) {
     $("ioIn").textContent = "In --:--:--"; $("ioIn").className = "io-in";
     $("ioOut").textContent = "Out --:--:--"; $("ioOut").className = "io-in";
     $("ioDur").textContent = "Giữ --:--:--"; $("ioRule").textContent = "";
+    PL.range = null; if (typeof waveDraw === "function") waveDraw();
     return;
   }
   const pct = (x) => Math.max(0, Math.min(100, (x / dur) * 100)).toFixed(2);
@@ -46,14 +47,18 @@ function plRenderIo(c) {
     $("ioOut").textContent = "Out --:--:--"; $("ioOut").className = "io-in";
     $("ioDur").textContent = "Giữ --:--:--";
   }
+  PL.range = a != null ? [a, b, cls === "io-sug" ? "sug" : "man"] : null;
+  if (typeof waveDraw === "function") waveDraw();
   const t = PL.vid ? PL.vid.currentTime : 0;
   h += `<div class="io-head" id="ioHead" style="left:${pct(t)}%"></div>`;
   bar.innerHTML = h;
   $("ioRule").textContent = rule;
 }
 function plHead() {
-  const hd = $("ioHead"); if (!hd || !PL.dur) return;
-  hd.style.left = Math.max(0, Math.min(100, (PL.vid.currentTime / PL.dur) * 100)).toFixed(2) + "%";
+  const hd = $("ioHead"); if (!hd || !PL.dur || !PL.vid) return;
+  const x = Math.max(0, Math.min(100, (PL.vid.currentTime / PL.dur) * 100)).toFixed(2) + "%";
+  hd.style.left = x;
+  const wh = $("waveHead"); if (wh) wh.style.left = x;
 }
 
 /* ---- đặt / lưu In/Out đặt tay ---- */
@@ -87,6 +92,7 @@ function plNudge(frames) {                                     // mũi tên: ch�
   if (PL.edge && c.in_s != null) {
     let [a, b] = [c.in_s, c.out_s];
     if (PL.edge === "in") a = Math.min(a + d, b - plStep()); else b = Math.max(b + d, a + plStep());
+    c.in_s = a; c.out_s = b; c.io_src = "manual"; plRenderIo(c);      // cập nhật ngay (giữ phím không mất frame), rồi lưu
     plSet(a, b); plSeek(PL.edge === "in" ? a : b);
   } else plSeek(PL.vid.currentTime + d);
 }
@@ -161,20 +167,27 @@ async function plOpen(c, transcode) {                         // gọi từ show
 }
 $("plPlay").onclick = plToggle;
 $("preview").addEventListener("click", () => { PL.focus = true; plToggle(); });
+$("waveBox").addEventListener("mousedown", (ev) => {              // bấm vào sóng âm: lướt tới chỗ đó
+  const c = curClip(); if (!c || !(c.dur > 0)) return;
+  PL.focus = true; const r = $("waveBox").getBoundingClientRect();
+  plSeek(Math.max(0, Math.min(c.dur, (ev.clientX - r.left) / r.width * c.dur)));
+});
 $("plSeek").addEventListener("input", () => { if (PL.vid) plSeek($("plSeek").value / 1000 * PL.dur); });
 $("plRate").addEventListener("change", () => { if (PL.vid) PL.vid.playbackRate = +$("plRate").value; });
 document.addEventListener("mousedown", (e) => {               // bấm ra ngoài cột phải: mũi tên lại đi chuyển clip
-  if (!e.target.closest(".col-right")) { PL.focus = false; PL.edge = null; }
+  if (!e.target.closest(".col-right, .p3-center")) { PL.focus = false; PL.edge = null; }
   else if (!e.target.closest(".h")) { /* giữ PL.edge để mũi tên vẫn chỉnh mép đang chọn */ }
 }, true);
 
 /* ---- phím: Space, I, O, mũi tên (chỉ khi con trỏ ở cột phải / vừa chọn mép) - capture để chạy trước phím lưới ---- */
 document.addEventListener("keydown", (e) => {
   if (page !== 2 && page !== 3) return;
+  if (page === 3 && !PL.focus && PL.vid && !e.target.closest(".p3-right")) PL.focus = true;      // Bước 3: ←/→ luôn chỉnh frame
   if (!$("modal").classList.contains("hidden")) return;
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" || e.target.isContentEditable) return;
   if (e.ctrlKey || e.altKey || e.metaKey) return;
   if (e.code === "Space") { e.preventDefault(); e.stopPropagation(); plToggle(); return; }
+  if (page !== 3 && (e.code === "KeyI" || e.code === "KeyO")) return;                               // I/O chỉ ở Bước 3
   if (e.code === "KeyI") { e.preventDefault(); e.stopPropagation(); plMark("in"); return; }
   if (e.code === "KeyO") { e.preventDefault(); e.stopPropagation(); plMark("out"); return; }
   if ((e.code === "ArrowLeft" || e.code === "ArrowRight") && PL.focus && PL.vid) {

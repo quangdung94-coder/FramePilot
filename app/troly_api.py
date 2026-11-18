@@ -177,7 +177,7 @@ class TrolyApi(object):
                 eff = tc.effective_inout(self._plan, c)          # đặt tay trong panel > đang có trong DaVinci
                 in_s, out_s, io_src = (round(eff[0], 2), round(eff[1], 2), eff[2]) if eff else (None, None, None)
                 dv = (round(c.mark_in / fps, 2), round(c.mark_out / fps, 2)) if c.mark_in is not None and c.mark_out is not None else None
-                sug = tc.suggest_inout(c.dur, lb, self._plan.get("shoot_style") or "")
+                sug = tc.suggest_inout(c.dur, lb, self._plan.get("shoot_style") or "", self._plan.get("bin_rules"), self._plan.get("trad_trim_s"))
                 clips.append({"uid": c.uid, "name": c.name, "m0": m[0] if m else None, "m1": m[1] if m else None,
                               "time": c.t_start.strftime("%H:%M:%S") if c.t_start else "--:--:--",
                               "dur": c.dur or 0, "stage": si, "label": lb,
@@ -199,6 +199,7 @@ class TrolyApi(object):
                     "n_manual": sum(1 for c in self._clips if tc.manual_of(self._plan, c)),
                     "n_starred": sum(1 for c in self._clips if tc.is_starred(self._plan, c)),
                     "shoot_style": self._plan.get("shoot_style") or "",
+                    "rules": self._rules_state(),
                     "stages": stages, "outside": outside, "clips": clips, "gap": gap,
                     "cameras": [{"cam": k, "n": v, "off": self._plan["offsets"].get(k, 0)} for k, v in
                                 cams.most_common()],
@@ -229,6 +230,83 @@ class TrolyApi(object):
                 self._plan.pop("shoot_style", None)
             self._save_now()
         return self.state()
+
+    # ------------------------------------------------------------------ bảng quy tắc từng bin + sóng âm (ADR-0019)
+    def _rules_state(self):
+        names = []
+        for st in self._plan.get("stages") or []:
+            for b in st.get("bins") or []:
+                if b not in names:
+                    names.append(b)
+        tt_ = self._plan.get("trad_trim_s")
+        return {"bins": tc.rules_view(self._plan, names), "trad_trim": tc.TRAD_HEAD_S if tt_ is None else tt_,
+                "trad_default": tc.TRAD_HEAD_S, "style": self._plan.get("shoot_style") or ""}
+
+    def set_bin_rule(self, name, mn, mx, whole=False):
+        """Sửa quy tắc gợi ý của một bin (name = tên bin, hoặc '*' cho dòng 'Bin khác'). Lưu trong kế hoạch project.
+        CHỈ đổi gợi ý màu xanh; In/Out đặt tay luôn thắng và gợi ý không bao giờ được ghi vào DaVinci."""
+        if not name or not isinstance(name, str):
+            return {"error": "Thiếu tên bin."}
+        ok, v = tc.check_bin_rule(mn, mx, bool(whole))
+        if not ok:
+            return {"error": v}
+        with self._lock:
+            self._plan.setdefault("bin_rules", {})[name] = v
+            self._save_now()
+        return self.state()
+
+    def reset_bin_rule(self, name=None):
+        """Về mặc định: một bin (name) hoặc cả bảng (name rỗng) và số giây cắt của Truyền thống."""
+        with self._lock:
+            br = self._plan.get("bin_rules") or {}
+            if name:
+                br.pop(name, None)
+            else:
+                br = {}
+                self._plan.pop("trad_trim_s", None)
+            if br:
+                self._plan["bin_rules"] = br
+            else:
+                self._plan.pop("bin_rules", None)
+            self._save_now()
+        return self.state()
+
+    def set_trad_trim(self, seconds):
+        """Số giây cắt đầu và đuôi của kiểu Truyền thống (mặc định 1.5)."""
+        try:
+            v = float(seconds)
+        except (TypeError, ValueError):
+            return {"error": "Số giây phải là số."}
+        if v != v or v < 0 or v > 30:
+            return {"error": "Số giây cắt phải từ 0 đến 30."}
+        with self._lock:
+            if abs(v - tc.TRAD_HEAD_S) < 1e-9:
+                self._plan.pop("trad_trim_s", None)
+            else:
+                self._plan["trad_trim_s"] = round(v, 2)
+            self._save_now()
+        return self.state()
+
+    def _wave_maker(self):
+        if getattr(self, "_wave", None) is None:
+            import troly_wave as tw
+            self._wave = tw.WaveMaker(os.path.join(self._root, "cache", "troly_wave", tc._safe(self._project)))
+        return self._wave
+
+    def wave(self, uid):
+        """Sóng âm của clip, làm nền từ proxy (chỉ đọc): {'peaks': [0..100...]} | {'pending': True} | {'error': ...}."""
+        c = self._by_uid.get(uid)
+        if c is None:
+            return {"error": "Không thấy clip."}
+        if not self._proxy_root:
+            return {"error": "Chưa cấu hình proxy_root trong config.json."}
+        src = c.proxy
+        if not src or not os.path.isfile(src):
+            return {"error": "Chưa có proxy"}
+        import troly_play as tp
+        if not tp.inside(src, [self._proxy_root]):
+            return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
+        return self._wave_maker().get(c.rel or c.name, src)
 
     def save_ui(self, ui):
         """Lưu trạng thái làm việc: bước đang ở, giai đoạn/bin con đang xem, thu phóng thanh giờ, ô lọc."""

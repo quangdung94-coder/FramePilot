@@ -102,14 +102,16 @@ function render(rebuildItems) {
   $("sub").textContent = parts.join(" · ");
   document.querySelectorAll(".step").forEach((a) => {
     const n = +a.dataset.page;
-    a.className = "step" + ((n === page || (page === 3 && n === 2)) ? " on" : "") + ((page === 2 || page === 3) && n === 3 ? " on2" : "");
+    a.className = "step" + (n === page ? " on" : "");
   });
   $("right1").classList.toggle("hidden", page !== 1);
   $("right2").classList.toggle("hidden", page !== 2 && page !== 3);
   $("right4").classList.toggle("hidden", page !== 4);
   $("right5").classList.toggle("hidden", page !== 5);
   $("page1").classList.toggle("hidden", page !== 1);
-  $("page2").classList.toggle("hidden", page !== 2 && page !== 3);
+  $("page2").classList.toggle("hidden", page !== 2);
+  $("page3").classList.toggle("hidden", page !== 3);
+  placeStage();
   $("page4").classList.toggle("hidden", page !== 4);
   $("page5").classList.toggle("hidden", page !== 5);
   const hasMoves = S && S.moves.length;
@@ -121,6 +123,7 @@ function render(rebuildItems) {
   }
   renderPage1();
   renderPage2(rebuildItems);
+  if (page === 3) renderPage3();
   if (page === 4) lnRefresh();
 }
 
@@ -737,7 +740,14 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape") { $("ctx").classList.add("hidden"); if (pending) { cancelPending(); status("Đã thôi chờ bin con (clip giữ nguyên giai đoạn mới).", "info"); } return; }
   if (page === 4) { lnKey(e); return; }
-  if ((page !== 2 && page !== 3) || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (page === 3) {                                                  // Bước 3: chỉ J, ↑/↓ đổi clip, Enter; số KHÔNG xếp bin ở đây
+    if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.code === "KeyJ" && !e.shiftKey) { e.preventDefault(); toggleStar(); return; }
+    if (e.code === "ArrowUp" || e.code === "ArrowDown") { e.preventDefault(); moveCur(cur + (e.code === "ArrowUp" ? -1 : 1)); return; }
+    if (e.code === "Enter") { e.preventDefault(); reveal(); }
+    return;
+  }
+  if (page !== 2 || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
   if (e.code === "KeyJ" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { cancelPending(); e.preventDefault(); toggleStar(); return; }
   const d = digitOf(e);
   if (pending && d !== null && !e.ctrlKey && !e.altKey) {          // số thứ hai sau Shift+số: vào bin con
@@ -766,6 +776,7 @@ async function showCur() {
   const c = items[cur];
   if (!c) {
     plStop(); PL.uid = null;
+    renderPage3Cur(null);
     $("curName").textContent = ""; $("preview").innerHTML = "<span>Chọn một clip để xem</span>"; $("curBin").textContent = "—"; $("curInfo").textContent = "";
     $("ioIn").textContent = "In --:--:--"; $("ioIn").className = "io-in";
     $("ioOut").textContent = "Out --:--:--"; $("ioOut").className = "io-in";
@@ -777,6 +788,7 @@ async function showCur() {
   $("curName").textContent = c.name;
   $("starToggleBtn").textContent = c.star ? "★ Bỏ sao (phím J)" : "☆ Gắn sao (phím J)";
   $("starToggleBtn").classList.toggle("active", !!c.star);
+  renderPage3Cur(c);
   $("curBin").textContent = c.label ? c.label : "Chưa xếp";
   const src = { created: "Date Created", modified: "Date Modified − độ dài", none: "không rõ" }[c.src] || c.src;
   $("curInfo").textContent = `Giờ quay ${c.time} (${src}) · dài ${durTxt(c.dur)}\nMáy ${c.camera}\nHình: ${notes[c.uid] || "đang làm..."}\nLUT: ${c.lut || "(không gắn)"}` +
@@ -795,7 +807,7 @@ async function showCur() {
 }
 
 /* ------------------------------------------------------------------ chuyển bước, khởi động */
-function goPage(n) { cancelPending(); saveUi(); page = n; render(false); if (n === 2 || n === 3) $("gridScroll").focus(); if (n === 1) renderTimeline(); }
+function goPage(n) { cancelPending(); saveUi(); page = n; render(false); if (n === 2) $("gridScroll").focus(); if (n === 3) $("p3List").focus(); if (n === 1) renderTimeline(); }
 document.querySelectorAll(".step").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); goPage(+a.dataset.page); }));
 
 window.addEventListener("pywebviewready", async () => {

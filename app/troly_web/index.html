@@ -112,7 +112,7 @@
   </section>
 </main>
 
-<!-- ======================= BƯỚC 2 + 3: PHÂN LOẠI, IN/OUT ======================= -->
+<!-- ======================= BƯỚC 2: PHÂN LOẠI ======================= -->
 <main class="page hidden" id="page2">
   <aside class="col-pool">
     <span class="caps">Media Pool</span>
@@ -144,30 +144,22 @@
 
   <aside class="col-right">
     <div class="row-between baseline">
-      <h2>Điểm In / Out</h2>
+      <h2>Clip đang xem</h2>
       <span class="dim12" id="curName"></span>
     </div>
-    <div class="preview" id="preview"><span>Chọn một clip để xem</span></div>
-    <div class="player hidden" id="player">
-      <div class="player-ctl" id="plCtl">
-        <button class="btn pl-play" id="plPlay" title="Phát / dừng (phím Space)">▶</button>
-        <input type="range" id="plSeek" min="0" max="1000" value="0" aria-label="Lướt clip">
-        <select id="plRate" title="Tốc độ"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+    <div id="stageHost2"><div id="stageBox">
+      <div class="preview" id="preview"><span>Chọn một clip để xem</span></div>
+      <div class="player hidden" id="player">
+        <div class="player-ctl" id="plCtl">
+          <button class="btn pl-play" id="plPlay" title="Phát / dừng (phím Space)">▶</button>
+          <input type="range" id="plSeek" min="0" max="1000" value="0" aria-label="Lướt clip">
+          <select id="plRate" title="Tốc độ"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+        </div>
+        <div class="row-between dim12"><span id="plTime">00:00:00 / 00:00:00</span><span id="plNote"></span></div>
       </div>
-      <div class="row-between dim12"><span id="plTime">00:00:00 / 00:00:00</span><span id="plNote"></span></div>
-    </div>
+    </div></div>
     <button class="btn btn-star btn-44" id="starToggleBtn">☆ Gắn sao (phím J)</button>
-    <div class="v8">
-      <div class="io-bar" id="ioBar"><div class="io-empty" id="ioEmpty">Chưa đặt In / Out</div></div>
-      <div class="row-between dim12"><span class="io-in" id="ioIn">In --:--:--</span><span id="ioDur">Giữ --:--:--</span><span class="io-in" id="ioOut">Out --:--:--</span></div>
-      <div class="dim12" id="ioRule" style="font-size:11px;color:#A1A1AA;text-align:right"></div>
-      <span class="keys"><b>Space</b> phát/dừng · <b>I</b> / <b>O</b> đặt In/Out tại chỗ đang xem · kéo hai mép · bấm vào cột này rồi <b>←/→</b> chỉnh từng frame (Shift = 10). Giờ hiện dạng phút:giây:frame.</span>
-      <div class="inline8 io-write">
-        <button class="btn flex1" id="ioWriteStar" title="Ghi In/Out đặt tay của các clip có sao vào Media Pool (có hộp xác nhận)">Ghi In/Out clip sao</button>
-        <button class="btn flex1" id="ioWriteSel" title="Ghi In/Out đặt tay của các clip đang chọn">Ghi clip đang chọn</button>
-        <button class="btn" id="ioUndo" title="Khôi phục In/Out cũ theo bản sao lưu lần ghi gần nhất">Hoàn tác</button>
-      </div>
-    </div>
+    <span class="dim12">Đặt điểm In / Out ở bước 3 · In / Out (có sóng âm và bảng quy tắc).</span>
     <div class="info-box">
       <span class="dim12">Clip đang chọn</span>
       <span class="b14" id="curBin">Chưa xếp</span>
@@ -186,6 +178,58 @@
         <button class="btn-accent btn-44 flex1" id="applyBtn2">Áp dụng vào Media Pool</button>
       </div>
     </div>
+  </aside>
+</main>
+
+<!-- ======================= BƯỚC 3: IN / OUT (trang riêng, ADR-0019; bố cục theo design/3_inout) ======================= -->
+<main class="page hidden" id="page3">
+  <aside class="p3-left">
+    <span class="caps">Clip theo bin</span>
+    <select id="p3Stage" class="sel" title="Giai đoạn đang xem (cùng giai đoạn với bước 2)"></select>
+    <div class="p3-list" id="p3List" tabindex="0"></div>
+    <div class="p3-leg">
+      <span><i class="dot man"></i>đặt tay</span><span><i class="dot dv"></i>có trong DaVinci</span><span><i class="dot sug"></i>gợi ý</span>
+    </div>
+  </aside>
+
+  <section class="p3-center">
+    <div class="row-between baseline">
+      <h1 class="h20" id="p3Name">Chọn một clip</h1>
+      <span class="dim13" id="p3Meta"></span>
+    </div>
+    <div id="stageHost3"></div>
+    <span class="dim12">Sóng âm (từ proxy) · bấm vào để lướt tới đó</span>
+    <div class="wave" id="waveBox"><canvas id="waveCv"></canvas><div class="wave-head" id="waveHead"></div><div class="wave-note" id="waveNote"></div></div>
+    <div class="io-bar" id="ioBar"><div class="io-empty" id="ioEmpty">Chưa đặt In / Out</div></div>
+    <div class="row-between dim12"><span class="io-in" id="ioIn">In --:--:--</span><span id="ioDur">Giữ --:--:--</span><span class="io-in" id="ioOut">Out --:--:--</span></div>
+    <div class="p3-legend">
+      <span><i class="lg-man"></i>Cam: anh đặt tay / đã có trong DaVinci</span>
+      <span><i class="lg-sug"></i>Xanh: gợi ý, không tự ghi</span>
+      <span class="dim12" id="ioRule"></span>
+    </div>
+    <span class="keys"><b>Space</b> phát/dừng · <b>I</b> / <b>O</b> đặt In/Out tại chỗ đang xem · kéo hai mép · <b>←/→</b> từng frame (Shift = 10) · <b>↑/↓</b> clip trước/sau · <b>J</b> gắn sao · giờ hiện dạng phút:giây:frame</span>
+    <div class="flex1"></div>
+    <div class="inline8 io-write">
+      <button class="btn flex1" id="p3Star" title="Bật/tắt sao của clip đang xem (phím J)">☆ Gắn sao (J)</button>
+      <button class="btn flex1" id="ioWriteStar" title="Ghi In/Out đặt tay của các clip có sao vào Media Pool (có hộp xác nhận)">Ghi In/Out clip sao</button>
+      <button class="btn flex1" id="ioWriteSel" title="Ghi In/Out đặt tay của clip đang xem (hoặc các clip chọn ở bước 2)">Ghi clip đang chọn</button>
+      <button class="btn" id="ioUndo" title="Khôi phục In/Out cũ theo bản sao lưu lần ghi gần nhất">Hoàn tác</button>
+    </div>
+  </section>
+
+  <aside class="p3-right">
+    <div class="row-between baseline"><h2>Quy tắc gợi ý từng bin</h2><span class="p3-pill" id="rulesStyle">chưa chọn kiểu quay</span></div>
+    <span class="dim12">Số giây cần giữ cho mỗi bin. Chưa sửa thì dùng mặc định. Chỉ đổi gợi ý màu xanh, In/Out anh đặt tay luôn thắng.</span>
+    <table class="rt" id="rulesTbl"></table>
+    <div class="dim12"><span id="rulesNote">Ô viền cam = anh đã sửa.</span> <button class="btn-link" id="rulesReset" title="Xóa mọi chỗ đã sửa trong bảng và số giây cắt của Truyền thống">Về mặc định</button></div>
+    <div class="p3-box">
+      <b id="trStyleName">Kiểu quay: chưa chọn</b>
+      <span id="trStyleText"></span>
+      <label class="tr-row" for="tradTrim">Truyền thống cắt đầu/đuôi <input id="tradTrim" class="num" inputmode="decimal" title="Số giây cắt ở đầu và đuôi mỗi clip (kiểu Truyền thống)"> giây</label>
+    </div>
+    <div class="p3-box" id="p3Cur"><b>Clip đang chọn</b><span>Chưa chọn clip.</span></div>
+    <div class="flex1"></div>
+    <span class="dim12">In/Out chỉ vào DaVinci khi anh bấm nút Ghi, có hộp xác nhận và sao lưu; gợi ý màu xanh không bao giờ tự ghi.</span>
   </aside>
 </main>
 
@@ -297,5 +341,6 @@
 <script src="app.js"></script>
 <script src="player.js"></script>
 <script src="speech.js"></script>
+<script src="step3.js"></script>
 </body>
 </html>
