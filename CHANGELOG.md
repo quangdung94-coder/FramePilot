@@ -1,5 +1,11 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 (đêm) – Đêm #2: sửa lag khi lướt xem trước (ADR-0016) - CHỜ NGƯỜI DỰNG THỬ trong panel thật
+- Đọc mã thấy hàng đợi một lệnh nhảy, nhảy keyframe khi kéo, dùng lại một thẻ video, màu Log WebGL đã có từ ADR-0023: không làm lại, đem đo.
+- Thêm nút **Đo lướt** (chỉ khi `--debug`): kéo giả đầu tới cuối clip, so cách cũ / keyframe / chính xác. Đo trên proxy thật: cách cũ 2-3 hình/giây, đứng hình tới 1,2 giây; hiện tại 27 hình/giây, đứng tối đa 55 ms (Chromium, chưa đo trong pywebview).
+- Kéo mà dừng tay ~0,22 giây thì nhảy chính xác tới hình đó; tải trước phần đầu clip kế (thẻ video ẩn, chỉ đọc). Ghi nhận GPU (RTX 3060, giải mã H.264 phần cứng).
+- Test: +8 (tests/test_troly_luot.py), sửa 1 test cũ (hai thẻ video); 452 bài đạt.
+
 ## 2026-11-18 (đêm) – Đêm #1: Tự phân loại chạy luôn ở Bước 2 và 3 (ADR-0026) - CHỜ NGƯỜI DỰNG THỬ
 - Bỏ cặp nút "Tự phân loại | AI gợi ý" ở thanh trên. Bước 2: nút "Tự phân loại · N clip nhóm X" (khung cam, tiến độ a / b) gộp "Chạy lại AI" + "Gợi ý cho cả nhóm"; chỉ gán nhãn, không chuyển clip trong DaVinci.
 - Ngưỡng tự xếp áp ngay khi kéo/gõ, không gọi AI lại; biểu đồ 10 cột độ chắc + vạch ngưỡng + hai số "tự xếp" / "chờ bạn duyệt"; clip dưới ngưỡng viền cam đứt.

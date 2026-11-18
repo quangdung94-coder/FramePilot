@@ -64,3 +64,25 @@ Lấy 5 file proxy ở 5 project khác nhau (ffprobe + cửa sổ WebView2 thử
 ## Hệ quả
 - config.json cần thêm `"proxy_root": "F:\\02_Proxy Media"` (không đưa lên Git).
 - Quy tắc ghi In/Out đã thêm vào CLAUDE.md. Ghi hàng loạt CHỈ do người dựng bấm nút.
+
+
+## Đêm 18/11/2026: sửa lag khi lướt (nhánh sua-lag-luot) - CHỜ NGƯỜI DỰNG THỬ trong panel thật
+**Phát hiện khi đọc mã:** E2 (một lệnh nhảy đang chạy, đợi `seeked`), E3 (kéo thì nhảy theo keyframe, thả thì chính xác, keyframe đọc MỘT lần bằng ffprobe rồi cache), E4 phần "dùng lại MỘT thẻ video" và E7 (màu Log bằng WebGL, file .cube đưa qua API) đã làm sẵn từ ADR-0023. Không làm lại; chỉ đo xem chúng có thật sự hết giật không, rồi bổ sung chỗ còn thiếu.
+
+**Bổ sung:**
+- Nút **Đo lướt** (E1, chỉ hiện khi panel chạy `--debug`, hàm `plMeasure()` gọi được từ F12): mô phỏng KÉO từ đầu tới cuối clip, 3 giây, 60 sự kiện/giây, ở 3 cách: `cu` (mỗi sự kiện gán thẳng `currentTime`, đúng như cách trước khi sửa), `keyframe` (cách hiện tại: hàng đợi một lệnh + nhảy keyframe, thả thì chính xác), `chinhxac` (hàng đợi một lệnh nhưng luôn nhảy chính xác). Đo số hình thật sự hiện ra (mỗi `seeked` là một hình), độ trễ mỗi lần nhảy, lần đứng hình lâu nhất, số khung rớt (`getVideoPlaybackQuality`), thời gian chờ hình chính xác sau khi thả. Chỉ đọc; số đo lưu ra `<data_root>	roly\debug\do_luot_*.json` (API `debug_save`, chỉ khi `--debug`, tên file chỉ chữ/số/_-).
+- **Dừng tay giữa lúc kéo** (E6): kéo mà ngừng khoảng 0,22 giây (chưa thả chuột) thì nhảy CHÍNH XÁC tới hình đó thay vì kẹt ở keyframe phía trước (tới 1 giây); có lệnh mới thì hủy hẹn giờ.
+- **Tải trước clip kế** (E4): một thẻ video ẩn `preload="metadata"`, tắt tiếng, chỉ nạp phần đầu và chỉ mục của clip kế tiếp. Chỉ đọc proxy qua máy chủ phát.
+
+**Số đo (E1/E6), đo ngày 18/11/2026 trên proxy thật DG7500.mov của một project quay (H.264 High 1920x1080 50 hình/giây, 83,5 giây, 84 keyframe), máy RTX 3060, hai lượt giống nhau:**
+
+| Cách | hình hiện ra/giây khi kéo | đứng hình lâu nhất | đứng hình trung bình | khung rớt | chờ hình chính xác sau thả |
+|---|---|---|---|---|---|
+| `cu` (cách cũ) | 2,2 - 2,9 | 0,72 - 1,20 giây | 393 - 523 ms | 0 | 157 - 169 ms |
+| `keyframe` (hiện tại) | 27,2 - 27,3 | 55 ms | 37 ms | 0 | 146 - 153 ms |
+| `chinhxac` | 17,4 - 19,0 | 151 - 154 ms | 54 - 59 ms | 0 | 191 - 192 ms |
+
+Kết luận: cách cũ chỉ ra khoảng 2-3 hình mỗi giây và đứng hình tới hơn 1 giây (đúng cảm giác giật); cách hiện tại (hàng đợi + keyframe) ra khoảng 27 hình mỗi giây (gần như mọi keyframe), đứng tối đa 55 ms. Mở clip mới mất khoảng 25-55 ms với hoặc không tải trước (mẫu quá ít để thấy khác biệt; tải trước không gây hại và không có lợi đo được).
+E5: WebGL báo NVIDIA GeForce RTX 3060 (Direct3D11); `mediaCapabilities` báo H.264 1080p50 40 Mbps `supported/smooth/powerEfficient = true` (thường nghĩa là giải mã bằng phần cứng). Không ép gì thêm.
+
+**CHƯA ĐO THẬT trong panel pywebview (WebView2):** các số trên đo bằng trình duyệt Chromium trong ứng dụng Claude (cùng máy, cùng máy chủ phát proxy 127.0.0.1, API và proxy thật), không phải cửa sổ pywebview. Cần bấm Đo lướt (panel chạy `--debug`) trong panel thật và so lại. Cũng chưa kéo bằng chuột thật; sự kiện kéo là giả. Chưa đo clip bị hai card đồ họa chọn khác card.

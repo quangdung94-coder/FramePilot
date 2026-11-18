@@ -3,10 +3,10 @@
    (api.set_inout), ghi vào DaVinci chỉ khi bấm nút + xác nhận. Phím đọc bằng event.code, bỏ qua khi đang gõ ô chữ. */
 "use strict";
 
-const PL = { range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, tried: false };
+const PL = { pre: null, preUid: null, preOn: true, openMs: 0, t0: 0, range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, tried: false };
 /* Việc 2 (ADR-0023): lướt mượt. Chỉ gửi lệnh nhảy khi lệnh trước xong (seeked), lệnh mới thay lệnh cũ chưa gửi; đang KÉO thì nhảy theo keyframe
    (giải mã 1 khung), THẢ ra thì nhảy chính xác. Dùng lại MỘT thẻ <video> cho mọi clip. Không tạo proxy mới. */
-const SK = { want: null, fast: false, busy: false, drag: false, timer: 0, sent: 0, seeks: 0 };
+const SK = { want: null, fast: false, busy: false, drag: false, timer: 0, sent: 0, seeks: 0, dwell: 0 };
 const fmtF = (t, fps) => {                                   // giây -> mm:ss:ff theo frame của clip
   t = Math.max(0, t || 0); fps = Math.round(fps || 25);
   const f = Math.round(t * fps), ff = f % fps, s = Math.floor(f / fps);
@@ -102,6 +102,11 @@ function plPump() {                                             // gửi lệnh 
 function plSeek(t, opt) {                                       // opt.fast: đang kéo -> nhảy theo keyframe; mặc định: chính xác
   if (!PL.vid) return;
   SK.want = Math.max(0, Math.min(PL.dur || 0, t)); SK.fast = !!(opt && opt.fast);
+  clearTimeout(SK.dwell);
+  if (SK.fast) {                                                // đang kéo mà dừng tay (chưa thả chuột) ~0,22 s: nhảy CHÍNH XÁC tới hình đó, khỏi chờ thả
+    const at = SK.want;
+    SK.dwell = setTimeout(() => { if (PL.vid) { SK.fast = false; SK.want = at; plPump(); } }, 220);
+  }
   plPump();
 }
 function plNudge(frames) {                                     // mũi tên: chỉnh từng frame
@@ -241,7 +246,7 @@ function plToggle() {
 function plStop() {
   const v = PL.el;
   if (v) { try { v.pause(); } catch (e) { /* bỏ qua */ } v.style.opacity = "0"; v.removeAttribute("src"); v.load(); }       // giữ thẻ, chỉ bỏ nguồn
-  PL.vid = null; PL.ok = false; PL.edge = null; PL.tried = false; PL.kf = null; SK.want = null; SK.busy = false; SK.drag = false; lutDetach();
+  PL.vid = null; PL.ok = false; PL.edge = null; PL.tried = false; PL.kf = null; SK.want = null; SK.busy = false; SK.drag = false; clearTimeout(SK.dwell); lutDetach();
   $("player").classList.add("hidden");
 }
 function plEl() {                                               // MỘT thẻ <video> dùng cho mọi clip; sự kiện gắn một lần
@@ -264,7 +269,7 @@ function plEl() {                                               // MỘT thẻ <
   v.addEventListener("play", () => { $("plPlay").textContent = "❚❚"; });
   v.addEventListener("pause", () => { $("plPlay").textContent = "▶"; });
   v.addEventListener("seeked", () => { SK.busy = false; clearTimeout(SK.timer); lutDraw(); plPump(); });
-  v.addEventListener("loadeddata", () => { if (PL.vid === v) v.style.opacity = "1"; lutDraw(); });
+  v.addEventListener("loadeddata", () => { if (PL.vid === v) { v.style.opacity = "1"; if (PL.t0) { PL.openMs = Math.round(performance.now() - PL.t0); PL.t0 = 0; } } lutDraw(); });
   v.addEventListener("error", () => { if (v.getAttribute("src")) fallback(); });          // WebView2 không phát được định dạng này -> bản xem nhẹ
   PL.el = v; return v;
 }
@@ -284,10 +289,11 @@ async function plOpen(c, transcode) {                         // gọi từ show
   if (lutGL() && LUT.cv.parentNode !== $("preview")) $("preview").appendChild(LUT.cv);
   SK.want = null; SK.busy = false; SK.drag = false; PL.kf = null; PL.open = { uid, transcode: !!transcode };
   v.style.opacity = "0"; PL.vid = v; PL.ok = false;
+  PL.t0 = performance.now();                                    // đo thời gian từ lúc mở tới có hình (nút Đo lướt báo lại)
   v.src = r.url;
   $("player").classList.remove("hidden");
   lutAttach(c, v);
-  if (!transcode) api().keyframes(uid).then((k) => { if (PL.uid === uid && k && k.kf) PL.kf = k.kf; });
+  if (!transcode) { api().keyframes(uid).then((k) => { if (PL.uid === uid && k && k.kf) PL.kf = k.kf; }); plPreloadNext(); }
 }
 $("plPlay").onclick = plToggle;
 $("preview").addEventListener("click", () => { PL.focus = true; plToggle(); });
@@ -342,3 +348,73 @@ $("ioUndo").onclick = async () => {
   const r = await api().inout_undo();
   if (r.error) status(r.error, "warn");
 };
+
+
+/* ---- Đêm #2 (ADR-0016): tải trước phần đầu + chỉ mục (moov) của clip KẾ TIẾP bằng một thẻ video ẩn (preload=metadata, tắt tiếng), để đổi clip nhanh hơn.
+   Chỉ đọc proxy qua máy chủ phát; bỏ qua nếu clip kế không có proxy. ---- */
+async function plPreloadNext() {
+  if (!PL.preOn) return;
+  const nx = items[cur + 1]; if (!nx || PL.preUid === nx.uid) return;
+  const uid = nx.uid; PL.preUid = uid;
+  let r; try { r = await api().play_info(uid, false); } catch (e) { return; }
+  if (!r || r.error || PL.preUid !== uid) return;
+  if (!PL.pre) { PL.pre = document.createElement("video"); PL.pre.preload = "metadata"; PL.pre.muted = true; PL.pre.style.display = "none"; }
+  PL.pre.src = r.url;
+}
+
+/* ---- Đêm #2: nút "Đo lướt" (chỉ khi panel chạy --debug). Mô phỏng KÉO từ đầu tới cuối clip bằng sự kiện giả 60 lần/giây, đo: số hình thật sự hiện ra
+   trong lúc kéo (mỗi "seeked" là một hình), độ trễ mỗi lần nhảy, lần đứng hình lâu nhất, số khung rớt, thời gian chờ hình chính xác sau khi thả. Ba cách: "cu" (mỗi sự kiện gán thẳng
+   currentTime, như trước khi sửa), "keyframe" (hàng đợi một lệnh, nhảy theo keyframe, thả mới chính xác), "chinhxac" (hàng đợi một lệnh nhưng luôn chính xác).
+   Chỉ ĐỌC; kết quả hiện ở ghi chú trình phát, console và lưu <data_root>	roly\debug. ---- */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function plWaitSeeked(v, ms) { return new Promise((res) => { let done = false; const f = () => { if (done) return; done = true; v.removeEventListener("seeked", f); res(); }; v.addEventListener("seeked", f); setTimeout(f, ms || 4000); }); }
+async function plSweep(mode, ms) {
+  const v = PL.vid, dur = PL.dur; if (!v || !PL.ok || !(dur > 1)) return { mode, error: "Chưa mở clip phát được" };
+  v.pause(); SK.want = null; SK.busy = false;
+  v.currentTime = 0; await plWaitSeeked(v, 4000); await sleep(150);
+  const steps = Math.round(ms / (1000 / 60)), q0 = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : { droppedVideoFrames: 0, totalVideoFrames: 0 };
+  let wanted = 0, seeked = 0, latSum = 0, latMax = 0, sentAt = 0, lastEv = 0, gapMax = 0, gapSum = 0;
+  const onSeeked = () => {                                      // mỗi "seeked" = MỘT hình mới thật sự hiện ra (currentTime báo ngay vị trí đích nên không đo lệch bằng nó được)
+    const now = performance.now(), lat = now - sentAt; seeked++; latSum += lat; latMax = Math.max(latMax, lat);
+    if (lastEv) { const g = now - lastEv; gapSum += g; gapMax = Math.max(gapMax, g); }
+    lastEv = now;
+  };
+  v.addEventListener("seeked", onSeeked);
+  const t0 = performance.now();
+  for (let i = 0; i <= steps; i++) {
+    wanted = dur * i / steps; sentAt = performance.now();
+    if (mode === "cu") v.currentTime = wanted; else plSeek(wanted, { fast: mode === "keyframe" });
+    await sleep(1000 / 60);
+  }
+  const tEnd = performance.now(), rel = performance.now();
+  if (mode === "keyframe") { SK.drag = false; plSeek(wanted); }                   // thả chuột: nhảy chính xác
+  for (let k = 0; k < 400; k++) { if (!v.seeking && !SK.busy && SK.want == null) break; await sleep(10); }
+  await sleep(120);
+  const settle = Math.round(performance.now() - rel), err = Math.abs(v.currentTime - wanted);
+  v.removeEventListener("seeked", onSeeked);
+  const q1 = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : q0, secs = (tEnd - t0) / 1000;
+  return { mode, ms, su_kien_keo: steps + 1, hinh_hien: seeked, hinh_hien_moi_giay: +(seeked / secs).toFixed(1), tre_moi_lan_tb_ms: seeked ? Math.round(latSum / seeked) : null, tre_cham_nhat_ms: Math.round(latMax),
+    dung_hinh_tb_ms: seeked > 1 ? Math.round(gapSum / (seeked - 1)) : null, dung_hinh_lau_nhat_ms: Math.round(gapMax), khung_rot: (q1.droppedVideoFrames || 0) - (q0.droppedVideoFrames || 0), cho_hinh_chinh_xac_ms: settle, sai_so_cuoi_giay: +err.toFixed(3) };
+}
+async function plGpuInfo() {                                    // E5: card đồ họa WebView2 đang dùng và có giải mã H.264 bằng phần cứng không (chỉ ghi lại, không ép gì)
+  const out = { hardwareConcurrency: navigator.hardwareConcurrency };
+  try { const c = document.createElement("canvas"), gl = c.getContext("webgl2"), e = gl && gl.getExtension("WEBGL_debug_renderer_info"); out.webgl = e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : (gl ? "webgl2 (không đọc được tên card)" : "không có webgl2"); } catch (e) { out.webgl = "lỗi: " + e; }
+  try {
+    const d = await navigator.mediaCapabilities.decodingInfo({ type: "file", video: { contentType: 'video/mp4; codecs="avc1.640032"', width: 1920, height: 1080, bitrate: 40e6, framerate: 50 } });
+    out.h264_1080p50 = { supported: d.supported, smooth: d.smooth, powerEfficient: d.powerEfficient };       // powerEfficient=true thường nghĩa là giải mã bằng phần cứng
+  } catch (e) { out.h264_1080p50 = "lỗi: " + e; }
+  return out;
+}
+async function plMeasure() {
+  const note = $("plNote"), old = note.textContent;
+  if (!PL.vid || !PL.ok) { note.textContent = "Đo lướt: mở một clip có proxy phát được trước"; return null; }
+  const res = { clip: curClip() && curClip().name, dur: PL.dur, fps: PL.fps, nhan_keyframe: PL.kf ? PL.kf.length : 0, mo_clip_ms: PL.openMs, gpu: await plGpuInfo(), lan_do: [] };
+  for (const mode of ["cu", "keyframe", "chinhxac"]) { note.textContent = "Đo lướt: " + mode + "…"; res.lan_do.push(await plSweep(mode, 3000)); await sleep(300); }
+  note.textContent = old;
+  console.log("DO_LUOT", JSON.stringify(res));
+  try { await api().debug_save("do_luot_" + new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14), res); } catch (e) { /* bỏ qua */ }
+  return res;
+}
+window.plMeasure = plMeasure;
+window.addEventListener("pywebviewready", async () => { try { if (await api().debug_on()) $("plMeasure").classList.remove("hidden"); } catch (e) { /* bỏ qua */ } });
+$("plMeasure").onclick = async () => { const r = await plMeasure(); if (r) $("plNote").textContent = r.lan_do.map((x) => x.mode + ": " + x.hinh_hien_moi_giay + " hình/s, đứng lâu nhất " + x.dung_hinh_lau_nhat_ms + " ms").join(" | "); };

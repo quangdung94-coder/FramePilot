@@ -11,6 +11,7 @@ Thuộc tính và hàm bắt đầu bằng "_" KHÔNG lộ ra JavaScript (quy ư
 import base64
 import collections
 import datetime
+import json
 import os
 import queue
 import sys
@@ -71,6 +72,7 @@ class TrolyApi(object):
         self._speech_st, self._speech_run, self._speech_last = None, None, None
         self._analyze = None
         self._ai_cache, self._ai_job = {}, None            # Bước 6 AI (ADR-0022)
+        self.debug = False                                 # panel chạy với --debug: bật nút "Đo lướt" (chỉ đọc, ghi số đo ra file nhỏ)
         self._tl_fps = None                                # fps timeline của project (worker đọc khi Đọc clip); None -> 25
         import troly_batch as _tb
         self._shutdown_fn = _tb.system_shutdown     # kiểm thử thay bằng bản giả
@@ -1286,6 +1288,23 @@ class TrolyApi(object):
         if not url:
             return {"error": "Không phát được file này."}
         return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "transcoded": bool(transcode)}
+
+    def debug_on(self):
+        return bool(self.debug)
+
+    def debug_save(self, name, data):
+        """Ghi số đo từ nút "Đo lướt" (chỉ khi --debug) vào <data_root>\troly\debug\<tên>.json để chép vào ADR. Tên chỉ chữ/số/_-."""
+        if not self.debug:
+            return {"error": "Chỉ có khi chạy với --debug."}
+        import re as _re
+        if not _re.fullmatch(r"[A-Za-z0-9_-]{1,60}", str(name or "")):
+            return {"error": "Tên file không hợp lệ."}
+        d = os.path.join(self._root, "troly", "debug")
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, "%s.json" % name)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=1)
+        return {"ok": True, "path": path}
 
     def keyframes(self, uid):
         """Keyframe của proxy (giây) để lướt mượt; chỉ đọc proxy trong proxy_root. {'kf': [...]} hoặc {'error': ...}."""
