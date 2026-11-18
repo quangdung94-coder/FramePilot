@@ -64,6 +64,14 @@
 - CHƯA thử: trong cửa sổ panel pywebview thật (chưa mở panel thật, chưa chụp màn hình panel thật), proxy thật ở F:\, DaVinci thật, ghi In/Out. PSC vẫn giống mặc định về số (chỉnh bảng nếu muốn khác).
 - Anh cần làm: mở panel, vào Bước 3, thử sóng âm + kéo mép + sửa bảng; xem demo design/3_inout và cho biết sửa bố cục gì.
 
+## Bước 6 AI (18/11/2026, nhánh buoc6) - CHỜ ANH XEM, chưa có giao diện trong panel
+- Model OpenCLIP ViT-B/32 laion2B: D:\VideoAI\data\models\openclip_vitb32_laion2b\open_clip_model.safetensors (605 MB). Venv riêng: C:\VideoAI_ai_venv.
+- Chạy: `C:\VideoAI_ai_venv\Scripts\python.exe app	roly_ai.py all --project "<tên project>"` (embed | suggest | review; --stop để dừng, chạy lại làm tiếp).
+- Kết quả: D:\VideoAI\data	rolyi_suggest\<project>.json; trang xem D:\VideoAI\data	rolyi_review\<project>\index.html (mở bằng trình duyệt).
+- Đã chạy 4 project có cache thumbnail. Chỉ 1 project có đủ nhãn tay (324): gợi ý theo mô tả trùng 17% hạng 1, 58% trong 3 đầu => yếu, chỉ tham khảo. Học từ nhãn tay thử nhanh ~81%.
+- Một project không còn proxy nên thumbnail không ghép được tên clip.
+- Chưa làm: giao diện trong panel, học từ nhãn (few-shot), dùng giai đoạn/giờ quay để thu hẹp bin.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
 2. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin
@@ -74,7 +82,7 @@
    - Cho đổi tên bin giai đoạn (đổi theo cả bin trong Media Pool, giữ nhãn clip).
    - Số thứ tự đặt TRƯỚC tên bin thay vì sau (cần người dựng chỉ chỗ đang sai).
    - Sao nhiều mức 1/2/3 như lọc ảnh (phím khác 1-9, ví dụ Alt+1/2/3); lên timeline ưu tiên nhiều sao.
-4. AI tự phân loại clip, học từ nhãn người dựng đã xếp.
+4. AI tự phân loại clip, học từ nhãn người dựng đã xếp: nền đã có (ADR-0020, vector ảnh). Bước kế: phân loại few-shot từ nhãn tay + giai đoạn, rồi giao diện duyệt trong panel.
 
 ## Ghi chú kỹ thuật
 - Khi sửa logic trong troly_core.py nên thêm test vào tests/ rồi chạy bộ kiểm thử.
