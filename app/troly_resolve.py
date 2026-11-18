@@ -35,6 +35,10 @@ def walk_bins(folder, path, out):
     return out
 
 
+def segs_all(v1, v2):
+    return list(v1) + list(v2)
+
+
 def find_folder(root, path):
     """'Master/01_footage/01_SELECTED' -> Folder (đi theo tên từng cấp). Không thấy -> None."""
     parts = [p for p in (path or "").split("/") if p]
@@ -148,7 +152,16 @@ class TrolyWorker(threading.Thread):
             clips.append(tc.Clip.from_props(uid, props, bp, mark_in=m_in, mark_out=m_out))
             if i % 50 == 0:
                 self.post("progress", ("Đang đọc clip", i + 1, len(rows)))
+        self.post("tl_fps", self._read_tl_fps())
         self.post("clips", (bin_path, clips))
+
+    def _read_tl_fps(self):
+        """fps timeline của project (cho "Slow mượt tự tính"); không đọc được thì None (panel dùng 25)."""
+        try:
+            v = float(self.project.GetSetting("timelineFrameRate"))
+            return v if v > 0 else None
+        except Exception:                                     # noqa: BLE001
+            return None
 
     # --- GHI (ADR-0009) -----------------------------------------------------
     def do_apply(self, arg):
@@ -297,33 +310,48 @@ class TrolyWorker(threading.Thread):
         self.post("timeline_appended", (len(items), True))
 
     def do_create_cut_timeline(self, arg):
-        """Bước 5 (ADR-0013): tạo MỘT timeline MỚI từ danh sách đoạn đã cắt gọt. arg = (tên timeline, [(uid, frame vào, frame ra)]).
-        Mỗi đoạn là clip con (startFrame/endFrame, tính từ đầu file) trong clipInfo, KHÔNG ghi In/Out lên clip gốc.
-        Thử CreateTimelineFromClips; trả rỗng thì CreateEmptyTimeline + AppendToTimeline. Không xóa/sửa timeline có sẵn, không render.
+        """Bước 5 (ADR-0013 bản 3): tạo MỘT timeline MỚI. arg = (tên, [đoạn]); đoạn = dict(uid, a, b (frame GỐC, từ đầu file), pct (tốc độ %),
+        track 'V1'|'V2', start_f (frame trên timeline, tính từ đầu timeline), mute). Mỗi đoạn là clip con, KHÔNG ghi In/Out lên clip gốc.
+        Cách làm (ĐÃ THỬ trên project thử 18/11/2026, xem ADR-0013):
+          1) V1: CreateTimelineFromClips ở 100% (trả rỗng thì CreateEmptyTimeline + AppendToTimeline), rồi từng clip Slow: SetSpeed(Percentage,
+             RippleTimeline=True) theo thứ tự -> clip sau tự bị đẩy ra sau, liền nhau không chồng không hở. (RippleTimeline=False KHÔNG dùng được:
+             clip giữ nguyên độ dài, DaVinci cắt bớt phần source.)
+          2) V2: AppendToTimeline với trackIndex=2 + recordFrame (tiếng vào A2); clip Slow ở V2 thì KHÓA V1/A1 rồi SetSpeed ripple True
+             (không khóa thì ripple cắt đôi và đẩy V1).
+          3) Tắt tiếng: SetCurrentTimeline rồi SetClipEnabled(False) trên clip TIẾNG của khối (A1 cho V1, A2 cho V2). Không đụng A3 trở lên.
+        Cuối cùng ĐỌC LẠI vị trí đầu/cuối từng clip để kiểm V1 liền nhau, V2 đúng chỗ. Không xóa/sửa timeline có sẵn, không render.
         Sau khi tạo kiểm lại: số timeline tăng đúng 1 và các timeline cũ còn nguyên tên."""
         name, segs = arg
         self._require_current()
         if not self.items:
             raise RuntimeError("Hãy bấm 'Đọc clip' trước.")
-        infos = []
-        for uid, a, b in segs:
-            if uid in self.items:
-                infos.append({"mediaPoolItem": self.items[uid][1], "startFrame": int(a), "endFrame": int(b)})
-        if not infos:
+        segs = [dict(x) if isinstance(x, dict) else {"uid": x[0], "a": x[1], "b": x[2], "pct": 100.0, "track": "V1", "start_f": 0, "mute": False}
+                for x in segs]
+        segs = [x for x in segs if x["uid"] in self.items]
+        if not segs:
             raise RuntimeError("Không có đoạn nào để đưa lên timeline.")
+        v1 = [x for x in segs if x.get("track", "V1") == "V1"]
+        v2 = sorted([x for x in segs if x.get("track") == "V2"], key=lambda x: x.get("start_f", 0))
+
+        def info(x):
+            return {"mediaPoolItem": self.items[x["uid"]][1], "startFrame": int(x["a"]), "endFrame": int(x["b"])}
+
+        infos = [info(x) for x in v1]
         before = self._timeline_names()
         pool = self.pool
         tl, why, created_empty = None, [], False
-        try:
-            tl = pool.CreateTimelineFromClips(name, infos)
-        except Exception as e:                                # noqa: BLE001
-            why.append("CreateTimelineFromClips lỗi: %s" % e)
+        if infos:
+            try:
+                tl = pool.CreateTimelineFromClips(name, infos)
+            except Exception as e:                            # noqa: BLE001
+                why.append("CreateTimelineFromClips lỗi: %s" % e)
+            if not tl:
+                why.append("CreateTimelineFromClips trả rỗng")
         if not tl:
-            why.append("CreateTimelineFromClips trả rỗng")
             try:
                 tl = pool.CreateEmptyTimeline(name)
                 created_empty = bool(tl)
-                if tl and not pool.AppendToTimeline(infos):
+                if tl and infos and not pool.AppendToTimeline(infos):
                     why.append("AppendToTimeline không thêm được đoạn nào")
                     tl = None
                 elif not tl:
@@ -333,14 +361,113 @@ class TrolyWorker(threading.Thread):
                 tl = None
         if not tl:
             extra = " Một timeline rỗng có thể đã được tạo, anh xóa tay nếu thấy (Trợ lý không xóa timeline)." if created_empty else ""
-            raise RuntimeError("DaVinci không tạo được timeline mới (%d đoạn). Chi tiết: %s.%s" % (len(infos), "; ".join(why), extra))
+            raise RuntimeError("DaVinci không tạo được timeline mới (%d đoạn). Chi tiết: %s.%s" % (len(segs), "; ".join(why), extra))
+        notes = self._finish_layout(tl, v1, v2, info)
         after = self._timeline_names()
-        res = {"name": name, "n": len(infos), "before": None if before is None else len(before), "after": None if after is None else len(after),
-               "old_intact": None, "verified": False}
+        res = {"name": name, "n": len(segs), "before": None if before is None else len(before), "after": None if after is None else len(after),
+               "old_intact": None, "verified": False, "layout_ok": notes["layout_ok"], "layout_msgs": notes["msgs"], "n_slow": notes["n_slow"],
+               "n_muted": notes["n_muted"], "n_v2": len(v2)}
         if before is not None and after is not None:
             res["old_intact"] = all(after.count(n) >= before.count(n) for n in set(before))
             res["verified"] = len(after) == len(before) + 1 and bool(res["old_intact"]) and name in after
         self.post("cut_timeline_created", res)
+
+    def _finish_layout(self, tl, v1, v2, info):
+        """Slow ở V1, khối V2, tắt tiếng, đọc lại kiểm (xem do_create_cut_timeline). Mọi lỗi nhỏ được ghi lại, không làm hỏng timeline đã tạo."""
+        notes = {"layout_ok": None, "msgs": [], "n_slow": 0, "n_muted": 0}
+        need = any(float(x.get("pct", 100)) < 99.95 for x in segs_all(v1, v2)) or v2 or any(x.get("mute") for x in segs_all(v1, v2))
+        if not need:
+            return notes
+        proj, pool = self.project, self.pool
+        try:
+            proj.SetCurrentTimeline(tl)
+        except Exception as e:                                # noqa: BLE001
+            notes["msgs"].append("Không đặt được timeline mới làm timeline hiện tại: %s" % e)
+        # 1) V1: Slow lần lượt, ripple
+        for i, x in enumerate(v1):
+            pct = float(x.get("pct", 100))
+            if pct >= 99.95:
+                continue
+            try:
+                its = tl.GetItemListInTrack("video", 1) or []
+                ok = its[i].SetSpeed({"Percentage": pct, "RippleTimeline": True})
+                notes["n_slow"] += 1 if ok else 0
+                if not ok:
+                    notes["msgs"].append("SetSpeed %g%% không được ở clip V1 số %d." % (pct, i + 1))
+            except Exception as e:                            # noqa: BLE001
+                notes["msgs"].append("SetSpeed lỗi ở clip V1 số %d: %s" % (i + 1, e))
+        # 2) V2
+        v2_start = {}
+        if v2:
+            try:
+                while int(tl.GetTrackCount("video")) < 2:
+                    tl.AddTrack("video")
+                while int(tl.GetTrackCount("audio")) < 2:
+                    tl.AddTrack("audio", "stereo")
+            except Exception as e:                            # noqa: BLE001
+                notes["msgs"].append("Không thêm được track: %s" % e)
+            s0 = tl.GetStartFrame()
+            for j, x in enumerate(v2):
+                rec = int(s0) + int(x.get("start_f", 0))
+                ci = info(x)
+                ci.update({"trackIndex": 2, "recordFrame": rec})
+                try:
+                    pool.AppendToTimeline([ci])
+                except Exception as e:                        # noqa: BLE001
+                    notes["msgs"].append("Không đặt được clip V2 số %d: %s" % (j + 1, e))
+                    continue
+                pct = float(x.get("pct", 100))
+                its2 = [it for it in (tl.GetItemListInTrack("video", 2) or []) if int(it.GetStart()) == rec]
+                if not its2:
+                    notes["msgs"].append("Không thấy clip V2 số %d sau khi đặt." % (j + 1))
+                    continue
+                if pct < 99.95:
+                    locked = []
+                    try:
+                        for kind, t in (("video", 1), ("audio", 1)):           # chỉ V1/A1 có clip (A3 trở lên không đụng); mở khóa lại ngay bên dưới
+                            if tl.SetTrackLock(kind, t, True):
+                                locked.append((kind, t))
+                        ok = its2[0].SetSpeed({"Percentage": pct, "RippleTimeline": True})
+                        notes["n_slow"] += 1 if ok else 0
+                        if not ok:
+                            notes["msgs"].append("SetSpeed %g%% không được ở clip V2 số %d." % (pct, j + 1))
+                    except Exception as e:                    # noqa: BLE001
+                        notes["msgs"].append("SetSpeed lỗi ở clip V2 số %d: %s" % (j + 1, e))
+                    finally:
+                        for kind, t in locked:
+                            try:
+                                tl.SetTrackLock(kind, t, False)
+                            except Exception:                 # noqa: BLE001
+                                notes["msgs"].append("CẢNH BÁO: chưa mở khóa lại track %s%d, anh mở tay." % ("V" if kind == "video" else "A", t))
+                v2_start[j] = rec
+        # 3) tắt tiếng đúng khối (clip tiếng cùng vị trí với clip hình)
+        try:
+            v1_items = tl.GetItemListInTrack("video", 1) or []
+            a1 = {int(it.GetStart()): it for it in (tl.GetItemListInTrack("audio", 1) or [])}
+            a2 = {int(it.GetStart()): it for it in (tl.GetItemListInTrack("audio", 2) or [])} if v2 else {}
+            for i, x in enumerate(v1):
+                if x.get("mute") and i < len(v1_items):
+                    ai = a1.get(int(v1_items[i].GetStart()))
+                    if ai is not None and ai.SetClipEnabled(False):
+                        notes["n_muted"] += 1
+            for j, x in enumerate(v2):
+                if x.get("mute") and j in v2_start:
+                    ai = a2.get(v2_start[j])
+                    if ai is not None and ai.SetClipEnabled(False):
+                        notes["n_muted"] += 1
+        except Exception as e:                                # noqa: BLE001
+            notes["msgs"].append("Tắt tiếng lỗi: %s" % e)
+        # 4) đọc lại vị trí
+        try:
+            import troly_tl
+            got = [("V1", int(it.GetStart()), int(it.GetEnd())) for it in (tl.GetItemListInTrack("video", 1) or [])]
+            got += [("V2", int(it.GetStart()), int(it.GetEnd())) for it in (tl.GetItemListInTrack("video", 2) or [])] if v2 else []
+            pl = [{"track": "V1"} for _ in v1] + [{"track": "V2"} for _ in v2]
+            notes["layout_ok"], more = troly_tl.verify_readback(pl, got)
+            notes["msgs"] += more
+        except Exception as e:                                # noqa: BLE001
+            notes["msgs"].append("Không đọc lại được vị trí: %s" % e)
+        return notes
 
     def _timeline_names(self):
         """Tên các timeline hiện có (để kiểm trước/sau), hoặc None nếu bản DaVinci/giả lập không hỏi được."""

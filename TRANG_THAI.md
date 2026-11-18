@@ -1,4 +1,4 @@
-# Trạng thái Trợ lý File Quay (cập nhật 18/11/2026, chiều)
+# Trạng thái Trợ lý File Quay (cập nhật 18/11/2026, khuya)
 
 ## Đã chạy được
 - Bước 1: đọc giờ quay thật, chia giai đoạn bằng thanh thời gian kéo được, mẫu giai đoạn, tạo bin giai đoạn trong
@@ -88,6 +88,13 @@
 - Chưa làm/chưa đo: project 500+ clip (không đổi project DaVinci nên chỉ có 376 clip), chép lời thật rồi đóng cửa sổ (chỉ thử Job Object với AI nền và tiến trình mẫu), kiểm JS bằng node (máy không có node, kiểm cú pháp bằng trình duyệt).
 - Lỗi nhẹ chưa sửa: trang tải font Inter từ Google Fonts (cần mạng, mất mạng thì dùng font hệ thống); favicon 404; mã vé của máy chủ phát proxy không hết hạn (chỉ trong bộ nhớ).
 
+## Bước 5 bản 3: TIMELINE KÉO THẢ (18/11/2026 khuya, nhánh buoc5-timeline) - CHỜ NGƯỜI DỰNG THỬ (ADR-0013)
+- Trang Bước 5 thành timeline kéo thả theo demo đã duyệt (design/5_timeline_keo_tha): cụm mẹ/khối con dời được (theo giờ quay là mặc định), V1/V2 chồng, A1/A2, Tốc độ (100% / Slow mượt tự tính theo fps / gõ số) và Tiếng cho mọi khối (con thắng mẹ), số liệu theo RA TIMELINE, V2 không cộng vào Hiện Tại, mục tiêu chỉ là con số nhắm tới (dư/thiếu), gợi ý một chạm, hộp xác nhận ghi dư/thiếu/Slow/tắt tiếng. Thanh kéo bản trước (Có/Lấy, không vượt Có, Min-Max nâng cao) giữ nguyên bên dưới.
+- ĐÃ THỬ THẬT trên DaVinci (project thử ZZ_TEST_TlKeoTha, đã mở lại project gốc, 2 timeline như cũ): Slow đúng cách = SetSpeed ripple True từng clip (RippleTimeline False KHÔNG dùng được: giữ độ dài, cắt source); V2 = AppendToTimeline recordFrame, Slow ở V2 phải khóa V1/A1 (không khóa thì hỏng V1); tắt tiếng SetClipEnabled chỉ chạy trên timeline hiện tại; chạy thẳng mã thật: V1 liền nhau đúng 530 frame dự tính, V2 đúng chỗ, A1/A2 tắt đúng khối, không còn khóa. Chi tiết ADR-0013.
+- Project thử `ZZ_TEST_TlKeoTha` (12 timeline thử) còn trong cơ sở dữ liệu DaVinci: anh xóa tay nếu không cần (Trợ lý không xóa). Media thử ở %TEMP%\tltest.
+- CHƯA chạy thật: cửa sổ pywebview thật (kéo chuột trong panel thật, chụp panel thật cạnh demo); cảm ứng thật; tạo timeline có Slow và V2 trên project THẬT của anh; tiếng tắt trong DaVinci thật với clip thật; project 06/11 mục tiêu 30:00; kiểu nội suy (Optical Flow...) chưa có nút.
+- Sao lưu kế hoạch trước khi làm: D:\VideoAI\backup\projects_20261118-225543.
+
 ## Bước 5 Thời lượng: THANH KÉO (18/11/2026 tối, nhánh buoc5-moi) - CHỜ NGƯỜI DỰNG THỬ (ADR-0013)
 - Sửa tiếp bản "một hàng/giai đoạn" theo demo bản 2 đã duyệt (design/5_thoi_luong_keo): thanh cố định, đầu phải = toàn bộ clip sao (Có), phần màu = Lấy với chấm kéo được (chuột + cảm ứng), gõ phút:giây vẫn được, không vượt Có; bin con cùng kiểu thanh (kéo bin cập nhật tổng giai đoạn); mặc định KHÔNG giới hạn Max (Min–Max ở "Giới hạn nâng cao", chỉ có tác dụng khi anh đặt); thiếu chỉ báo ở thanh tổng ("Hiện Tại", đoạn nét đứt); gợi ý Tự kéo thêm / Hạ mục tiêu xuống số Hiện Tại / Quay lại Bước 3; ổ khóa, tự cắt gọt khi sửa, "Đưa lên Timeline mới" giữ nguyên.
 - Lỗi tổng thấp: nguyên nhân chính là Max mặc định của bin (đã bỏ); thêm hai nguồn hụt nhỏ đã sửa (rút ngắn clip hụt 0,1 s mỗi clip; Truyền thống hụt nguyên clip mỗi bin, nay có bù). "29:11 thay vì 30:00" không phải lỗi chia (số chia luôn cộng đúng mục tiêu khi đủ clip); chưa tái hiện đúng bằng dữ liệu của anh vì máy này không có project đó.
@@ -126,5 +133,5 @@
 - Khi sửa logic trong troly_core.py nên thêm test vào tests/ rồi chạy bộ kiểm thử.
 - Code sao/In-Out gợi ý ban đầu do Antigravity viết, phần nối giao diện + tạo timeline do Claude viết (15/11).
 - Kho Git riêng: https://github.com/quangdung94-coder/TroLyFileQuay (riêng tư). Lịch sử kho riêng bắt đầu ở commit 5e9090c (đã gỡ tên khách; mã cũ 8945cc9 không còn dùng). Lịch sử trước 17/11/2026 nằm ở kho cũ D:\VideoAI\repo (v0.2.5 = commit b13c7fb). Menu DaVinci trỏ vào thư mục này (app\), `install.py --check` đạt.
-- Bộ kiểm thử: tests/ (395 bài, `& $py -m unittest discover -s tests -q`; trên Windows đặt PYTHONUTF8=1). ADR trong docs/adr/ (0009, 0010, 0011, 0014 đến 0019).
+- Bộ kiểm thử: tests/ (433 bài, `& $py -m unittest discover -s tests -q`; trên Windows đặt PYTHONUTF8=1). ADR trong docs/adr/ (0009, 0010, 0011, 0014 đến 0019).
 - Số ADR sắp tới: Bước 3 trang riêng = ADR-0019 (đã làm), Bước 5 chia thời lượng = ADR-0013 (ADR-0011 = timeline mới, ADR-0014 = Lời nói A, đã có).

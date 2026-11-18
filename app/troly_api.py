@@ -24,6 +24,7 @@ import troly_resolve as tr        # noqa: E402
 import troly_thumbs as tt         # noqa: E402
 import troly_ai as ai             # noqa: E402
 import troly_dur as td            # noqa: E402
+import troly_tl as ttl            # noqa: E402
 import troly_lut as tl            # noqa: E402
 import troly_kf as tkf            # noqa: E402
 
@@ -70,6 +71,7 @@ class TrolyApi(object):
         self._speech_st, self._speech_run, self._speech_last = None, None, None
         self._analyze = None
         self._ai_cache, self._ai_job = {}, None            # Bước 6 AI (ADR-0022)
+        self._tl_fps = None                                # fps timeline của project (worker đọc khi Đọc clip); None -> 25
         import troly_batch as _tb
         self._shutdown_fn = _tb.system_shutdown     # kiểm thử thay bằng bản giả
         self._analyze_countdown, self._analyze_sleep = _tb.COUNTDOWN_S, time.sleep      # kiểm thử rút ngắn
@@ -105,6 +107,8 @@ class TrolyApi(object):
             elif kind == "progress":
                 what, i, n = data
                 self._emit("progress", {"text": "%s %d/%d..." % (what, i, n), "frac": i / float(max(1, n))})
+            elif kind == "tl_fps":
+                self._tl_fps = data
             elif kind == "clips":
                 self._on_clips(*data)
             elif kind == "applied":
@@ -124,7 +128,18 @@ class TrolyApi(object):
                     chk = "CHƯA kiểm lại khớp (số timeline hoặc timeline cũ không khớp), hãy xem trong DaVinci."
                 else:
                     chk = "CHƯA kiểm lại được số timeline (DaVinci không cho đọc danh sách)."
-                self._emit("status", {"text": "Đã tạo timeline mới “%s” gồm %d đoạn. %s" % (data["name"], data["n"], chk), "kind": "ok" if ok else "warn"})
+                lay = data.get("layout_ok")
+                extra = ""
+                if lay is True:
+                    extra = " Đã đọc lại vị trí: V1 liền nhau, không chồng, không hở%s." % (", V2 đúng chỗ" if data.get("n_v2") else "")
+                elif lay is False:
+                    extra = " CẢNH BÁO bố cục: %s" % " ".join(data.get("layout_msgs") or [])
+                elif data.get("layout_msgs"):
+                    extra = " Lưu ý: %s" % " ".join(data.get("layout_msgs"))
+                if data.get("n_slow") or data.get("n_muted"):
+                    extra += " Slow: %d khối clip, tắt tiếng: %d clip." % (data.get("n_slow", 0), data.get("n_muted", 0))
+                self._emit("status", {"text": "Đã tạo timeline mới “%s” gồm %d đoạn. %s%s" % (data["name"], data["n"], chk, extra),
+                                      "kind": "ok" if (ok and lay is not False) else "warn"})
                 self._emit("dur_timeline_done", data)
             elif kind == "timeline_appended":
                 self._busy = False
@@ -1295,7 +1310,7 @@ class TrolyApi(object):
     # Số liệu mặc định là ĐỀ XUẤT (chưa được người dựng xác nhận). Khóa plan["durations"] chỉ có khi anh sửa.
     def _dur_build(self):
         self._recount()
-        return td.build(self._plan, self._clips, self._assign, self._stages)
+        return td.build(self._plan, self._clips, self._assign, self._stages, self._tl_fps)
 
     def _dur_view(self, r=None):
         r = r or self._dur_build()
@@ -1310,6 +1325,19 @@ class TrolyApi(object):
         r["style"] = self._plan.get("shoot_style") or ""
         r["advice"] = td.advise(self._plan, self._clips, self._assign, self._stages, r)
         r["project"] = self._project
+        lay = ttl.layout(r, self._plan)                      # bố cục timeline kéo thả (bản 3): cụm mẹ, khối con, V1/V2, tốc độ, tiếng
+        lay.pop("by_key", None)
+        for c in lay["clusters"]:
+            c["color"] = self._stages[c["i"]].get("color")
+        for b in lay["blocks"].values():
+            si = next((j for j, s in enumerate(r["stages"]) if s["name"] == b["stage"]), 0)
+            b["color"] = next((x["color"] for x in r["stages"][si]["bins"] if x["name"] == b["bin"]), "#888")
+            b["si"] = si
+        r["tl"] = lay
+        r["tl_summary"] = ttl.summary(r, self._plan)
+        r["tl_manual"] = ttl.is_manual(self._plan)
+        r["tl_fps_known"] = self._tl_fps
+        r["edited"]["tl"] = bool(td.tl_cfg(self._plan))
         return r
 
     def dur_state(self):
@@ -1382,6 +1410,61 @@ class TrolyApi(object):
             self._save_soon()
             return self._dur_view()
 
+    # ---- timeline kéo thả (bản 3, ADR-0013): thứ tự cụm/khối, track V1/V2, tốc độ, tiếng. Chỉ sửa kế hoạch trong panel.
+    def _tl_op(self, fn):
+        with self._lock:
+            r = self._dur_build()
+            err = fn(r)
+            if err:
+                return {"error": err}
+            ttl.tidy(self._plan)
+            self._save_soon()
+            return self._dur_view()
+
+    def dur_tl_move_cluster(self, stage, to_index):
+        return self._tl_op(lambda r: ttl.move_cluster(self._plan, r, stage, to_index))
+
+    def dur_tl_move_block(self, key, to_cluster, to_index):
+        return self._tl_op(lambda r: ttl.move_block(self._plan, r, key, to_cluster, to_index))
+
+    def dur_tl_set_track(self, key, track, at=None):
+        return self._tl_op(lambda r: ttl.set_track(self._plan, r, key, track, at))
+
+    def dur_tl_set_speed(self, kind, name, spec):
+        """kind 'stage' | 'block'; spec 100 | 'auto' | số % | None (bỏ đặt riêng)."""
+        if kind not in ("stage", "block"):
+            return {"error": "Chỉ đặt tốc độ cho cụm mẹ hoặc khối con."}
+        return self._tl_op(lambda r: ttl.set_speed(self._plan, kind, name, spec))
+
+    def dur_tl_set_mute(self, kind, name, mute):
+        if kind not in ("stage", "block"):
+            return {"error": "Chỉ đặt tiếng cho cụm mẹ hoặc khối con."}
+        return self._tl_op(lambda r: ttl.set_mute(self._plan, kind, name, mute))
+
+    def dur_tl_unslow(self):
+        """Gợi ý "Đưa khối Slow về 100%": khối Slow bớt được nhiều nhất trên timeline."""
+        with self._lock:
+            bu = td.best_unslow(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
+            if not bu:
+                return {"error": "Không có khối Slow nào để đưa về 100%."}
+            err = ttl.set_speed(self._plan, "block", bu[0], 100)
+            if err:
+                return {"error": err}
+            self._save_soon()
+            return self._dur_view()
+
+    def dur_fit_over(self):
+        """Gợi ý "Bỏ clip ít ưu tiên cho vừa" (chỉ khi dư): thả số đã kéo của cụm chưa khóa. Chỉ khi anh bấm."""
+        with self._lock:
+            res = td.plan_fit_over(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
+            if not res:
+                return {"error": "Không có cách bỏ clip ít ưu tiên nào làm ngắn thêm (cụm đều đã khóa hoặc đã tối thiểu)."}
+            return self._dur_apply(res[0])
+
+    def dur_tl_reset(self):
+        """"Xếp lại theo giờ quay": bỏ thứ tự cụm/khối, V2 và vị trí đã xếp tay (giữ tốc độ, tiếng). Giao diện đã hỏi xác nhận nếu đã xếp tay."""
+        return self._tl_op(lambda r: ttl.reset_order(self._plan))
+
     def dur_toggle_lock(self, index):
         """Ổ khóa: khóa giữ nguyên số giây hiện tại của giai đoạn (các giai đoạn khác co giãn); bấm lại thì mở khóa và giai đoạn co giãn trở lại."""
         with self._lock:
@@ -1412,7 +1495,7 @@ class TrolyApi(object):
     def dur_rebalance(self):
         """Gợi ý (a) "Tự kéo thêm cho đủ": thả các giai đoạn chưa khóa cho co giãn, dồn phần thiếu sang giai đoạn còn dư clip sao. Chỉ sửa kế hoạch trong panel."""
         with self._lock:
-            res = td.plan_rebalance(self._plan, self._clips, self._assign, self._stages)
+            res = td.plan_rebalance(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
             if not res:
                 return {"error": "Không có cách kéo thêm nào làm tăng thời lượng (không giai đoạn nào còn dư clip sao chưa khóa)."}
             return self._dur_apply(res[0])
@@ -1420,7 +1503,7 @@ class TrolyApi(object):
     def dur_lower_target(self):
         """Gợi ý (b) "Hạ mục tiêu xuống <số đang giữ>"."""
         with self._lock:
-            res = td.plan_lower_target(self._plan, self._clips, self._assign, self._stages)
+            res = td.plan_lower_target(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
             if not res:
                 return {"error": "Chưa có clip sao nào để hạ mục tiêu theo."}
             return self._dur_apply(res[0])
@@ -1455,15 +1538,17 @@ class TrolyApi(object):
             r = self._dur_build()
             if not r["items"]:
                 return {"error": "Không có clip nào để đưa lên (chưa gắn sao ★ hoặc đã bị cắt hết)."}
+            fps = float(self._tl_fps or 25.0)
             segs, rows = [], []
-            for it in r["items"]:
-                c = self._by_uid.get(it["uid"])
+            for x in ttl.placements(r, self._plan):          # theo bố cục: V1 theo thứ tự cụm/khối, V2 theo vị trí; mỗi đoạn có Slow, tiếng
+                c = self._by_uid.get(x["uid"])
                 if c is None or not c.fps:
                     continue
-                a, b = tc.cut_frames(it["in_s"], it["out_s"], c.fps, c.frames)
-                segs.append((c.uid, a, b))
-                rows.append({"rel": c.rel, "stage": self._stages[it["stage"]]["name"], "bin": it["bin"], "in_s": it["in_s"], "out_s": it["out_s"],
-                             "in_frame": a, "out_frame": b})
+                a, b = tc.cut_frames(x["in_s"], x["out_s"], c.fps, c.frames)
+                segs.append({"uid": c.uid, "a": a, "b": b, "pct": x["pct"], "track": x["track"], "start_f": int(round(x["start_s"] * fps)),
+                             "mute": bool(x["mute"])})
+                rows.append({"rel": c.rel, "stage": x["stage"], "bin": x["bin"], "in_s": x["in_s"], "out_s": x["out_s"], "in_frame": a, "out_frame": b,
+                             "pct": x["pct"], "track": x["track"], "start_s": x["start_s"], "mute": bool(x["mute"])})
             if not segs:
                 return {"error": "Không có đoạn nào hợp lệ (clip thiếu fps)."}
             stamp = datetime.datetime.now()
@@ -1472,7 +1557,8 @@ class TrolyApi(object):
             try:
                 log = tc.write_timeline_log(self._root, self._project, {
                     "created": stamp.isoformat(timespec="seconds"), "timeline_name": name, "count": len(segs), "total_s": r["total_s"],
-                    "target_min": r["target_min"], "delta_s": r["delta_s"], "state": r["state"], "style": self._plan.get("shoot_style") or "", "items": rows})
+                    "target_min": r["target_min"], "delta_s": r["delta_s"], "state": r["state"], "tl_fps": fps,
+                    "summary": ttl.summary(r, self._plan), "style": self._plan.get("shoot_style") or "", "items": rows})
             except OSError as e:
                 return {"error": "Không ghi được nhật ký, chưa đụng DaVinci: %s" % e}
             self._busy = True

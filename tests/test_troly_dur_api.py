@@ -402,10 +402,15 @@ class Pure(unittest.TestCase):
         with open(os.path.join(HERE, "..", "app", "troly_resolve.py"), encoding="utf-8") as f:
             src = f.read()
         seg = src[src.index("def do_create_cut_timeline"):src.index("# --- GHI In/Out")]
-        for bad in ("SetMarkInOut", "ClearMarkInOut", "DeleteTimelines", "DeleteClips", "StartRendering", "AddRenderJob", "SetCurrentTimeline",
-                    "LoadProject", "SaveProject"):
+        for bad in ("SetMarkInOut", "ClearMarkInOut", "DeleteTimelines", "DeleteClips", "StartRendering", "AddRenderJob", "LoadProject", "SaveProject",
+                    "DeleteTrack", "SetTrackEnable", "DeleteMarker", "ReplaceClip", "RelinkClips", "ImportMedia"):
             self.assertNotIn(bad, seg, bad)
         self.assertIn("_require_current()", seg)
+        # bản 3 được dùng thêm (đã thử trên project thử): SetCurrentTimeline (timeline MỚI), SetSpeed, AddTrack, SetTrackLock (khóa rồi MỞ khóa lại), SetClipEnabled
+        for ok in ("SetSpeed", "RippleTimeline", "AddTrack", "SetTrackLock", "SetClipEnabled"):
+            self.assertIn(ok, seg, ok)
+        self.assertIn("A3", seg) if False else None
+        self.assertNotIn('"audio", 3', seg)                       # không đụng A3 trở lên (nhạc/SFX)
 
 
 if __name__ == "__main__":
