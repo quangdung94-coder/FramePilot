@@ -1,5 +1,11 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 (khuya) – Bước 5 bản 3: TIMELINE KÉO THẢ (ADR-0013) - CHỜ NGƯỜI DỰNG THỬ
+- Trang Bước 5 thành timeline: thước 0:00 → mục tiêu, V2/V1, khung cụm mẹ + khối con, A1/A2 (vạch chéo = tắt tiếng), bảng thứ tự cụm đang chọn, cột phải + gợi ý. Kéo thả (pointer events): dời cả cụm, đổi thứ tự khối con / sang cụm khác / lên V2, mép phải đổi thời lượng (không vượt Có), kéo dòng bảng; "Xếp lại theo giờ quay" (hỏi xác nhận nếu đã xếp tay). Ổ khóa chỉ khóa thời lượng.
+- Mọi khối (mẹ lẫn con) có Tốc độ (100% / Slow mượt tự tính = fps timeline ÷ fps source từng clip / gõ số; con thắng mẹ) và Tiếng (bật/tắt; con thắng mẹ). Số liệu tính theo RA TIMELINE (= In/Out gốc ÷ tốc độ); khối V2 không cộng vào Hiện Tại. Mục tiêu chỉ là con số nhắm tới: dư/thiếu; nút Đưa lên Timeline mới luôn bấm được, hộp xác nhận ghi dư/thiếu, Slow, tắt tiếng. Gợi ý mới: Đưa khối Slow về 100%, Bỏ clip ít ưu tiên cho vừa (chỉ khi anh bấm).
+- Tạo timeline mới có V1 + V2, Slow giữ In/Out (SetSpeed ripple True từng clip, V1 liền nhau), V2 bằng recordFrame (Slow ở V2 khóa V1/A1 rồi mở), tắt tiếng bằng SetClipEnabled (A1 cho V1, A2 cho V2; không đụng A3+), đọc lại vị trí để kiểm. ĐÃ THỬ THẬT trên project thử (không chạm project thật): kết quả trong ADR-0013.
+- Test: +38 (tests/test_troly_tl.py, test_troly_tl_api.py gồm DaVinci giả bám số đo thật, web); 433 bài đạt. Bàn thử trình duyệt (Media Pool giả) kéo chuột thật 1440x900, 1100x700, 1707x960; chưa mở cửa sổ pywebview thật.
+
 ## 2026-11-18 (tối) – Bước 5 sửa thành THANH KÉO (ADR-0013, demo bản 2 đã duyệt) - CHỜ NGƯỜI DỰNG THỬ
 - Mỗi giai đoạn/bin một thanh cố định, đầu phải = toàn bộ clip sao ("Thanh đầy"), phần màu = số LẤY kết thúc ở chấm 28 px kéo được (pointer events, cảm ứng, bám 1 giây, Shift tinh chỉnh, phím ← →); gõ phút:giây vẫn được; không vượt Có. Chữ hàng: "Thanh đầy = X · lấy Y", "Bỏ Z (N clip ít ưu tiên nhất)", "Kéo hết cỡ rồi · muốn dài hơn phải gắn thêm sao". Thiếu chỉ ở thanh tổng ("Hiện Tại", đoạn nét đứt "thiếu X").
 - Mặc định KHÔNG giới hạn Max (bỏ Decor 10-20 s, Beauty 20-30 s... làm tụt tổng); Min–Max chuyển vào "Giới hạn nâng cao", chỉ có tác dụng khi anh đặt. Kéo bin con (plan["durations"]["bin_s"]) cập nhật tổng giai đoạn. Gợi ý: Tự kéo thêm cho đủ / Hạ mục tiêu xuống số Hiện Tại / Quay lại Bước 3.
