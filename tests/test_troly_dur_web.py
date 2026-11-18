@@ -29,7 +29,8 @@ class DurWeb(unittest.TestCase):
             self.assertIn(t, self.html, t)
         self.assertIn("ĐỀ XUẤT, anh sửa được", self.html)
         self.assertIn("<em>đề xuất</em>", self.js)                                              # từng dòng bin chưa sửa
-        self.assertNotIn("đã duyệt", self.html.lower())
+        p5 = self.html[self.html.index('id="page5"'):self.html.index("<!-- Đếm ngược tắt máy")]
+        self.assertNotIn("đã duyệt", p5.lower())                                                # không ghi "đã duyệt" cho số đề xuất
 
     def test_chuc_nang_nhu_chu_tren_trang_co_that(self):
         for fn in ("dur_state", "dur_set_target", "dur_set_bin", "dur_set_share", "dur_reset", "dur_cut", "dur_create_timeline"):
