@@ -1,0 +1,7 @@
+# Venv RIÊNG cho Bước 6 AI: C:\VideoAI_ai_venv (KHÔNG cài vào C:\VideoAI_venv). ADR-0020.
+# Cài: python -m venv C:\VideoAI_ai_venv ; pip install --upgrade pip ; pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130 --extra-index-url https://pypi.org/simple ; pip install -r requirements_ai.txt
+open_clip_torch==4.2.2
+safetensors==0.8.0
+huggingface_hub==2.4.0
+numpy==2.2.6
+pillow==12.3.0

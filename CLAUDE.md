@@ -30,6 +30,7 @@ Quy trình:
   Bỏ qua phím khi đang gõ trong ô nhập chữ.
 - Cuối mỗi buổi: cập nhật TRANG_THAI.md (đã làm / còn dở / bước tiếp) và CHANGELOG.md; nếu có Git thì commit + push.
 - Báo trung thực: phần nào chưa chạy thử thật trên DaVinci thì nói rõ.
+- Chỉ tải model/thư viện đã được anh duyệt trong chat; model chạy cục bộ, lưu D:\VideoAI\data\models\; Bước 6 chỉ GỢI Ý, không tự chuyển clip. Thư viện AI nằm trong venv RIÊNG C:\VideoAI_ai_venv (requirements_ai.txt), không cài vào venv của panel.
 
 ## Quy tắc với DaVinci (an toàn)
 - Mặc định chỉ ĐỌC. Panel chỉ được GHI:
@@ -68,6 +69,7 @@ Quy trình:
 - app/troly_play.py: máy chủ phát proxy 127.0.0.1 (Range, chỉ trong proxy_root); app/troly_web/player.js: trình phát + kéo In/Out + nút Ghi In/Out (ADR-0016).
 - app/troly_thumbs.py: làm thumbnail bằng ffmpeg (proxy + LUT, 4 luồng, cache).
 - app/troly_speech.py (kéo âm lượng, VAD, Whisper, câu nghi bịa), troly_speech_store.py (kho SQLite mỗi project), troly_speech_run.py (chạy cả bin nền), troly_speech_srt.py (xuất/đọc lại SRT), do_loi_noi.py (đo). Giao diện bước 4: app/troly_web/speech.js. Quyết định: docs/adr/0014.
+- app/troly_ai.py: Bước 6 AI (ADR-0020): nhúng thumbnail bằng OpenCLIP ViT-B/32, gợi ý bin theo mô tả, trang báo cáo tĩnh. Chạy bằng venv AI: `C:\VideoAI_ai_venv\Scripts\python.exe app	roly_ai.py all --project "<tên>"`. Chưa có giao diện trong panel.
 - app/troly_env.py: đọc config.json, kết nối DaVinci, hộp báo lỗi.
 - install.py: cài mục menu "VideoAI Trợ lý File Quay" vào Workspace > Scripts. Sửa code trong app\ không cần cài lại,
   chỉ đóng và mở lại cửa sổ Trợ lý.
