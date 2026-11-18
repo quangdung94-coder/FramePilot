@@ -325,47 +325,43 @@
 </main>
 
 <!-- ======================= BƯỚC 5: THỜI LƯỢNG ======================= -->
-<!-- Bước 5 · Thời lượng làm lại (ADR-0013, theo design/5_thoi_luong_moi): mỗi giai đoạn một hàng, ổ khóa, gõ phút:giây, tự cắt gọt khi sửa -->
+<!-- Bước 5 · Thời lượng, bản 3 TIMELINE KÉO THẢ (ADR-0013, theo design/5_timeline_keo_tha) -->
 <main class="page hidden" id="page5">
   <section class="d5">
-    <div class="d5-body">
-      <div class="d5-center">
-        <div class="row-between baseline"><h1 class="h20">Chia thời lượng cho từng giai đoạn</h1><span class="dim13">Chỉ tính clip có sao · số tự cập nhật ngay khi anh sửa</span></div>
-        <div class="d5-card d5-tgt">
-          <div class="d5-tgtr">
-            <span class="d5-caps"><label for="durTarget">VIDEO MỤC TIÊU</label></span>
-            <input id="durTarget" class="d5-inp big" type="text" inputmode="numeric" value="12:00" autocomplete="off" aria-label="Video mục tiêu, phút:giây" title="Gõ phút:giây, ví dụ 12:00 (gợi ý 10:00 – 15:00). Gõ số không có dấu hai chấm = phút.">
-            <span class="dim12">phút:giây</span>
-            <div class="d5-res" id="d5Res"></div>
-          </div>
-          <div class="d5-seg" id="d5Seg"></div>
-        </div>
-        <div class="d5-stages" id="d5Stages"></div>
-        <div class="d5-card d5-pv">
-          <div class="row-between center"><span class="d5-caps" id="d5PvT">XEM TRƯỚC TIMELINE MỚI</span>
-            <span class="d5-lgd"><span>mỗi khối là một clip sẽ lên timeline</span></span></div>
-          <div class="d5-pvs" id="d5Pv"></div>
-          <div class="dim12">Xếp theo giai đoạn rồi giờ quay. Đây chỉ là hình xem trước, chưa chạm vào DaVinci.</div>
-        </div>
+    <div class="tl-main">
+      <div class="tl-hr">
+        <h1 class="tl-h1">Xếp cụm sự kiện lên timeline</h1>
+        <span class="tl-caps"><label for="durTarget">VIDEO MỤC TIÊU</label></span>
+        <input id="durTarget" class="tl-inp big" type="text" inputmode="numeric" value="12:00" autocomplete="off" aria-label="Video mục tiêu, phút:giây" title="Gõ phút:giây, ví dụ 12:00. Mục tiêu chỉ là con số nhắm tới, không phải giới hạn cứng. Gõ số không có dấu hai chấm = phút.">
+        <div class="tl-res" id="d5Res"></div>
+        <button class="tl-bn" id="d5Reset" title="Đưa thứ tự cụm/khối và V1/V2 về mặc định theo giờ quay thật (tốc độ, tiếng giữ nguyên)">Xếp lại theo giờ quay</button>
+      </div>
+      <div class="tl-card tl" id="d5Tl">
+        <div class="tl-lane ruler"><div class="tl-lab" style="visibility:hidden">V</div><div class="tl-lb ruler" id="d5Ruler"></div></div>
+        <div class="tl-lane" style="height:50px"><div class="tl-lab v2">V2</div><div class="tl-lb" id="d5V2" data-lane="v2"></div></div>
+        <div class="tl-lane" style="height:92px"><div class="tl-lab v1">V1</div><div class="tl-lb" id="d5V1" data-lane="v1"></div></div>
+        <div class="tl-lane" style="height:26px"><div class="tl-lab a" id="d5A1Lab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>A1</div><div class="tl-lb" id="d5A1"></div></div>
+        <div class="tl-lane" style="height:26px"><div class="tl-lab a" id="d5A2Lab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>A2</div><div class="tl-lb" id="d5A2"></div></div>
+        <div class="tl-lg"><span>Kéo thân khối = dời chỗ (khối mẹ đi cả cụm)</span><span>Kéo mép phải = đổi thời lượng</span><span>Kéo khối con lên V2 = chạy chồng lên V1, không cộng vào độ dài</span><span>Mỗi khối có loa (tiếng) và ô tốc độ riêng; vạch chéo = đang tắt tiếng, giống tắt nút A trong DaVinci</span><span class="tl-tagb">giờ quay thật là thứ tự mặc định</span></div>
         <div class="d5-warn hidden" id="d5Warn"></div>
       </div>
-      <aside class="d5-right">
-        <div class="d5-rt"><span id="d5RTitle">Chưa đạt mục tiêu</span><span class="d5-tag" id="d5RTag"></span></div>
-        <div class="d5-box" id="d5Why"></div>
-        <div class="d5-rt sm" id="d5SugH">Gợi ý cách xử lý</div>
-        <button class="d5-sug main" id="d5SugA"><b></b><span></span></button>
-        <button class="d5-sug" id="d5SugB"><b></b><span></span></button>
-        <button class="d5-sug" id="d5SugC"><b></b><span></span></button>
-        <div class="d5-box d5-grow">
-          <b>Cách dùng ổ khóa</b>
-          Kéo chấm trên thanh hoặc gõ số. Thanh đầy = lấy hết clip sao của giai đoạn. Khóa giai đoạn nào thì giai đoạn khác tự co giãn để tổng vẫn đủ mục tiêu.
-          <a href="#" id="d5Reset" class="hidden">Đặt lại về đề xuất</a>
-        </div>
-        <button class="d5-go" id="d5Create" disabled>Đưa lên Timeline mới</button>
-        <div class="dim12 d5-hint" id="d5CreateHint"></div>
-      </aside>
+      <div class="tl-bot">
+        <div class="tl-card tl-ord" id="d5Order"></div>
+        <aside class="tl-side">
+          <div class="tl-rt"><span id="d5RTitle">Chưa đạt mục tiêu</span><span class="tl-tag" id="d5RTag"></span></div>
+          <div class="tl-box warn" id="d5Why"></div>
+          <div class="tl-rt sm" id="d5SugH">Gợi ý cách xử lý</div>
+          <button class="tl-sug main" id="d5SugA"><b></b><span></span></button>
+          <button class="tl-sug" id="d5SugB"><b></b><span></span></button>
+          <button class="tl-sug" id="d5SugC"><b></b><span></span></button>
+          <button class="tl-sug" id="d5SugD"><b></b><span></span></button>
+          <button class="tl-sug" id="d5SugE"><b></b><span></span></button>
+          <button class="tl-go" id="d5Create" disabled>Đưa lên Timeline mới</button>
+          <div class="tl-hint" id="d5CreateHint"></div>
+        </aside>
+      </div>
     </div>
-    <div class="d5-foot"><span id="d5FootL">Chưa có clip sao</span><span>Chưa ghi gì vào DaVinci</span></div>
+    <div class="tl-foot"><span id="d5FootL">Chưa có clip sao</span><span>Chưa ghi gì vào DaVinci</span></div>
   </section>
 </main>
 

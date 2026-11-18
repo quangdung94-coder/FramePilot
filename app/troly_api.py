@@ -128,7 +128,18 @@ class TrolyApi(object):
                     chk = "CHƯA kiểm lại khớp (số timeline hoặc timeline cũ không khớp), hãy xem trong DaVinci."
                 else:
                     chk = "CHƯA kiểm lại được số timeline (DaVinci không cho đọc danh sách)."
-                self._emit("status", {"text": "Đã tạo timeline mới “%s” gồm %d đoạn. %s" % (data["name"], data["n"], chk), "kind": "ok" if ok else "warn"})
+                lay = data.get("layout_ok")
+                extra = ""
+                if lay is True:
+                    extra = " Đã đọc lại vị trí: V1 liền nhau, không chồng, không hở%s." % (", V2 đúng chỗ" if data.get("n_v2") else "")
+                elif lay is False:
+                    extra = " CẢNH BÁO bố cục: %s" % " ".join(data.get("layout_msgs") or [])
+                elif data.get("layout_msgs"):
+                    extra = " Lưu ý: %s" % " ".join(data.get("layout_msgs"))
+                if data.get("n_slow") or data.get("n_muted"):
+                    extra += " Slow: %d khối clip, tắt tiếng: %d clip." % (data.get("n_slow", 0), data.get("n_muted", 0))
+                self._emit("status", {"text": "Đã tạo timeline mới “%s” gồm %d đoạn. %s%s" % (data["name"], data["n"], chk, extra),
+                                      "kind": "ok" if (ok and lay is not False) else "warn"})
                 self._emit("dur_timeline_done", data)
             elif kind == "timeline_appended":
                 self._busy = False
@@ -1430,6 +1441,26 @@ class TrolyApi(object):
             return {"error": "Chỉ đặt tiếng cho cụm mẹ hoặc khối con."}
         return self._tl_op(lambda r: ttl.set_mute(self._plan, kind, name, mute))
 
+    def dur_tl_unslow(self):
+        """Gợi ý "Đưa khối Slow về 100%": khối Slow bớt được nhiều nhất trên timeline."""
+        with self._lock:
+            bu = td.best_unslow(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
+            if not bu:
+                return {"error": "Không có khối Slow nào để đưa về 100%."}
+            err = ttl.set_speed(self._plan, "block", bu[0], 100)
+            if err:
+                return {"error": err}
+            self._save_soon()
+            return self._dur_view()
+
+    def dur_fit_over(self):
+        """Gợi ý "Bỏ clip ít ưu tiên cho vừa" (chỉ khi dư): thả số đã kéo của cụm chưa khóa. Chỉ khi anh bấm."""
+        with self._lock:
+            res = td.plan_fit_over(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
+            if not res:
+                return {"error": "Không có cách bỏ clip ít ưu tiên nào làm ngắn thêm (cụm đều đã khóa hoặc đã tối thiểu)."}
+            return self._dur_apply(res[0])
+
     def dur_tl_reset(self):
         """"Xếp lại theo giờ quay": bỏ thứ tự cụm/khối, V2 và vị trí đã xếp tay (giữ tốc độ, tiếng). Giao diện đã hỏi xác nhận nếu đã xếp tay."""
         return self._tl_op(lambda r: ttl.reset_order(self._plan))
@@ -1464,7 +1495,7 @@ class TrolyApi(object):
     def dur_rebalance(self):
         """Gợi ý (a) "Tự kéo thêm cho đủ": thả các giai đoạn chưa khóa cho co giãn, dồn phần thiếu sang giai đoạn còn dư clip sao. Chỉ sửa kế hoạch trong panel."""
         with self._lock:
-            res = td.plan_rebalance(self._plan, self._clips, self._assign, self._stages)
+            res = td.plan_rebalance(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
             if not res:
                 return {"error": "Không có cách kéo thêm nào làm tăng thời lượng (không giai đoạn nào còn dư clip sao chưa khóa)."}
             return self._dur_apply(res[0])
@@ -1472,7 +1503,7 @@ class TrolyApi(object):
     def dur_lower_target(self):
         """Gợi ý (b) "Hạ mục tiêu xuống <số đang giữ>"."""
         with self._lock:
-            res = td.plan_lower_target(self._plan, self._clips, self._assign, self._stages)
+            res = td.plan_lower_target(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
             if not res:
                 return {"error": "Chưa có clip sao nào để hạ mục tiêu theo."}
             return self._dur_apply(res[0])

@@ -508,6 +508,43 @@ def plan_lower_target(plan, clips, assign, stages, r=None, tl_fps=None):
     return d, build(_with_durations(plan, d), clips, assign, stages, r["tl_fps"])
 
 
+def best_unslow(plan, clips, assign, stages, r=None, tl_fps=None):
+    """Khối Slow đưa về 100% bớt được nhiều thời gian trên V1 nhất. Trả (khóa khối, giây bớt được) hoặc None. Chỉ tính, không ghi."""
+    r = r or build(plan, clips, assign, stages, tl_fps)
+    tl = tl_cfg(plan)
+    best = None
+    for s in r["stages"]:
+        for b in s["bins"]:
+            if b["n_starred"] and b["track"] != "V2" and speed_spec(tl, s["name"], b["name"]) is not None:
+                d = copy.deepcopy(plan.get("durations") or {})
+                d.setdefault("tl", {}).setdefault("blk", {}).setdefault(s["name"], {}).setdefault(b["name"], {})["speed"] = 100
+                r2 = build(_with_durations(plan, d), clips, assign, stages, r["tl_fps"])
+                saving = r["total_s"] - r2["total_s"]
+                if saving >= 1.0 and (best is None or saving > best[1]):
+                    best = (b["key"], saving)
+    return best
+
+
+def plan_fit_over(plan, clips, assign, stages, r=None, tl_fps=None):
+    """"Bỏ clip ít ưu tiên cho vừa": khi Hiện Tại dư so với mục tiêu, thả các số anh đã kéo/gõ ở cụm CHƯA khóa để Trợ lý tự rút/bỏ clip ít ưu tiên
+    cho vừa mục tiêu. Chỉ khi anh bấm; panel KHÔNG tự bỏ clip. Trả (durations mới, build mới) hoặc None."""
+    r = r or build(plan, clips, assign, stages, tl_fps)
+    d = copy.deepcopy(plan.get("durations") or {})
+    locked = set(d.get("locked") or [])
+    changed = False
+    for s in r["stages"]:
+        if s["pinned"] and s["name"] not in locked:
+            (d.get("stage_s") or {}).pop(s["name"], None)
+            (d.get("bin_s") or {}).pop(s["name"], None)
+            changed = True
+    if not changed:
+        return None
+    r2 = build(_with_durations(plan, d), clips, assign, stages, r["tl_fps"])
+    if r["total_s"] - r2["total_s"] < 1.0:
+        return None
+    return d, r2
+
+
 def unstarred_by_bin(plan, clips, assign, stages):
     """Clip CHƯA sao theo (chỉ số giai đoạn, tên bin) -> (số clip, tổng độ dài gợi ý). Để gợi ý "quay lại Bước 3 chọn thêm clip"."""
     out = {}
@@ -531,7 +568,7 @@ def advise(plan, clips, assign, stages, r):
     """Cột phải "Chưa đạt mục tiêu": vì sao thiếu/dư và ba gợi ý một chạm. Trả dict:
     {state, title, reasons[str], rebalance: {title, text} | None, lower: {title, text, target_min} | None, step3: {stage, bin, title, text} | None}."""
     titles = {"ok": "Đạt mục tiêu", "short": "Chưa đạt mục tiêu", "over": "Đang dài hơn mục tiêu", "no_star": "Chưa có clip sao"}
-    out = {"state": r["state"], "reasons": [], "rebalance": None, "lower": None, "step3": None, "title": titles[r["state"]]}
+    out = {"state": r["state"], "reasons": [], "rebalance": None, "lower": None, "step3": None, "unslow": None, "fit": None, "title": titles[r["state"]]}
     st = r["state"]
     if st == "no_star":
         out["reasons"].append("Chưa có clip sao ★. Gắn sao (phím J) ở Bước 2 hoặc Bước 3 rồi quay lại.")
@@ -539,7 +576,18 @@ def advise(plan, clips, assign, stages, r):
     if st == "ok":
         out["reasons"].append("Hiện Tại %s trên mục tiêu %s. Có thể đưa lên Timeline mới." % (mmss(r["total_s"]), mmss(r["target_s"])))
         return out
+    if st in ("over", "short"):
+        bu = best_unslow(plan, clips, assign, stages, r, r["tl_fps"])
+        if bu:
+            name = bu[0].split("|", 1)[1]
+            out["unslow"] = {"key": bu[0], "title": "Đưa %s về 100%%" % name, "text": "Bớt %s trên timeline." % mmss(bu[1])}
     if st == "over":
+        fit = plan_fit_over(plan, clips, assign, stages, r, r["tl_fps"])
+        if fit:
+            r2 = fit[1]
+            out["fit"] = {"title": "Bỏ clip ít ưu tiên cho vừa %s" % mmss(r["target_s"]),
+                          "text": "Thả số đã kéo của cụm chưa khóa, Trợ lý rút/bỏ %d clip ít ưu tiên (anh xem danh sách bỏ trong dòng cụm). Hiện Tại còn %s." % (
+                              max(0, r["n_used"] - r2["n_used"]), mmss(r2["total_s"]))}
         fixed = [x for x in r["stages"] if x["pinned"]]
         if fixed and sum(x["total_s"] for x in fixed) >= r["target_s"] - TOL_S:
             out["reasons"].append("Giai đoạn anh kéo/gõ/khóa (%s) đã lấy %s, bằng hoặc hơn mục tiêu %s nên các giai đoạn khác chỉ còn lấy ít hoặc không lấy. "
