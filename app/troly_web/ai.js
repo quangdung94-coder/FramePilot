@@ -224,7 +224,7 @@ async function aiAutoRun() {
   if (r.error) return status(r.error, "warn");
   AI.cache = {}; setState(r); await aiAutoRefresh(); aiBoxRender();
   const x = r.ai_auto;
-  status(`AI đã xếp ${x.n} clip (hạng 1 từ ${Math.round(x.threshold * 100)}%); ${x.below} clip dưới ngưỡng để anh duyệt` + (x.skipped ? `, ${x.skipped} clip đã bỏ qua` : "") +
+  status(`AI đã xếp ${x.n} clip (hạng 1 từ ${Math.round(x.threshold * 100)}%); ${x.below} clip dưới ngưỡng để bạn duyệt` + (x.skipped ? `, ${x.skipped} clip đã bỏ qua` : "") +
     `. Chỉ nhãn trong Trợ lý (dấu "AI xếp"); chưa chuyển gì trong DaVinci. Bấm Hoàn tác AI xếp để bỏ.`, x.n ? "ok" : "info");
 }
 /* Ngưỡng: kéo thanh hoặc gõ số là ÁP DỤNG NGAY (tính từ điểm đã có, không gọi AI chạy lại). Đã chạy Tự phân loại ở nhóm này thì nhãn AI xếp đổi theo luôn. */
@@ -255,5 +255,5 @@ $("aiAutoUndo").addEventListener("click", async () => {
   if (r.error) return status(r.error, "warn");
   AI.cache = {}; setState(r); await aiAutoRefresh(); aiBoxRender();
   const u = r.ai_auto_undo;
-  status(`Đã hoàn tác AI xếp: bỏ nhãn ${u.undone} clip` + (u.kept ? `, giữ nguyên ${u.kept} clip anh đã đổi nhãn` : "") + ".", "ok");
+  status(`Đã hoàn tác AI xếp: bỏ nhãn ${u.undone} clip` + (u.kept ? `, giữ nguyên ${u.kept} clip bạn đã đổi nhãn` : "") + ".", "ok");
 });

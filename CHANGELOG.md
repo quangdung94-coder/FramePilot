@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 (đêm) – Đêm #4: chữ hiển thị gọi người dùng là "bạn" (ADR-0028) - CHỜ NGƯỜI DỰNG ĐỌC LẠI
+- Đổi "anh/Anh" thành "bạn/Bạn" ở 39 chỗ hiển thị trong 10 file (nút, tooltip, hộp xác nhận, thông báo, trang báo cáo AI...), đọc lại từng câu. Giữ "tiếng Anh" (English).
+- Test quét chuỗi hiển thị: "anh" đứng một mình = 0 chỗ (+3 test); 463 bài đạt. Xem 5 trang ở 1440x900: không còn sót, không tràn ngang; thu nút "Tự phân loại" cho vừa chữ.
+
 ## 2026-11-18 (đêm) – Đêm #3: đổi tên hiển thị thành FramePilot và icon (ADR-0027) - CHỜ NGƯỜI DỰNG XEM
 - Tên hiển thị FramePilot: tiêu đề cửa sổ, trang web, hộp lỗi, menu DaVinci (`FramePilot.py`; mục cũ chỉ xóa khi `install.py --remove-old`). KHÔNG đổi tên thư mục/repo/khóa lưu/tên timeline.
 - Icon framepilot.ico gắn lên cửa sổ (WM_SETICON) và AppUserModelID "FramePilot" cho taskbar. Đã mở panel thật ở 4K 150%: taskbar và titlebar đúng icon, nét rõ. Chưa chụp ở 100%.

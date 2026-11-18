@@ -360,7 +360,7 @@ class TrolyWorker(threading.Thread):
                 why.append("cách 2 lỗi: %s" % e)
                 tl = None
         if not tl:
-            extra = " Một timeline rỗng có thể đã được tạo, anh xóa tay nếu thấy (Trợ lý không xóa timeline)." if created_empty else ""
+            extra = " Một timeline rỗng có thể đã được tạo, bạn xóa tay nếu thấy (Trợ lý không xóa timeline)." if created_empty else ""
             raise RuntimeError("DaVinci không tạo được timeline mới (%d đoạn). Chi tiết: %s.%s" % (len(segs), "; ".join(why), extra))
         notes = self._finish_layout(tl, v1, v2, info)
         after = self._timeline_names()
@@ -438,7 +438,7 @@ class TrolyWorker(threading.Thread):
                             try:
                                 tl.SetTrackLock(kind, t, False)
                             except Exception:                 # noqa: BLE001
-                                notes["msgs"].append("CẢNH BÁO: chưa mở khóa lại track %s%d, anh mở tay." % ("V" if kind == "video" else "A", t))
+                                notes["msgs"].append("CẢNH BÁO: chưa mở khóa lại track %s%d, bạn mở tay." % ("V" if kind == "video" else "A", t))
                 v2_start[j] = rec
         # 3) tắt tiếng đúng khối (clip tiếng cùng vị trí với clip hình)
         try:

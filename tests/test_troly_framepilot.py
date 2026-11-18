@@ -91,5 +91,69 @@ class Icon(unittest.TestCase):
         self.assertFalse(pw.set_window_icon(Fake(), self.path))
 
 
+class XungHo(unittest.TestCase):
+    """Đêm #4: chữ hiển thị trong panel gọi người dùng là "bạn". Quét mọi chuỗi hiển thị (chuỗi Python không phải docstring, chữ trong html/js không phải chú thích):
+    "anh" đứng một mình phải ra 0 chỗ. Chỗ cố ý giữ: "tiếng Anh" (English), không phải đại từ."""
+
+    @staticmethod
+    def _py_strings(path):
+        import ast
+        with open(path, encoding="utf-8") as f:
+            tree = ast.parse(f.read())
+        doc = set()
+        for n in ast.walk(tree):
+            if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)) and n.body and isinstance(n.body[0], ast.Expr) \
+                    and isinstance(getattr(n.body[0], "value", None), ast.Constant) and isinstance(n.body[0].value.value, str):
+                doc.add(n.body[0].value.lineno)               # docstring không hiển thị
+        return [n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str) and n.lineno not in doc]
+
+    @staticmethod
+    def _web_lines(path):
+        import re
+        with open(path, encoding="utf-8") as f:
+            s = f.read()
+        s = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", "", m.group(0)), s, flags=re.S)
+        s = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", "", m.group(0)), s, flags=re.S)
+        s = re.sub(r"(?m)(^|\s)//[^\n]*", lambda m: m.group(1), s)
+        return s.split("\n")
+
+    @staticmethod
+    def _hits(text):
+        import re
+        out = []
+        for m in re.finditer(r"(?<!\w)[Aa]nh(?!\w)", text):
+            if text[max(0, m.start() - 6):m.start()].lower().endswith("tiếng "):
+                continue                                      # "tiếng Anh" = English
+            out.append(text[max(0, m.start() - 30):m.end() + 30])
+        return out
+
+    def test_khong_con_chu_anh_dung_mot_minh_trong_chuoi_hien_thi(self):
+        import glob
+        bad = []
+        for f in sorted(glob.glob(os.path.join(ROOT, "app", "**", "*"), recursive=True)):
+            rel = os.path.relpath(f, os.path.join(ROOT, "app")).replace("\\", "/")
+            if f.endswith(".py"):
+                texts = self._py_strings(f)
+            elif f.endswith((".js", ".html")):
+                texts = self._web_lines(f)
+            else:
+                continue
+            for t in texts:
+                for h in self._hits(t):
+                    bad.append((rel, h))
+        self.assertEqual(bad, [])
+
+    def test_bo_quet_bat_dai_tu_that_va_bo_qua_tieng_anh_anh_hinh_nhanh(self):
+        s = "tiếng Anh và ảnh, nhanh, thanh; Anh xếp, của anh."
+        self.assertEqual(len(self._hits(s)), 2)               # chỉ "Anh xếp" và "của anh"
+        self.assertEqual(self._hits("tiếng Anh"), [])
+        self.assertIn('"tiếng Anh"', rd("app", "troly_web", "step3.js"))   # chỗ giữ lại vẫn còn nguyên
+
+    def test_chu_moi_dung_ban(self):
+        h = rd("app", "troly_web", "index.html") + rd("app", "troly_web", "step3.js")
+        for t in ("chờ bạn duyệt", "Ô viền cam = bạn đã sửa", "In/Out chỉ vào DaVinci khi bạn bấm nút Ghi", "Giữ nguyên clip bạn đã đặt tay"):
+            self.assertIn(t, h, t)
+
+
 if __name__ == "__main__":
     unittest.main()

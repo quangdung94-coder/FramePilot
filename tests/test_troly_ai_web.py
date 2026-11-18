@@ -29,7 +29,7 @@ class AiWeb(unittest.TestCase):
         self.assertIn('e.code !== "KeyA" && e.code !== "KeyX"', self.js)                      # A nhận, X bỏ qua
         for fn in ("ai_info", "ai_for", "ai_accept", "ai_skip", "ai_run", "ai_stop"):
             self.assertIn("api()." + fn, self.js, fn)
-        self.assertIn("AI gợi ý, chờ anh duyệt</span>", self.html)                            # chú thích lưới không còn "sắp có"
+        self.assertIn("AI gợi ý, chờ bạn duyệt</span>", self.html)                            # chú thích lưới không còn "sắp có"
         self.assertIn('class="tag ai"', self.app)                                             # thẻ gợi ý viền đứt trên lưới
 
     def test_phim_doc_bang_event_code_va_bo_qua_o_go_chu(self):

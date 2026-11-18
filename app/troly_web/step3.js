@@ -272,8 +272,8 @@ function renderPage3Cur(c) {
   let h = "";
   h += `<div class="kv"><span>Gợi ý${sug ? " (" + (P3_SRC[sug.src] || "") + ")" : ""}</span><span class="sg">${sug ? rg(sug.in_s, sug.out_s) : "không gợi ý"}</span></div>`;
   const sameDv = c.in_s != null && c.dv && Math.abs(c.dv[0] - c.in_s) < 0.02 && Math.abs(c.dv[1] - c.out_s) < 0.02;
-  if (c.in_s != null) h += `<div class="kv"><span>${c.io_src === "manual" && !sameDv ? "Anh đặt tay" : "Đã có trong DaVinci"}</span><span>${rg(c.in_s, c.out_s)}</span></div>`;
-  else h += `<div class="kv"><span>Anh đặt tay</span><span>chưa</span></div>`;
+  if (c.in_s != null) h += `<div class="kv"><span>${c.io_src === "manual" && !sameDv ? "Bạn đặt tay" : "Đã có trong DaVinci"}</span><span>${rg(c.in_s, c.out_s)}</span></div>`;
+  else h += `<div class="kv"><span>Bạn đặt tay</span><span>chưa</span></div>`;
   const keep = p3Keep(c); h += `<div class="kv"><span>Giữ lại</span><span>${keep == null ? "--" : fmtF(keep, f)}</span></div>`;
   h += `<div style="margin-top:6px">${c.io_src === "manual" && !sameDv ? "Đặt tay luôn thắng gợi ý. Chưa ghi vào DaVinci." : (sug ? "Bấm A để nhận gợi ý thành In/Out đặt tay." : "Clip quá ngắn nên không gợi ý.")}` +
     (sug && sug.stale ? `<br><span style="color:var(--link)">Quy tắc hoặc đệm đã đổi từ lần gợi ý: chạy lại "Tự phân loại In/Out".</span>` : "") + `</div>`;
@@ -365,7 +365,7 @@ function renderRules() {
   $("tradHead").classList.toggle("ed", Math.abs(R.trad_head - R.trad_default) > 1e-9);
   $("tradTail").classList.toggle("ed", Math.abs(R.trad_tail - (R.trad_default_tail == null ? R.trad_default : R.trad_default_tail)) > 1e-9);
   const anyEd = trad ? Object.values(R.trad_bins || {}).some((b) => b.edited) || $("tradHead").classList.contains("ed") || $("tradTail").classList.contains("ed") : R.bins.some((b) => b.edited);
-  $("rulesNote").textContent = anyEd ? "Ô viền cam = anh đã sửa." : "Chưa sửa gì: đang dùng số mặc định.";
+  $("rulesNote").textContent = anyEd ? "Ô viền cam = bạn đã sửa." : "Chưa sửa gì: đang dùng số mặc định.";
 }
 async function rulesChanged(e) {
   const tr = e.target.closest("tr[data-bin]"); if (!tr) return;
@@ -405,7 +405,7 @@ $("tradHead").onchange = tradDefaultChanged;
 $("tradTail").onchange = tradDefaultChanged;
 for (const id of ["tradHead", "tradTail"]) $(id).addEventListener("keydown", (e) => { if (e.code === "Enter") e.target.blur(); });
 $("rulesReset").onclick = async () => {
-  const ok = await ask("Về mặc định?", "<p>Xóa mọi chỗ anh đã sửa trong bảng quy tắc và số giây cắt đầu / đuôi của Truyền thống (chung và từng bin). In/Out anh đã đặt tay không bị đụng.</p>", "Về mặc định");
+  const ok = await ask("Về mặc định?", "<p>Xóa mọi chỗ bạn đã sửa trong bảng quy tắc và số giây cắt đầu / đuôi của Truyền thống (chung và từng bin). In/Out bạn đã đặt tay không bị đụng.</p>", "Về mặc định");
   if (!ok) return;
   const st = await api().reset_bin_rule();
   P3.rulesSig = "";
