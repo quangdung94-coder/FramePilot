@@ -201,7 +201,8 @@
     <span class="caps">CLIP CÓ SAO THEO BIN</span>
     <span class="dim12">Cây giống Bước 2. Chỉ hiện clip đã gắn sao để đặt In/Out kỹ.</span>
     <label class="p3-tg"><input type="checkbox" id="p3OnlyStar" checked><span class="sw"><i></i></span>Chỉ hiện clip có sao</label>
-    <button class="p3-gy" id="p3Sug" type="button" title="Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4) hoặc theo quy tắc bin. Không tự ghi vào DaVinci."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span id="p3SugT">Gợi ý In/Out cho clip sao</span><span class="gn" id="p3SugN"></span></button>
+    <button class="p3-gy" id="p3Sug" type="button" title="Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4), không thì theo quy tắc bin. Màu xanh, không tự ghi vào DaVinci."><span class="gi" aria-hidden="true">▶</span><span id="p3SugT">Chạy gợi ý cho 0 clip sao</span><span class="gn" id="p3SugN"></span></button>
+    <span class="p3-gymsg" id="p3SugMsg" role="status"></span>
     <div class="p3-list p3-tree" id="p3List" tabindex="0"></div>
     <div class="p3-leg">
       <span><i class="dot man"></i>đặt tay</span><span><i class="dot dv"></i>có trong DaVinci</span><span><i class="dot sug"></i>gợi ý</span>
@@ -252,7 +253,9 @@
     <div class="p3-box">
       <b id="trStyleName">Kiểu quay: chưa chọn</b>
       <span id="trStyleText"></span>
-      <label class="tr-row" for="tradTrim">Truyền thống cắt đầu/đuôi <input id="tradTrim" class="num" inputmode="decimal" title="Số giây cắt ở đầu và đuôi mỗi clip (kiểu Truyền thống)"> giây</label>
+      <div class="tr-row" id="tradRow">Truyền thống, chung cho bin chưa sửa:
+        <label for="tradHead">cắt đầu <input id="tradHead" class="num" inputmode="decimal" title="Số giây cắt ở ĐẦU clip (mặc định 1,5). Làm mặc định cho bin chưa sửa trong bảng."></label>
+        <label for="tradTail">cắt đuôi <input id="tradTail" class="num" inputmode="decimal" title="Số giây cắt ở ĐUÔI clip (mặc định 1,5). Làm mặc định cho bin chưa sửa trong bảng."></label> giây</div>
     </div>
     <div class="flex1"></div>
     <span class="dim12">In/Out chỉ vào DaVinci khi anh bấm nút Ghi, có hộp xác nhận và sao lưu; gợi ý màu xanh không bao giờ tự ghi.</span>

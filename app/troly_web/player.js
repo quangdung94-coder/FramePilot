@@ -310,7 +310,7 @@ document.addEventListener("mousedown", (e) => {               // bấm ra ngoài
 /* ---- phím: Space, I, O, mũi tên (chỉ khi con trỏ ở cột phải / vừa chọn mép) - capture để chạy trước phím lưới ---- */
 document.addEventListener("keydown", (e) => {
   if (page !== 2 && page !== 3) return;
-  if (page === 3 && !PL.focus && PL.vid && !e.target.closest(".p3-right")) PL.focus = true;      // Bước 3: ←/→ luôn chỉnh frame
+  if (page === 3 && !PL.focus && PL.vid && !(e.target.closest && e.target.closest(".p3-right"))) PL.focus = true;      // Bước 3: ←/→ luôn chỉnh frame
   if (!$("modal").classList.contains("hidden")) return;
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" || e.target.isContentEditable) return;
   if (e.ctrlKey || e.altKey || e.metaKey) return;

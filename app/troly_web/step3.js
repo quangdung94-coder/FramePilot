@@ -4,7 +4,7 @@
 "use strict";
 
 const WV = { uid: null, peaks: null, err: "", timer: null };
-const P3 = { sig: "", rulesSig: "", onlyStar: true, saved2: false, entered: false, anchor: null, tx: { uid: null, data: null, now: -2 }, poll: 0 };
+const P3 = { sig: "", rulesSig: "", onlyStar: true, saved2: false, entered: false, anchor: null, tx: { uid: null, data: null, now: -2 }, poll: 0, fold: {}, sugRun: false };
 
 /* Khối xem clip (hình + nút phát) nằm ở Bước 2 hoặc Bước 3: chuyển chỗ khi đổi bước, rồi trình phát tự mở lại */
 function placeStage() {
@@ -45,15 +45,21 @@ function renderPage3() {
       return `<div class="p3-clip${i === cur ? " cur" : ""}${c.star ? "" : " off"}" data-i="${i}"><span class="st">${c.star ? "★" : ""}</span><i class="dot ${p3Dot(c)}"></i><span class="t" title="${esc(c.name)}">${esc(c.name)}</span><span class="tm">${c.time}</span><span class="kp">${k == null ? "" : durTxt(k)}</span></div>`;
     }).join("") + `</div>`;
   };
+  // Thu gọn / mở danh sách clip (P3.fold, nhớ khi đổi clip hoặc đổi bước). Cả giai đoạn: mặc định THU GỌN (chỉ hiện các bin con); bin: mặc định mở.
+  const folded = (key, dflt) => (P3.fold[key] === undefined ? dflt : P3.fold[key]);
+  const ar = (on, fold) => `<span class="p3-ar" data-ar="1" title="${on && !fold ? "Thu gọn danh sách clip" : "Mở danh sách clip"}">${on && !fold ? "▾" : "▸"}</span>`;
   let h = S.stages.map((s, i) => {
     const open = i === gStage;
-    let r = `<div class="pool-stage"><div class="pool-row${open && gSub === null ? " on" : ""}${open && gSub !== null ? " parent" : ""}" data-stage="${i}">${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span>${cnt(s.uids)}</div>`;
+    const fs = folded("s:" + i, true);
+    let r = `<div class="pool-stage"><div class="pool-row${open && gSub === null ? " on" : ""}${open && gSub !== null ? " parent" : ""}" data-stage="${i}">${ar(open && gSub === null, fs)}${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span>${cnt(s.uids)}</div>`;
     if (open) {
       r += `<div class="pool-subs">`;
-      if (gSub === null) r += clipsHtml();
-      r += `<div class="sub-none${gSub === NONE ? " on" : ""}" data-stage="${i}"><span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span>${cnt(s.none)}</div>` + (gSub === NONE ? clipsHtml() : "");
+      if (gSub === null && !fs) r += clipsHtml();
+      const fn = folded("n:" + i, false);
+      r += `<div class="sub-none${gSub === NONE ? " on" : ""}" data-stage="${i}">${ar(gSub === NONE, fn)}<span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span>${cnt(s.none)}</div>` + (gSub === NONE && !fn ? clipsHtml() : "");
       for (const bn of s.bins) {
-        r += `<div class="sub${gSub === bn.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(bn.name)}"><span class="sq" style="background:${bn.color}"></span><span class="t">${esc(bn.name)}</span>${cnt(bn.uids)}</div>` + (gSub === bn.name ? clipsHtml() : "");
+        const fb = folded("b:" + i + ":" + bn.name, false);
+        r += `<div class="sub${gSub === bn.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(bn.name)}">${ar(gSub === bn.name, fb)}<span class="sq" style="background:${bn.color}"></span><span class="t">${esc(bn.name)}</span>${cnt(bn.uids)}</div>` + (gSub === bn.name && !fb ? clipsHtml() : "");
       }
       r += `</div>`;
     }
@@ -72,11 +78,23 @@ function p3View(si, sub) {
   gStage = si; gSub = sub; $("onlyNew").checked = false; saveUi();
   renderPage2(true); renderPage3();
 }
+function p3FoldKey(si, sub) { return sub === null ? "s:" + si : sub === NONE ? "n:" + si : "b:" + si + ":" + sub; }
+function p3RowClick(si, sub, onArrow) {                         // bấm dòng: XEM (không đổi nhãn clip). Bấm lại dòng đang chọn hoặc bấm mũi tên: thu gọn / mở danh sách clip
+  const key = p3FoldKey(si, sub), dflt = sub === null;
+  const selected = si === gStage && sub === gSub;
+  if (!selected) {
+    if (onArrow) P3.fold[key] = false;                          // bấm mũi tên dòng khác: chọn và mở luôn danh sách clip
+    return p3View(si, sub);
+  }
+  P3.fold[key] = !(P3.fold[key] === undefined ? dflt : P3.fold[key]);
+  P3.sig = ""; renderPage3();
+}
 $("p3List").addEventListener("click", (e) => {
   const cl = e.target.closest(".p3-clip"); if (cl) { moveCur(+cl.dataset.i); $("p3List").focus(); return; }
-  const sn = e.target.closest(".sub-none"); if (sn) return p3View(+sn.dataset.stage, NONE);
-  const sb = e.target.closest(".sub"); if (sb) return p3View(+sb.dataset.stage, sb.dataset.bin);
-  const pr = e.target.closest(".pool-row"); if (pr) return p3View(+pr.dataset.stage, null);
+  const onAr = !!e.target.closest(".p3-ar");
+  const sn = e.target.closest(".sub-none"); if (sn) return p3RowClick(+sn.dataset.stage, NONE, onAr);
+  const sb = e.target.closest(".sub"); if (sb) return p3RowClick(+sb.dataset.stage, sb.dataset.bin, onAr);
+  const pr = e.target.closest(".pool-row"); if (pr) return p3RowClick(+pr.dataset.stage, null, onAr);
 });
 $("p3OnlyStar").addEventListener("change", () => { P3.onlyStar = $("p3OnlyStar").checked; $("onlyStar").checked = P3.onlyStar; renderPage2(true); renderPage3(); });
 $("p3Star").onclick = () => toggleStar();
@@ -84,14 +102,22 @@ $("p3Star").onclick = () => toggleStar();
 /* ---- nút "Gợi ý In/Out cho clip sao" (chạy nền, hai mức, không tự ghi vào DaVinci) ---- */
 function p3SugPaint() {
   const g = S && S.inout_sug, b = $("p3Sug"); if (!g || !b) return;
-  const run = g.running;
-  b.disabled = run || !g.starred;
+  const run = g.running, n = g.starred;
+  b.disabled = !!run;                                           // chỉ khoá khi đang chạy; không có clip sao thì bấm vẫn báo lý do (không im lặng)
   b.classList.toggle("run", !!run);
+  b.classList.toggle("again", !run && g.done > 0);
   if (run && g.total) b.style.setProperty("--pg", Math.round(g.n / g.total * 100) + "%"); else b.style.removeProperty("--pg");
-  $("p3SugT").textContent = run ? "Đang gợi ý…" : "Gợi ý In/Out cho clip sao";
-  $("p3SugN").textContent = run ? `${g.n}/${g.total}` : (g.starred ? `đã chạy ${g.done}/${g.starred}` : "chưa có clip sao");
-  b.title = g.starred ? "Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4), không thì theo quy tắc bin. Màu xanh, không tự ghi vào DaVinci."
+  $("p3SugT").textContent = run ? `Đang gợi ý… ${g.n}/${g.total}` : (g.done > 0 ? `Chạy lại gợi ý (${n} clip sao)` : `Chạy gợi ý cho ${n} clip sao`);
+  $("p3SugN").textContent = run ? "" : (n ? `đã chạy ${g.done}/${n}` : "chưa có clip sao");
+  b.querySelector(".gi").textContent = run ? "…" : (g.done > 0 ? "↻" : "▶");
+  b.title = n ? "Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4), không thì theo quy tắc bin. Màu xanh, không tự ghi vào DaVinci."
     : "Chưa có clip sao. Gắn sao (J) ở Bước 2 trước.";
+}
+function p3SugMsg(text, kind) { const m = $("p3SugMsg"); m.textContent = text || ""; m.className = "p3-gymsg" + (kind ? " " + kind : ""); }
+function p3SugSummary() {                                       // kết quả lần chạy, đọc từ chính trạng thái hiện có
+  const st = S.clips.filter((c) => c.star && c.sug && c.sug.src !== "live");
+  const sp = st.filter((c) => c.sug.src === "speech").length;
+  return { total: st.length, speech: sp, rule: st.length - sp };
 }
 function p3SumPaint() {
   const el = $("p3Sum"), g = S && S.inout_sug; if (!el || !g) return;
@@ -100,26 +126,34 @@ function p3SumPaint() {
   el.textContent = `${g.starred} clip có sao trong ${stages} giai đoạn · gợi ý đã chạy ${g.done}/${g.starred} · đã nhận hoặc chỉnh ${g.accepted + g.adjusted}/${g.starred}`;
 }
 async function p3SugStart() {
-  const r = await api().inout_suggest_start();
-  if (r.error) return status(r.error, "warn");
+  p3SugMsg("Đang bắt đầu…", "");
+  let r;
+  try { r = await api().inout_suggest_start(); } catch (e) { r = { error: "Không gọi được Trợ lý: " + (e && e.message ? e.message : e) }; }
+  if (!r || r.error) { const m = (r && r.error) || "Không chạy được gợi ý."; p3SugMsg("Không chạy: " + m, "err"); return status(m, "warn"); }
+  P3.sugRun = true;
   if (S.inout_sug) { S.inout_sug.running = true; S.inout_sug.n = 0; S.inout_sug.total = r.total; }
-  p3SugPaint(); p3SugPoll();
+  p3SugPaint(); p3SugMsg(`Đang chạy nền cho ${r.total} clip sao…`, ""); p3SugPoll();
 }
-async function p3SugPoll() {                                    // dự phòng: hỏi tiến độ nếu sự kiện nền không tới
+async function p3SugFinish() {                                  // lần chạy vừa xong (sự kiện nền hoặc hỏi tiến độ): nạp lại trạng thái, báo kết quả
+  if (!P3.sugRun) return;
+  P3.sugRun = false;
+  try { setState(await api().state()); } catch (e) { p3SugMsg("Chạy xong nhưng không nạp lại được trạng thái: " + e, "err"); return; }
+  const x = p3SugSummary();
+  const msg = `Đã gợi ý cho ${x.total} clip sao: ${x.speech} theo lời nói, ${x.rule} theo quy tắc bin. Màu xanh, chưa ghi gì vào DaVinci.`;
+  p3SugMsg(msg, "ok");
+  status(msg + " Bấm A để nhận từng clip.", "ok");
+}
+async function p3SugPoll() {                                    // hỏi tiến độ (dự phòng nếu sự kiện nền không tới)
   clearTimeout(P3.poll);
-  const g = await api().inout_stats(); if (S) S.inout_sug = g;
+  let g; try { g = await api().inout_stats(); } catch (e) { p3SugMsg("Mất kết nối khi hỏi tiến độ: " + e, "err"); P3.sugRun = false; return; }
+  if (S) S.inout_sug = g;
   p3SugPaint(); p3SumPaint();
-  if (g.running) P3.poll = setTimeout(p3SugPoll, 600);
+  if (g.running) P3.poll = setTimeout(p3SugPoll, 600); else p3SugFinish();
 }
 $("p3Sug").onclick = p3SugStart;
 function p3SugEvent(kind, d) {                                  // gọi từ onEvent
-  if (kind === "inout_sug_progress" && S && S.inout_sug) { S.inout_sug.running = true; S.inout_sug.n = d.n; S.inout_sug.total = d.total; p3SugPaint(); return; }
-  if (kind === "inout_sug_done") {
-    api().state().then((st) => {
-      setState(st);
-      status(`Đã gợi ý In/Out cho ${d.total} clip sao: ${d.speech} theo lời nói, ${d.rule} theo quy tắc bin. Màu xanh, chưa ghi gì vào DaVinci; bấm A để nhận từng clip.`, "ok");
-    });
-  }
+  if (kind === "inout_sug_progress" && S && S.inout_sug) { P3.sugRun = true; S.inout_sug.running = true; S.inout_sug.n = d.n; S.inout_sug.total = d.total; p3SugPaint(); return; }
+  if (kind === "inout_sug_done") { P3.sugRun = true; p3SugFinish(); }
 }
 
 /* ---- phím A / nút "Nhận gợi ý": gợi ý xanh -> In/Out đặt tay (cam), rồi sang clip kế. Chỉ ở Bước 3; không nhận hàng loạt ---- */
@@ -298,46 +332,78 @@ function renderRules() {
   names.push({ name: "*", color: "#6A6A72" });
   const byName = new Map(R.bins.map((b) => [b.name, b]));
   const rows = names.map((x) => ({ ...x, r: byName.get(x.name) })).filter((x) => x.r);
-  const sig = JSON.stringify([rows.map((x) => [x.name, x.r]), R.style, R.trad_trim]);
+  const trad = R.style === "traditional";
+  const sig = JSON.stringify([rows.map((x) => [x.name, x.r]), R.style, R.trad_head, R.trad_tail, R.trad_bins]);
   if (sig === P3.rulesSig) return;
-  if (tbl.contains(document.activeElement) || document.activeElement === $("tradTrim")) return;    // đang gõ: không dựng lại
+  if (tbl.contains(document.activeElement) || document.activeElement === $("tradHead") || document.activeElement === $("tradTail")) return;    // đang gõ: không dựng lại
   P3.rulesSig = sig;
-  tbl.className = "rt" + (R.style === "traditional" ? " off" : "");
-  tbl.innerHTML = '<tr><th>Bin</th><th>Tối thiểu (s)</th><th>Tối đa (s)</th><th>Trọn câu</th></tr>' + rows.map((x) =>
-    `<tr data-bin="${esc(x.name)}"><td class="nm"><i style="background:${x.color}"></i>${x.name === "*" ? "Bin khác" : esc(x.name)}</td>` +
-    `<td><input class="num${x.r.edited ? " ed" : ""}" data-f="min" inputmode="decimal" value="${num(x.r.min)}" aria-label="Tối thiểu ${esc(x.name)}"></td>` +
-    `<td><input class="num${x.r.edited ? " ed" : ""}" data-f="max" inputmode="decimal" value="${x.r.whole ? "" : num(x.r.max)}" placeholder="—"${x.r.whole ? " disabled" : ""} aria-label="Tối đa ${esc(x.name)}"></td>` +
-    `<td><input type="checkbox" data-f="whole"${x.r.whole ? " checked" : ""} aria-label="Giữ trọn câu ${esc(x.name)}"></td></tr>`).join("");
+  if (trad) {                                                   // Truyền thống: cắt ĐẦU / ĐUÔI riêng từng bin (ADR-0025); min/max bị ẩn
+    tbl.className = "rt trad";
+    tbl.innerHTML = '<tr><th>Bin</th><th>Cắt đầu (s)</th><th>Cắt đuôi (s)</th><th></th></tr>' + rows.filter((x) => x.name !== "*").map((x) => {
+      const t = (R.trad_bins || {})[x.name] || { head: R.trad_head, tail: R.trad_tail, edited: false };
+      return `<tr data-bin="${esc(x.name)}" data-trad="1"><td class="nm"><i style="background:${x.color}"></i>${esc(x.name)}</td>` +
+        `<td><input class="num${t.edited ? " ed" : ""}" data-f="head" inputmode="decimal" value="${num(t.head)}" aria-label="Cắt đầu ${esc(x.name)}"></td>` +
+        `<td><input class="num${t.edited ? " ed" : ""}" data-f="tail" inputmode="decimal" value="${num(t.tail)}" aria-label="Cắt đuôi ${esc(x.name)}"></td>` +
+        `<td>${t.edited ? `<button class="btn-link" data-reset="1" title="Bin này quay về dùng cắt đầu / đuôi chung">chung</button>` : ""}</td></tr>`;
+    }).join("");
+  } else {
+    tbl.className = "rt";
+    tbl.innerHTML = '<tr><th>Bin</th><th>Tối thiểu (s)</th><th>Tối đa (s)</th><th>Trọn câu</th></tr>' + rows.map((x) =>
+      `<tr data-bin="${esc(x.name)}"><td class="nm"><i style="background:${x.color}"></i>${x.name === "*" ? "Bin khác" : esc(x.name)}</td>` +
+      `<td><input class="num${x.r.edited ? " ed" : ""}" data-f="min" inputmode="decimal" value="${num(x.r.min)}" aria-label="Tối thiểu ${esc(x.name)}"></td>` +
+      `<td><input class="num${x.r.edited ? " ed" : ""}" data-f="max" inputmode="decimal" value="${x.r.whole ? "" : num(x.r.max)}" placeholder="—"${x.r.whole ? " disabled" : ""} aria-label="Tối đa ${esc(x.name)}"></td>` +
+      `<td><input type="checkbox" data-f="whole"${x.r.whole ? " checked" : ""} aria-label="Giữ trọn câu ${esc(x.name)}"></td></tr>`).join("");
+  }
   $("rulesStyle").textContent = STYLE_NAME[R.style] || R.style;
   $("trStyleName").textContent = "Kiểu quay: " + (STYLE_NAME[R.style] || R.style);
-  $("trStyleText").textContent = R.style === "traditional" ? "Đang dùng Truyền thống: bảng bên trên chưa áp dụng, chỉ cắt đầu/đuôi mỗi clip."
-    : R.style === "psc" ? "Đang dùng PSC: gợi ý theo bảng bên trên. Chọn Truyền thống ở thanh trên thì bảng bị bỏ qua."
+  $("trStyleText").textContent = R.style === "traditional" ? "Đang dùng Truyền thống: bảng bên trên là cắt ĐẦU / ĐUÔI riêng từng bin (giữ dài, bảng tối thiểu/tối đa bị bỏ qua). Ô bên dưới là mặc định cho bin chưa sửa."
+    : R.style === "psc" ? "Đang dùng PSC: gợi ý theo bảng bên trên. Chọn Truyền thống ở thanh trên thì bảng chuyển sang cắt đầu / đuôi."
     : "Chưa chọn kiểu quay: gợi ý theo bảng bên trên, y như mặc định cũ. Chọn kiểu ở ô trên cùng.";
-  $("tradTrim").value = num(R.trad_trim);
-  $("tradTrim").classList.toggle("ed", Math.abs(R.trad_trim - R.trad_default) > 1e-9);
-  $("rulesNote").textContent = R.bins.some((b) => b.edited) ? "Ô viền cam = anh đã sửa." : "Chưa sửa gì: đang dùng số mặc định.";
+  $("tradHead").value = num(R.trad_head); $("tradTail").value = num(R.trad_tail);
+  $("tradHead").classList.toggle("ed", Math.abs(R.trad_head - R.trad_default) > 1e-9);
+  $("tradTail").classList.toggle("ed", Math.abs(R.trad_tail - (R.trad_default_tail == null ? R.trad_default : R.trad_default_tail)) > 1e-9);
+  const anyEd = trad ? Object.values(R.trad_bins || {}).some((b) => b.edited) || $("tradHead").classList.contains("ed") || $("tradTail").classList.contains("ed") : R.bins.some((b) => b.edited);
+  $("rulesNote").textContent = anyEd ? "Ô viền cam = anh đã sửa." : "Chưa sửa gì: đang dùng số mặc định.";
 }
 async function rulesChanged(e) {
   const tr = e.target.closest("tr[data-bin]"); if (!tr) return;
   const v = (f) => tr.querySelector(`[data-f="${f}"]`);
-  const whole = v("whole").checked, val = (el) => String(el.value).trim().replace(",", ".");
+  const val = (el) => String(el.value).trim().replace(",", ".");
+  if (tr.dataset.trad) {                                        // Truyền thống: cắt đầu / đuôi của bin
+    const st = await api().set_trad_bin(tr.dataset.bin, val(v("head")), val(v("tail")));
+    P3.rulesSig = "";
+    if (st && st.error) { status(st.error, "warn"); renderRules(); return; }
+    setState(st);
+    status(`Đã lưu cắt đầu / đuôi của bin ${tr.dataset.bin}. Chỉ đổi gợi ý màu xanh; bấm "Chạy lại" ở nút gợi ý để áp dụng cho clip sao.`, "ok");
+    return;
+  }
+  const whole = v("whole").checked;
   const st = await api().set_bin_rule(tr.dataset.bin, val(v("min")), whole ? null : val(v("max")), whole);
   P3.rulesSig = "";
   if (st && st.error) { status(st.error, "warn"); renderRules(); return; }
   setState(st);
   status("Đã lưu quy tắc " + (tr.dataset.bin === "*" ? "Bin khác" : tr.dataset.bin) + ". Chỉ đổi gợi ý màu xanh.", "ok");
 }
+$("rulesTbl").addEventListener("click", async (e) => {          // nút "chung": bin quay về dùng cắt đầu / đuôi chung
+  const b = e.target.closest("[data-reset]"), tr = e.target.closest("tr[data-bin]"); if (!b || !tr) return;
+  const st = await api().reset_trad_bin(tr.dataset.bin);
+  P3.rulesSig = "";
+  if (st && st.error) return status(st.error, "warn");
+  setState(st); status(`Bin ${tr.dataset.bin} dùng cắt đầu / đuôi chung.`, "ok");
+});
 $("rulesTbl").addEventListener("change", rulesChanged);
 $("rulesTbl").addEventListener("keydown", (e) => { if (e.code === "Enter" && e.target.tagName === "INPUT") e.target.blur(); });
-$("tradTrim").onchange = async () => {
-  const st = await api().set_trad_trim(String($("tradTrim").value).trim().replace(",", "."));
+async function tradDefaultChanged() {
+  const st = await api().set_trad_default(String($("tradHead").value).trim().replace(",", "."), String($("tradTail").value).trim().replace(",", "."));
   P3.rulesSig = "";
   if (st && st.error) { status(st.error, "warn"); renderRules(); return; }
-  setState(st); status("Đã lưu số giây cắt của Truyền thống.", "ok");
-};
-$("tradTrim").addEventListener("keydown", (e) => { if (e.code === "Enter") e.target.blur(); });
+  setState(st); status("Đã lưu cắt đầu / đuôi chung của Truyền thống (mặc định cho bin chưa sửa).", "ok");
+}
+$("tradHead").onchange = tradDefaultChanged;
+$("tradTail").onchange = tradDefaultChanged;
+for (const id of ["tradHead", "tradTail"]) $(id).addEventListener("keydown", (e) => { if (e.code === "Enter") e.target.blur(); });
 $("rulesReset").onclick = async () => {
-  const ok = await ask("Về mặc định?", "<p>Xóa mọi chỗ anh đã sửa trong bảng quy tắc và số giây cắt của Truyền thống. In/Out anh đã đặt tay không bị đụng.</p>", "Về mặc định");
+  const ok = await ask("Về mặc định?", "<p>Xóa mọi chỗ anh đã sửa trong bảng quy tắc và số giây cắt đầu / đuôi của Truyền thống (chung và từng bin). In/Out anh đã đặt tay không bị đụng.</p>", "Về mặc định");
   if (!ok) return;
   const st = await api().reset_bin_rule();
   P3.rulesSig = "";

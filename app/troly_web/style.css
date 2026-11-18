@@ -575,3 +575,29 @@ button, input, select { font-family: inherit; }
 .p3-ln.in.sg { background: rgba(91,155,245,.14); border-left-color: #5B9BF5; }
 #stageHost3 .preview { max-width: 444px; margin: 0 auto; }          /* như demo: khung xem 444x250, chừa chỗ cho khung chữ */
 #stageHost3 .preview { width: 444px; height: 250px; max-width: 100%; aspect-ratio: auto; }
+
+/* Truyền thống: cắt đầu / đuôi theo bin (ADR-0025) */
+.rt.trad .num { width: 54px; }
+.rt .btn-link { font-size: 11px; padding: 0; }
+.p3-box .tr-row label { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; }
+
+/* Điểm 2: nút "Chạy gợi ý" là NÚT CHÍNH (nền nổi), tiến độ ngay trên nút */
+.p3-gy { background: var(--accent); color: #18181B; border: 0; height: 46px; padding: 0 14px; font-size: 14px; font-weight: 700; border-radius: 10px;
+  box-shadow: 0 2px 0 #B97A1E, 0 6px 14px rgba(242,163,58,.22); margin-bottom: 2px; }
+.p3-gy:hover { background: #F5B45C; }
+.p3-gy:active { transform: translateY(1px); box-shadow: 0 1px 0 #B97A1E; }
+.p3-gy .gi { font-size: 13px; width: 14px; text-align: center; }
+.p3-gy .gn { margin-left: auto; font-size: 11px; font-weight: 600; color: rgba(24,24,27,.72); }
+.p3-gy.run { background: linear-gradient(90deg, #F2A33A var(--pg, 0%), #8A6228 var(--pg, 0%)); color: #18181B; cursor: progress; box-shadow: none; opacity: 1; }
+.p3-gy:disabled.run { opacity: 1; }
+.p3-gy.again { background: #E5A93C; }
+.p3-gymsg { font-size: 12px; color: var(--dim2); line-height: 1.45; min-height: 0; }
+.p3-gymsg:empty { display: none; }
+.p3-gymsg.ok { color: #A9CF62; }
+.p3-gymsg.err { color: #F28B82; font-weight: 600; }
+/* Điểm 1: mũi tên thu gọn / mở trong cây */
+.p3-ar { width: 14px; flex-shrink: 0; text-align: center; font-size: 12px; color: var(--dim2); cursor: pointer; user-select: none; }
+.p3-ar:hover { color: var(--text); }
+.p3-tree .sub .p3-ar, .p3-tree .sub-none .p3-ar { margin-left: -6px; margin-right: -4px; }
+.p3-ar { font-size: 15px; width: 16px; color: var(--text); opacity: .75; }
+.p3-ar:hover { opacity: 1; }

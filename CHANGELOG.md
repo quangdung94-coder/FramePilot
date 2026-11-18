@@ -1,5 +1,8 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Bước 3 sửa 3 điểm (ADR-0025) - CHỜ NGƯỜI DỰNG THỬ
+- Cây clip thu gọn/mở (▸/▾, cả giai đoạn mặc định thu gọn); nút "Chạy gợi ý cho N clip sao" nổi bật, tiến độ trên nút, "Chạy lại", lỗi hiện rõ; Truyền thống cắt đầu/đuôi riêng theo bin (plan["trad_trim"]) và mặc định chung tách đầu/đuôi, giữ khóa cũ trad_trim_s. 18 bài test mới (358 bài).
+
 ## 2026-11-18 – Bước 3 In/Out làm lại (ADR-0024) - CHỜ NGƯỜI DỰNG THỬ
 - Cột trái cây clip sao (sao/tổng, công tắc mặc định BẬT); nút "Gợi ý In/Out cho clip sao" chạy nền, hai mức (quy tắc bin; lời nói + đệm 0,3 s); phím A nhận gợi ý rồi sang clip kế (chỉ Bước 3); khung chữ Whisper (bấm câu, Shift nối dài, chưa chép lời, không tiếng nói); ghi nhận nhận nguyên/chỉnh (plan["inout_stats"]); tools/sug_accuracy.py. 24 bài test mới (340 bài).
 - Đo mức 1 trên project cũ: lệch < 1 s: 9% / 25%; mức 2 chưa đo được (chưa có chữ).

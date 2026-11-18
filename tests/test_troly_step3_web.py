@@ -16,7 +16,7 @@ class Step3Web(unittest.TestCase):
         self.html, self.app, self.pl, self.s3 = rd("index.html"), rd("app.js"), rd("player.js"), rd("step3.js")
 
     def test_phan_tu_chinh_cua_trang(self):
-        for i in ('id="page3"', 'id="p3List"', 'id="p3OnlyStar"', 'id="p3Sug"', 'id="p3Accept"', 'id="p3Tx"', 'id="p3TxList"', 'id="waveBox"', 'id="waveCv"', 'id="ioBar"', 'id="rulesTbl"', 'id="tradTrim"',
+        for i in ('id="page3"', 'id="p3List"', 'id="p3OnlyStar"', 'id="p3Sug"', 'id="p3Accept"', 'id="p3Tx"', 'id="p3TxList"', 'id="waveBox"', 'id="waveCv"', 'id="ioBar"', 'id="rulesTbl"', 'id="tradHead"', 'id="tradTail"',
                   'id="rulesReset"', 'id="ioWriteStar"', 'id="ioWriteSel"', 'id="ioUndo"', 'id="stageHost3"', 'id="stageHost2"', 'id="stageBox"'):
             self.assertEqual(self.html.count(i), 1, i)                                              # mỗi id đúng một lần
         self.assertIn('<script src="step3.js"></script>', self.html)
@@ -39,7 +39,7 @@ class Step3Web(unittest.TestCase):
             self.assertIn(t, keys)
         self.assertIn('ioBar").addEventListener("mousedown"', self.pl)                              # kéo hai mép
         self.assertIn('waveBox").addEventListener("mousedown"', self.pl)                            # bấm sóng âm để lướt
-        for fn in ("set_bin_rule", "reset_bin_rule", "set_trad_trim", "wave"):
+        for fn in ("set_bin_rule", "reset_bin_rule", "set_trad_default", "set_trad_bin", "wave"):
             self.assertIn("api()." + fn, self.s3, fn)
 
     def test_phim_doc_bang_event_code_khong_dung_event_key(self):
