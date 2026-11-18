@@ -296,6 +296,60 @@ class TrolyWorker(threading.Thread):
                                "Hãy thử chuyển sang trang Edit hoặc Media của DaVinci rồi bấm lại." % (len(items), "; ".join(why)))
         self.post("timeline_appended", (len(items), True))
 
+    def do_create_cut_timeline(self, arg):
+        """Bước 5 (ADR-0013): tạo MỘT timeline MỚI từ danh sách đoạn đã cắt gọt. arg = (tên timeline, [(uid, frame vào, frame ra)]).
+        Mỗi đoạn là clip con (startFrame/endFrame, tính từ đầu file) trong clipInfo, KHÔNG ghi In/Out lên clip gốc.
+        Thử CreateTimelineFromClips; trả rỗng thì CreateEmptyTimeline + AppendToTimeline. Không xóa/sửa timeline có sẵn, không render.
+        Sau khi tạo kiểm lại: số timeline tăng đúng 1 và các timeline cũ còn nguyên tên."""
+        name, segs = arg
+        self._require_current()
+        if not self.items:
+            raise RuntimeError("Hãy bấm 'Đọc clip' trước.")
+        infos = []
+        for uid, a, b in segs:
+            if uid in self.items:
+                infos.append({"mediaPoolItem": self.items[uid][1], "startFrame": int(a), "endFrame": int(b)})
+        if not infos:
+            raise RuntimeError("Không có đoạn nào để đưa lên timeline.")
+        before = self._timeline_names()
+        pool = self.pool
+        tl, why, created_empty = None, [], False
+        try:
+            tl = pool.CreateTimelineFromClips(name, infos)
+        except Exception as e:                                # noqa: BLE001
+            why.append("CreateTimelineFromClips lỗi: %s" % e)
+        if not tl:
+            why.append("CreateTimelineFromClips trả rỗng")
+            try:
+                tl = pool.CreateEmptyTimeline(name)
+                created_empty = bool(tl)
+                if tl and not pool.AppendToTimeline(infos):
+                    why.append("AppendToTimeline không thêm được đoạn nào")
+                    tl = None
+                elif not tl:
+                    why.append("CreateEmptyTimeline trả rỗng")
+            except Exception as e:                            # noqa: BLE001
+                why.append("cách 2 lỗi: %s" % e)
+                tl = None
+        if not tl:
+            extra = " Một timeline rỗng có thể đã được tạo, anh xóa tay nếu thấy (Trợ lý không xóa timeline)." if created_empty else ""
+            raise RuntimeError("DaVinci không tạo được timeline mới (%d đoạn). Chi tiết: %s.%s" % (len(infos), "; ".join(why), extra))
+        after = self._timeline_names()
+        res = {"name": name, "n": len(infos), "before": None if before is None else len(before), "after": None if after is None else len(after),
+               "old_intact": None, "verified": False}
+        if before is not None and after is not None:
+            res["old_intact"] = all(after.count(n) >= before.count(n) for n in set(before))
+            res["verified"] = len(after) == len(before) + 1 and bool(res["old_intact"]) and name in after
+        self.post("cut_timeline_created", res)
+
+    def _timeline_names(self):
+        """Tên các timeline hiện có (để kiểm trước/sau), hoặc None nếu bản DaVinci/giả lập không hỏi được."""
+        try:
+            n = int(self.project.GetTimelineCount())
+            return [self.project.GetTimelineByIndex(i).GetName() for i in range(1, n + 1)]
+        except Exception:                                     # noqa: BLE001
+            return None
+
     # --- GHI In/Out (ADR-0016) ----------------------------------------------------------------------------------
     @staticmethod
     def _read_vio(mpi):

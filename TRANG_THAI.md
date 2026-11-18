@@ -88,6 +88,12 @@
 - Chưa làm/chưa đo: project 500+ clip (không đổi project DaVinci nên chỉ có 376 clip), chép lời thật rồi đóng cửa sổ (chỉ thử Job Object với AI nền và tiến trình mẫu), kiểm JS bằng node (máy không có node, kiểm cú pháp bằng trình duyệt).
 - Lỗi nhẹ chưa sửa: trang tải font Inter từ Google Fonts (cần mạng, mất mạng thì dùng font hệ thống); favicon 404; mã vé của máy chủ phát proxy không hết hạn (chỉ trong bộ nhớ).
 
+## Bước 5 Thời lượng (18/11/2026, nhánh buoc5) - CHỜ NGƯỜI DỰNG THỬ
+- Đã làm theo demo design/4_thoi_luong (ADR-0013): mục tiêu phút, chia tỉ lệ giai đoạn (kéo vạch), Min-Max TỔNG từng bin, cảnh báo, Cắt gọt cho vừa, Đưa lên Timeline mới (timeline MỚI, clip con theo In/Out).
+- CÁC SỐ CÒN LÀ ĐỀ XUẤT (người dựng chưa xác nhận): mục tiêu 12 phút; Decor 10-20 s, Beauty cô dâu 20-30 s; bin khác Max = min(90, tổng độ dài gợi ý của clip sao), Min = 0,6 × tự nhiên; ngưỡng 70%/cách bỏ clip. Độ dài từng clip dùng lại bin_rules Bước 3.
+- Đã chạy THẬT trên DaVinci: tạo 1 timeline thử (project 0 -> 1 timeline, 6 đoạn, clip gốc không bị ghi In/Out). Mới chạy GIẢ LẬP: các nhánh dự phòng, lỗi, đổi project giữa chừng (test). Cửa sổ pywebview thật: đã mở Bước 5 ở 4K 150% (dữ liệu bản sao), đối chiếu demo ~85%. Chưa thử với nhiều timeline/nhiều clip sao thật của anh; công thức frame sau khi sửa chưa kiểm lại bằng timeline thứ hai.
+- Timeline thử còn trong project đang mở ("Rough Cut thoi luong ..."): anh xóa tay nếu không cần. Backup .drp trước khi thử: D:\VideoAI\backup\drp_*_truoc_thu_timeline.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
 2. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin

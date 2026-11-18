@@ -70,6 +70,7 @@ window.onEvent = function (kind, data) {
   } else if (kind === "speech_progress") lnProgress(data);
   else if (kind === "speech_done") lnDone(data);
   else if (kind.indexOf("analyze_") === 0) anEvent(kind, data);
+  else if (kind === "dur_timeline_done") { if (page === 5) renderPage5(); }
   else if (kind === "state") setState(data);
   else if (kind === "status") status(data.text, data.kind);
   else if (kind === "progress") { status(data.text, "info"); $("progBar").style.width = (data.frac * 100) + "%"; }
@@ -812,7 +813,7 @@ async function showCur() {
 }
 
 /* ------------------------------------------------------------------ chuyển bước, khởi động */
-function goPage(n) { cancelPending(); saveUi(); page = n; render(false); if (n === 2) $("gridScroll").focus(); if (n === 3) $("p3List").focus(); if (n === 1) renderTimeline(); }
+function goPage(n) { cancelPending(); saveUi(); page = n; render(false); if (n === 5) renderPage5(); if (n === 2) $("gridScroll").focus(); if (n === 3) $("p3List").focus(); if (n === 1) renderTimeline(); }
 document.querySelectorAll(".step").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); goPage(+a.dataset.page); }));
 
 window.addEventListener("pywebviewready", async () => {
