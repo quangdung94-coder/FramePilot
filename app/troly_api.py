@@ -23,6 +23,7 @@ import troly_core as tc           # noqa: E402
 import troly_resolve as tr        # noqa: E402
 import troly_thumbs as tt         # noqa: E402
 import troly_ai as ai             # noqa: E402
+import troly_dur as td            # noqa: E402
 
 SUB_COLORS = ["#4FC1A6", "#E88AB0", "#F2A33A", "#5B9BF5", "#C98BE0", "#EF7D65", "#A9CF62", "#E0B860", "#7FB7E8",
               "#8A8A94"]
@@ -64,6 +65,7 @@ class TrolyApi(object):
         self._speech_st, self._speech_run, self._speech_last = None, None, None
         self._analyze = None
         self._ai_cache, self._ai_job = {}, None            # Bước 6 AI (ADR-0022)
+        self._dur_cut = None                               # Bước 5: bản cắt gọt đã bấm "Cắt gọt cho vừa" (đúng bản này mới được đưa lên timeline)
         import troly_batch as _tb
         self._shutdown_fn = _tb.system_shutdown     # kiểm thử thay bằng bản giả
         self._analyze_countdown, self._analyze_sleep = _tb.COUNTDOWN_S, time.sleep      # kiểm thử rút ngắn
@@ -109,6 +111,18 @@ class TrolyApi(object):
                 self._on_inout_written(data)
             elif kind == "inout_restored":
                 self._on_inout_restored(data)
+            elif kind == "cut_timeline_created":
+                self._busy = False
+                self._dur_cut = None
+                ok = data.get("verified")
+                if ok:
+                    chk = "Kiểm lại: số timeline %s → %s, timeline cũ còn nguyên." % (data["before"], data["after"])
+                elif data.get("before") is not None:
+                    chk = "CHƯA kiểm lại khớp (số timeline hoặc timeline cũ không khớp), hãy xem trong DaVinci."
+                else:
+                    chk = "CHƯA kiểm lại được số timeline (DaVinci không cho đọc danh sách)."
+                self._emit("status", {"text": "Đã tạo timeline mới “%s” gồm %d đoạn. %s" % (data["name"], data["n"], chk), "kind": "ok" if ok else "warn"})
+                self._emit("dur_timeline_done", data)
             elif kind == "timeline_appended":
                 self._busy = False
                 n, created = data
@@ -986,6 +1000,121 @@ class TrolyApi(object):
             self._worker.jobs.put(("append_timeline", uids))
         self._emit("status", {"text": "Đang đưa %d clip có sao ★ vào Timeline DaVinci..." % len(uids), "kind": "info"})
         return {"ok": True, "count": len(uids)}
+
+    # ------------------------------------------------------------------ BƯỚC 5: THỜI LƯỢNG (ADR-0013)
+    # Số liệu mặc định là ĐỀ XUẤT (chưa được người dựng xác nhận). Khóa plan["durations"] chỉ có khi anh sửa.
+    def _dur_build(self):
+        self._recount()
+        return td.build(self._plan, self._clips, self._assign, self._stages)
+
+    def _dur_view(self, r=None):
+        r = r or self._dur_build()
+        for i, s in enumerate(r["stages"]):
+            s["color"] = self._stages[i].get("color")
+            for j, b in enumerate(s["bins"]):
+                b["color"] = SUB_COLORS[j % len(SUB_COLORS)]
+        r["cut_ready"] = self._dur_cut is not None and self._dur_cut["items"] == r["items"]
+        r["proposed"] = True
+        r["limits"] = {"target": list(td.TARGET_LIMITS_MIN), "suggest": list(td.SUGGEST_RANGE_MIN), "scale_s": td.BIN_SCALE_S}
+        d = self._plan.get("durations") or {}
+        r["edited"] = {"target": "target_min" in d, "share": bool(d.get("stage_share")), "bins": bool(d.get("bins"))}
+        r["style"] = self._plan.get("shoot_style") or ""
+        return r
+
+    def dur_state(self):
+        with self._lock:
+            return self._dur_view()
+
+    def dur_set_target(self, minutes):
+        with self._lock:
+            ok, v = td.check_target(minutes)
+            if not ok:
+                return {"error": v}
+            self._plan.setdefault("durations", {})["target_min"] = v
+            self._save_soon()
+            return self._dur_view()
+
+    def dur_set_share(self, index, fraction):
+        """Kéo thanh tỉ lệ: giai đoạn index chiếm fraction (0..1), các giai đoạn khác co giãn để TỔNG luôn bằng 1."""
+        with self._lock:
+            r = self._dur_build()
+            if not isinstance(index, int) or not 0 <= index < len(r["shares"]):
+                return {"error": "Không có giai đoạn số %s." % index}
+            try:
+                f = float(fraction)
+            except (TypeError, ValueError):
+                return {"error": "Tỉ lệ phải là số."}
+            if f != f:
+                return {"error": "Tỉ lệ phải là số."}
+            v = td.normalize_shares(r["shares"], index, f)
+            self._plan.setdefault("durations", {})["stage_share"] = {s["name"]: round(x, 4) for s, x in zip(r["stages"], v)}
+            self._save_soon()
+            return self._dur_view()
+
+    def dur_set_bin(self, stage_i, bin_name, mn, mx):
+        """Sửa Min-Max TỔNG của một bin con (giây). Sai (âm, không phải số, Min > Max) thì báo lỗi và KHÔNG ghi gì."""
+        with self._lock:
+            if not isinstance(stage_i, int) or not 0 <= stage_i < len(self._stages):
+                return {"error": "Không có giai đoạn số %s." % stage_i}
+            ok, v = td.check_bin_minmax(mn, mx)
+            if not ok:
+                return {"error": v}
+            name = self._stages[stage_i]["name"]
+            self._plan.setdefault("durations", {}).setdefault("bins", {}).setdefault(name, {})[bin_name] = list(v)
+            self._save_soon()
+            return self._dur_view()
+
+    def dur_reset(self):
+        """Về số đề xuất: xóa mọi chỉnh sửa Bước 5 khỏi kế hoạch (mục tiêu, tỉ lệ, Min-Max)."""
+        with self._lock:
+            self._plan.pop("durations", None)
+            self._dur_cut = None
+            self._save_soon()
+            return self._dur_view()
+
+    def dur_cut(self):
+        """Nút "Cắt gọt cho vừa": tính kế hoạch cắt gọt (chỉ trong panel) và nhớ lại đúng bản này. Chưa chạm DaVinci."""
+        with self._lock:
+            r = self._dur_build()
+            self._dur_cut = {"items": r["items"], "total_s": r["total_s"], "target_min": r["target_min"]}
+            return self._dur_view(r)
+
+    def dur_create_timeline(self):
+        """Nút "Đưa lên Timeline mới" (giao diện đã hỏi xác nhận). Chỉ đưa ĐÚNG bản đã cắt gọt; số liệu đã đổi thì bắt cắt gọt lại.
+        Ghi nhật ký (số clip, tổng giây) TRƯỚC khi tạo; chỉ tạo timeline mới, không SetMarkInOut lên clip gốc."""
+        import re
+        with self._lock:
+            if self._busy or not self._clips:
+                return {"error": "Trợ lý đang bận hoặc chưa có clip."}
+            r = self._dur_build()
+            if not r["items"]:
+                return {"error": "Không có clip nào để đưa lên (chưa gắn sao ★ hoặc đã bị cắt hết)."}
+            if self._dur_cut is None or self._dur_cut["items"] != r["items"]:
+                return {"error": "Số liệu đã đổi từ lần cắt gọt trước. Hãy bấm \"Cắt gọt cho vừa\" rồi xem lại trước khi đưa lên."}
+            segs, rows = [], []
+            for it in r["items"]:
+                c = self._by_uid.get(it["uid"])
+                if c is None or not c.fps:
+                    continue
+                a, b = tc.cut_frames(it["in_s"], it["out_s"], c.fps, c.frames)
+                segs.append((c.uid, a, b))
+                rows.append({"rel": c.rel, "stage": self._stages[it["stage"]]["name"], "bin": it["bin"], "in_s": it["in_s"], "out_s": it["out_s"],
+                             "in_frame": a, "out_frame": b})
+            if not segs:
+                return {"error": "Không có đoạn nào hợp lệ (clip thiếu fps)."}
+            stamp = datetime.datetime.now()
+            raw = "Rough Cut thoi luong %s %s" % (self._project, stamp.strftime("%d.%m %Hh%Mm%S"))
+            name = " ".join(re.sub(r'[\\/:*?"<>|&]', " ", raw).split())
+            try:
+                log = tc.write_timeline_log(self._root, self._project, {
+                    "created": stamp.isoformat(timespec="seconds"), "timeline_name": name, "count": len(segs), "total_s": r["total_s"],
+                    "target_min": r["target_min"], "delta_s": r["delta_s"], "style": self._plan.get("shoot_style") or "", "items": rows})
+            except OSError as e:
+                return {"error": "Không ghi được nhật ký, chưa đụng DaVinci: %s" % e}
+            self._busy = True
+            self._worker.jobs.put(("create_cut_timeline", (name, segs)))
+        self._emit("status", {"text": "Đang tạo timeline mới (%d đoạn, %s)..." % (len(segs), td.mmss(r["total_s"])), "kind": "info"})
+        return {"ok": True, "count": len(segs), "total_s": r["total_s"], "name": name, "log": log}
 
     # ------------------------------------------------------------------ ĐỔI TÊN GIAI ĐOẠN / BIN CON (ADR-0015)
     def _rename_siblings(self, kind, i):

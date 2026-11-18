@@ -827,6 +827,19 @@ def rename_in_plan(plan, kind, i, old, new, in_stage_keys=()):
         ui = plan.get("ui") or {}
         if ui.get("gStage") == i and ui.get("gSub") == old:
             ui["gSub"] = new
+    dur = plan.get("durations")                          # Bước 5: tỉ lệ giai đoạn và Min-Max bin theo TÊN
+    if isinstance(dur, dict) and not dup:
+        if kind == "stage":
+            sh = dur.get("stage_share")
+            if isinstance(sh, dict) and old in sh:
+                sh[new] = sh.pop(old)
+            bb = dur.get("bins")
+            if isinstance(bb, dict) and old in bb:
+                bb[new] = bb.pop(old)
+        else:
+            sub = (dur.get("bins") or {}).get(stage_old)
+            if isinstance(sub, dict) and old in sub:
+                sub[new] = sub.pop(old)
     return p_old, p_new
 
 
@@ -848,3 +861,32 @@ def target_folder(clip_stage, clip_label, stages, clip_manual=None):
 def keymap(stage):
     """Phím số -> bin con của giai đoạn: 1..9 theo thứ tự bin."""
     return {str(i + 1): b for i, b in enumerate(stage["bins"][:9])}
+
+
+# --- Nhật ký tạo timeline cắt gọt (Bước 5, ADR-0013) ---------------------------------------------------------------------
+def timeline_log_dir(data_root):
+    return os.path.join(data_root, "troly", "timeline_log")
+
+
+def write_timeline_log(data_root, project, record, stamp=None):
+    """Ghi nhật ký TRƯỚC khi tạo timeline (số clip, tổng giây, từng đoạn In/Out). File riêng có ngày giờ, không ghi đè. Trả đường dẫn."""
+    d = timeline_log_dir(data_root)
+    os.makedirs(d, exist_ok=True)
+    stamp = stamp or datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    base = os.path.join(d, "%s_%s" % (_safe(project), stamp))
+    p, i = base + ".json", 1
+    while os.path.exists(p):
+        i += 1
+        p = "%s_%d.json" % (base, i)
+    _write_json(p, record)
+    return p
+
+
+def cut_frames(in_s, out_s, fps, frames):
+    """Đoạn cắt (giây) -> (frame vào, frame ra) tính từ ĐẦU FILE, kẹp trong [0, frames-1]; ra > vào."""
+    a = max(0, secs_to_frames(in_s, fps))
+    b = secs_to_frames(out_s, fps) - 1
+    if frames:
+        b = min(b, int(frames) - 1)
+        a = min(a, max(0, int(frames) - 2))
+    return a, max(a + 1, b)
