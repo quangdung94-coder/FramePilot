@@ -175,7 +175,83 @@ SHOOT_STYLES = ("", "traditional", "psc")          # "" = chưa chọn (không �
 TRAD_HEAD_S, TRAD_TAIL_S = 1.5, 1.5               # Truyền thống: chỉ gợi ý cắt khoảng 1-2 giây đầu và đuôi mỗi clip
 
 
-def suggest_inout(dur, label=None, style=""):
+# --- Quy tắc gợi ý từng bin (ADR-0019) ---
+# Bộ mặc định = đúng các số của bản trước khi có bảng quy tắc (kiểm thử so khớp từng số). Cột: từ khóa nhãn bin, chữ giải thích,
+# giữ tối thiểu (giây), tối đa (giây; None = không giới hạn), trọn câu (giữ đến gần hết clip, không chặn tối đa).
+BUILTIN_RULES = (
+    (("decor", "chi tiết", "trang trí"), "Decor: 3.0s ổn định", 3.0, 3.0, False),
+    (("cô dâu", "chú rể", "beauty", "nhẫn"), "CD-CR: 4.0s cảm xúc", 4.0, 4.0, False),
+    (("nghi lễ", "gia tiên", "lễ", "chào bàn", "đón khách"), "Nghi lễ: giữ 5–7s", 3.0, 7.0, False),
+    (("phỏng vấn",), "Phỏng vấn: giữ trọn câu", 3.0, None, True),
+)
+DEFAULT_RULE = ("Quy tắc v4: vào +1.2s, giữ 3s", 3.0, 3.0, False)
+RULE_MAX_S = 600.0
+OTHER_KEY = "*"                                   # dòng "Bin khác" của bảng: áp cho bin không khớp quy tắc có sẵn nào
+
+
+def builtin_rule(label):
+    """(chữ giải thích, min, max, trọn câu) mặc định của một nhãn bin."""
+    lb = (label or "").lower()
+    for keys, text, mn, mx, whole in BUILTIN_RULES:
+        if any(k in lb for k in keys):
+            return text, mn, mx, whole
+    return DEFAULT_RULE
+
+
+def _is_builtin(label):
+    lb = (label or "").lower()
+    return any(any(k in lb for k in keys) for keys, _t, _a, _b, _w in BUILTIN_RULES)
+
+
+def check_bin_rule(mn, mx, whole=False):
+    """Kiểm quy tắc người dùng nhập: số dương, min <= max. Trả (True, {'min','max','whole'}) hoặc (False, lời báo lỗi)."""
+    try:
+        mn = float(mn)
+        mx = None if whole else float(mx)
+    except (TypeError, ValueError):
+        return False, "Số giây phải là số."
+    for v in (mn,) if whole else (mn, mx):
+        if v != v or v in (float("inf"), float("-inf")):
+            return False, "Số giây phải là số."
+        if v <= 0:
+            return False, "Số giây phải lớn hơn 0."
+        if v > RULE_MAX_S:
+            return False, "Số giây tối đa là %d." % RULE_MAX_S
+    if not whole and mn > mx:
+        return False, "Tối thiểu không được lớn hơn tối đa."
+    return True, {"min": round(mn, 2), "max": None if whole else round(mx, 2), "whole": bool(whole)}
+
+
+def rule_for(label, rules=None):
+    """Quy tắc áp cho nhãn bin: bin người dùng đã sửa > quy tắc có sẵn khớp từ khóa > dòng 'Bin khác' đã sửa > mặc định.
+    Trả (chữ giải thích, min, max, trọn câu, đã_sửa)."""
+    rules = rules or {}
+    r = rules.get(label) if label else None
+    if r is None and not _is_builtin(label):
+        r = rules.get(OTHER_KEY)
+    if r:
+        ok, v = check_bin_rule(r.get("min"), r.get("max"), r.get("whole"))
+        if ok:
+            if v["whole"]:
+                txt = "Quy tắc của anh: trọn câu, từ %gs" % v["min"]
+            else:
+                txt = "Quy tắc của anh: giữ %g–%gs" % (v["min"], v["max"]) if v["min"] != v["max"] else "Quy tắc của anh: giữ %gs" % v["min"]
+            return txt, v["min"], v["max"], v["whole"], True
+    t, mn, mx, whole = builtin_rule(label)
+    return t, mn, mx, whole, False
+
+
+def rules_view(plan, labels):
+    """Bảng quy tắc để hiện: mỗi bin (theo thứ tự labels) + dòng 'Bin khác'. Chưa sửa thì ra đúng số mặc định."""
+    rules = (plan or {}).get("bin_rules") or {}
+    out = []
+    for name in list(labels) + [None]:
+        t, mn, mx, whole, ed = rule_for(name, rules)
+        out.append({"name": name if name is not None else OTHER_KEY, "min": mn, "max": mx, "whole": whole, "edited": ed})
+    return out
+
+
+def suggest_inout(dur, label=None, style="", rules=None, trad_trim=None):
     """Gợi ý in/out (giây) theo quy tắc ADR-0004 kết hợp nhãn phân loại bin con:
     - Decor / Chi tiết: cần đoạn 2.5 - 3.5s ổn định, bỏ 1s đầu bấm máy.
     - Cô dâu chú rể / Beauty: cần đoạn 3.5 - 4.5s khoảnh khắc đẹp.
@@ -188,26 +264,18 @@ def suggest_inout(dur, label=None, style=""):
         return None
     if style == "traditional":
         # Truyền thống (ADR-0018): giữ source dài nhất có thể, chỉ cắt đầu và đuôi; không phân biệt bin. Clip ngắn thì cắt ít hơn
-        # để vẫn còn ít nhất 1 giây. Chỉ là bộ tham số gợi ý (màu xanh); In/Out đặt tay vẫn luôn thắng.
-        head = tail = min(TRAD_HEAD_S, max(0.0, (dur - 1.0) / 2.0))
+        # để vẫn còn ít nhất 1 giây. Số giây cắt chỉnh được (ADR-0019, mặc định 1.5). Chỉ là bộ tham số gợi ý (màu xanh).
+        cut = TRAD_HEAD_S if trad_trim is None else max(0.0, float(trad_trim))
+        head = tail = min(cut, max(0.0, (dur - 1.0) / 2.0))
         return {"in_s": round(head, 2), "out_s": round(dur - tail, 2), "dur": round(dur - head - tail, 2),
                 "rule": "Truyền thống: giữ dài, cắt %.1fs đầu và %.1fs đuôi" % (head, tail)}
-    lb = (label or "").lower()
-    if any(k in lb for k in ("decor", "chi tiết", "trang trí")):
-        trim = 3.0
-        rule = "Decor: 3.0s ổn định"
-    elif any(k in lb for k in ("cô dâu", "chú rể", "beauty", "nhẫn")):
-        trim = 4.0
-        rule = "CD-CR: 4.0s cảm xúc"
-    elif any(k in lb for k in ("nghi lễ", "gia tiên", "lễ", "chào bàn", "đón khách")):
-        trim = min(7.0, max(3.0, dur - 1.0))
-        rule = "Nghi lễ: giữ 5–7s"
-    elif "phỏng vấn" in lb:
-        trim = max(3.0, dur - 1.0)
-        rule = "Phỏng vấn: giữ trọn câu"
+    rule, mn, mx, whole, _ed = rule_for(label, rules)
+    if whole:
+        trim = max(mn, dur - 1.0)
     else:
-        trim = 3.0
-        rule = "Quy tắc v4: vào +1.2s, giữ 3s"
+        trim = min(mx, max(mn, dur - 1.0))
+        if mn == mx:
+            trim = mn
 
     t_in = min(1.2, max(0.0, (dur - trim) / 2.0)) if dur < 5.0 else 1.2
     t_out = min(dur - 0.5, t_in + trim)
