@@ -894,12 +894,40 @@ def rename_in_plan(plan, kind, i, old, new, in_stage_keys=()):
                 bb = dur.get(key)
                 if isinstance(bb, dict) and old in bb:
                     bb[new] = bb.pop(old)
+            _rename_tl(dur.get("tl"), "stage", old, new, None)
         else:
             for key in ("bins", "bin_s"):
                 sub = (dur.get(key) or {}).get(stage_old)
                 if isinstance(sub, dict) and old in sub:
                     sub[new] = sub.pop(old)
+            _rename_tl(dur.get("tl"), "bin", old, new, stage_old)
     return p_old, p_new
+
+
+def _rename_tl(tl, kind, old, new, stage):
+    """Bước 5 bản 3: đổi tên giai đoạn/bin trong thứ tự cụm, thứ tự khối ("Giai đoạn|Bin"), cấu hình khối (track, tốc độ, tiếng)."""
+    if not isinstance(tl, dict):
+        return
+    def key(st, b):
+        return "%s|%s" % (st, b)
+    if kind == "stage":
+        if isinstance(tl.get("order"), list):
+            tl["order"] = [new if x == old else x for x in tl["order"]]
+        if isinstance(tl.get("kids"), dict):
+            kids = {}
+            for cl, lst in tl["kids"].items():
+                kids[new if cl == old else cl] = [(new + "|" + x.split("|", 1)[1]) if x.split("|", 1)[0] == old else x for x in lst]
+            tl["kids"] = kids
+        for k in ("blk", "stg"):
+            if isinstance(tl.get(k), dict) and old in tl[k]:
+                tl[k][new] = tl[k].pop(old)
+    else:
+        if isinstance(tl.get("kids"), dict):
+            for cl, lst in tl["kids"].items():
+                tl["kids"][cl] = [key(stage, new) if x == key(stage, old) else x for x in lst]
+        sub = (tl.get("blk") or {}).get(stage)
+        if isinstance(sub, dict) and old in sub:
+            sub[new] = sub.pop(old)
 
 
 def target_folder(clip_stage, clip_label, stages, clip_manual=None):

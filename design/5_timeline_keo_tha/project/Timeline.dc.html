@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bước 5 - Timeline kéo thả</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input{font-family:inherit}
+.p{width:1440px;height:900px;background:#18181B;color:#E7E7EA;font-family:Inter,"Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box}
+.top{height:64px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:#1F1F23;border-bottom:1px solid #2E2E34}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:32px;height:32px;border-radius:8px;background:#F2A33A;display:flex;align-items:center;justify-content:center}
+.bt{font-size:15px;font-weight:700}.bs{font-size:12px;color:#A1A1AA}
+.steps{display:flex;gap:6px}
+.st{padding:10px 16px;border-radius:8px;color:#C4C4CC;font-size:13px;font-weight:500}
+.st.on{background:#F2A33A;color:#18181B;font-weight:600}
+.sel{height:40px;padding:0 14px;border-radius:8px;border:1px solid #3A3A42;background:#26262B;color:#E7E7EA;font-size:13px;display:flex;align-items:center;gap:8px}
+.main{flex:1;min-height:0;padding:16px 24px 12px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.hr{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.h1{font-size:20px;font-weight:700;margin-right:auto}
+.caps{font-size:12px;font-weight:600;letter-spacing:.08em;color:#A1A1AA}
+.inp{height:40px;width:96px;box-sizing:border-box;border-radius:8px;border:1px solid #F2A33A;background:#26262B;color:#E7E7EA;font-size:18px;font-weight:600;text-align:center}
+.inp.sm{height:30px;width:64px;font-size:13px;font-weight:500;border-color:#3A3A42;border-radius:6px}
+.res{display:flex;align-items:center;gap:8px;font-size:13px;color:#C4C4CC}
+.res b{font-size:16px;color:#E7E7EA}
+.tagw{padding:4px 10px;border-radius:999px;background:#3A2E1C;color:#F2B256;font-size:12px;font-weight:600;border:1px solid #664A1C}
+.tagb{padding:3px 8px;border-radius:999px;background:#1B2740;color:#8DB8F7;font-size:11px;font-weight:600;border:1px solid #2C4A80}
+.bn{height:40px;padding:0 14px;border-radius:8px;border:1px solid #3A3A42;background:#26262B;color:#E7E7EA;font-size:13px;font-weight:500;cursor:pointer}
+.card{border-radius:10px;background:#1F1F23;border:1px solid #2E2E34}
+.tl{padding:12px 14px 10px;display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.lane{display:flex;align-items:stretch;gap:10px}
+.lab{width:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#26262B;border:1px solid #3A3A42;font-size:13px;font-weight:700;color:#C4C4CC}
+.lb{flex:1;min-width:0;position:relative;display:flex}
+.ruler{height:22px;align-items:flex-end}
+.tk{position:absolute;bottom:0;font-size:11px;color:#A1A1AA;white-space:nowrap}
+.gl{position:absolute;top:0;bottom:0;width:1px;background:#2A2A30;pointer-events:none}
+.fr{display:flex;flex-direction:column;border-radius:8px;border:1.5px solid;background:#222226;box-sizing:border-box;min-width:0;overflow:hidden}
+.fh{height:26px;flex-shrink:0;display:flex;align-items:center;gap:6px;padding:0 8px;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden}
+.fh span{font-weight:500;color:#C4C4CC}
+.fb{flex:1;display:flex;gap:2px;padding:0 3px 3px}
+.cb{border-radius:5px;color:#18181B;display:flex;flex-direction:column;justify-content:center;padding:0 6px;min-width:0;overflow:hidden;white-space:nowrap}
+.cb b{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis}
+.cb span{font-size:11px;font-weight:500}
+.gap{border:1.5px dashed #F2B256;border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#F2B256;font-size:12px;font-weight:600;background:rgba(242,178,86,.06)}
+.goal{position:absolute;right:0;top:-22px;bottom:-6px;width:0;border-right:2px dashed #F2B256;pointer-events:none}
+.goal em{position:absolute;right:6px;top:0;font-style:normal;font-size:11px;font-weight:600;color:#F2B256;white-space:nowrap}
+.drop{position:absolute;top:0;bottom:0;width:3px;background:#F2A33A;border-radius:2px}
+.drop em{position:absolute;top:-20px;left:-34px;padding:2px 8px;border-radius:5px;background:#F2A33A;color:#18181B;font-style:normal;font-size:11px;font-weight:700;white-space:nowrap}
+.hint{font-size:12px;color:#A1A1AA;line-height:1.5}
+.lg{display:flex;gap:18px;font-size:12px;color:#C4C4CC;align-items:center;padding-left:54px;flex-wrap:wrap}
+.lg span{display:flex;align-items:center;gap:6px}
+.bot{flex:1;min-height:0;display:flex;gap:12px}
+.ord{flex:1;min-width:0;padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.oh{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;margin-bottom:6px}
+.th,.tb{display:flex;align-items:center;gap:12px;font-size:12px}
+.th{height:24px;color:#A1A1AA;font-weight:600;letter-spacing:.04em}
+.tb{height:44px;color:#C4C4CC;border-top:1px solid #26262B}
+.c0{width:28px;text-align:center;color:#A1A1AA;font-weight:600}
+.cg{width:22px;display:flex;justify-content:center}
+.c1{width:170px;display:flex;align-items:center;gap:10px;color:#E7E7EA;font-size:13px;font-weight:500}
+.c2{width:100px}.c3{width:130px}
+.ra{font-size:12px;color:#F2B256;font-weight:600;margin-left:6px}.c4{width:112px}.c6{width:116px}.c7{width:80px}.c5{flex:1;display:flex;align-items:center;gap:8px}
+.trk.sl{border-color:#664A1C;background:#3A2E1C;color:#F2B256}
+.tog{height:30px;padding:0 12px;border-radius:6px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;cursor:pointer;border:1px solid #2F5B36;background:#1F2B1F;color:#7FD08A}
+.tog.off{border-color:#4A4A54;background:#26262B;color:#A1A1AA}
+.ab{border-radius:5px;background:#2E5E4E;border:1px solid #3F8A70;box-sizing:border-box}
+.ab.mute{background:repeating-linear-gradient(135deg,#3A3A42 0 4px,#26262B 4px 8px);border:1px dashed #6B6B76;color:#C4C4CC;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.ctl{margin-left:auto;display:flex;align-items:center;gap:6px}
+.fh .cs{width:22px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;border:1px solid #2F5B36;background:#1F2B1F;color:#7FD08A;font-weight:600}
+.fh .cs.mx{border-color:#664A1C;background:#3A2E1C;color:#F2B256}
+.fh .cp{height:20px;padding:0 6px;border-radius:5px;border:1px solid #3A3A42;background:#26262B;color:#C4C4CC;font-size:11px;font-weight:600;display:flex;align-items:center}
+.fh .cp.mx{border-color:#664A1C;background:#3A2E1C;color:#F2B256}
+.lab.off{color:#8A8A94;border-style:dashed}
+.dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.trk{height:30px;padding:0 12px;border-radius:6px;border:1px solid #3A3A42;background:#26262B;color:#E7E7EA;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.trk.v2{border-color:#2C4A80;background:#1B2740;color:#8DB8F7}
+.side{width:380px;flex-shrink:0;padding:14px 16px;display:flex;flex-direction:column;gap:10px;border-radius:10px;background:#1C1C20;border:1px solid #2E2E34}
+.rt{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:15px;font-weight:600}
+.box{padding:10px 12px;border-radius:10px;background:#2A2218;border:1px solid #664A1C;font-size:12px;color:#C4C4CC;line-height:1.6}
+.box b{color:#E7E7EA}
+.sug{display:flex;flex-direction:column;gap:2px;text-align:left;width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1px solid #3A3A42;background:#26262B;color:#C4C4CC;font-size:12px;line-height:1.45;cursor:pointer}
+.sug b{font-size:13px;color:#E7E7EA;font-weight:600}
+.sug.main{border-color:#2C4A80;background:#1B2740}
+.sug.main b{color:#8DB8F7}
+.go{height:48px;border-radius:10px;border:0;background:#F2A33A;color:#18181B;font-size:15px;font-weight:700;width:100%;cursor:pointer;margin-top:auto}
+.foot{height:40px;flex-shrink:0;border-top:1px solid #2E2E34;background:#1F1F23;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:12px;color:#C4C4CC}
+</style>
+</helmet>
+<div class="p">
+  <div class="top">
+    <div class="brand">
+      <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h16"/></svg></div>
+      <div><div class="bt">Trợ lý File Quay</div><div class="bs">2026.11.06.LV_Ten · 06/11/2026 · 376 file</div></div>
+    </div>
+    <div class="steps">
+      <div class="st">1 · Giai đoạn</div><div class="st">2 · Phân loại bin</div><div class="st">3 · In / Out</div><div class="st">4 · Lời nói</div><div class="st on">5 · Thời lượng</div><div class="st">6 · AI</div>
+    </div>
+    <div class="sel">Truyền thống <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C4C4CC" stroke-width="2.4" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></div>
+  </div>
+
+  <div class="main">
+    <div class="hr">
+      <div class="h1">Xếp cụm sự kiện lên timeline</div>
+      <div class="caps">VIDEO MỤC TIÊU</div>
+      <input class="inp" value="12:00" aria-label="Video mục tiêu">
+      <div class="res"><span>Hiện Tại</span><b>11:30</b><span class="tagw">thiếu 0:30</span></div>
+      <button class="bn">Xếp lại theo giờ quay</button>
+    </div>
+
+    <div class="card tl">
+      <div class="lane ruler"><div class="lab" style="visibility:hidden">V</div><div class="lb ruler"><span class="tk" style="left:0.000%;transform:none">0:00</span><span class="tk" style="left:8.333%;transform:translateX(-50%)">1:00</span><span class="tk" style="left:16.667%;transform:translateX(-50%)">2:00</span><span class="tk" style="left:25.000%;transform:translateX(-50%)">3:00</span><span class="tk" style="left:33.333%;transform:translateX(-50%)">4:00</span><span class="tk" style="left:41.667%;transform:translateX(-50%)">5:00</span><span class="tk" style="left:50.000%;transform:translateX(-50%)">6:00</span><span class="tk" style="left:58.333%;transform:translateX(-50%)">7:00</span><span class="tk" style="left:66.667%;transform:translateX(-50%)">8:00</span><span class="tk" style="left:75.000%;transform:translateX(-50%)">9:00</span><span class="tk" style="left:83.333%;transform:translateX(-50%)">10:00</span><span class="tk" style="left:91.667%;transform:translateX(-50%)">11:00</span><span class="tk" style="left:100.000%;transform:translateX(-100%)">12:00</span></div></div>
+      <div class="lane" style="height:50px">
+        <div class="lab" style="color:#8DB8F7;border-color:#2C4A80">V2</div>
+        <div class="lb"><i class="gl" style="left:8.333%"></i><i class="gl" style="left:16.667%"></i><i class="gl" style="left:25.000%"></i><i class="gl" style="left:33.333%"></i><i class="gl" style="left:41.667%"></i><i class="gl" style="left:50.000%"></i><i class="gl" style="left:58.333%"></i><i class="gl" style="left:66.667%"></i><i class="gl" style="left:75.000%"></i><i class="gl" style="left:83.333%"></i><i class="gl" style="left:91.667%"></i>
+          <div style="flex:180 1 0"></div>
+          <div class="cb" style="flex:100 1 0;background:#34B58A;border:2px solid #7FE0BC;box-sizing:border-box"><b>Decor 50%</b><span>1:40 · chồng</span></div>
+          <div style="flex:440 1 0"></div>
+          <i class="goal"><em>mục tiêu 12:00</em></i>
+        </div>
+      </div>
+      <div class="lane" style="height:92px">
+        <div class="lab" style="color:#F2B256;border-color:#664A1C">V1</div>
+        <div class="lb"><i class="gl" style="left:8.333%"></i><i class="gl" style="left:16.667%"></i><i class="gl" style="left:25.000%"></i><i class="gl" style="left:33.333%"></i><i class="gl" style="left:41.667%"></i><i class="gl" style="left:50.000%"></i><i class="gl" style="left:58.333%"></i><i class="gl" style="left:66.667%"></i><i class="gl" style="left:75.000%"></i><i class="gl" style="left:83.333%"></i><i class="gl" style="left:91.667%"></i>
+          <div class="fr" style="flex:280 1 0;border-color:#F2A33A"><div class="fh"><svg width="12" height="12" viewBox="0 0 24 24" fill="#C4C4CC" aria-hidden="true"><circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg>01_Chuẩn bị <span>4:40 + 1:40 V2</span><span class="ctl"><span class="cs mx"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></span><span class="cp mx">nhiều mức</span></span></div><div class="fb"><div class="cb" style="flex:120 1 0;background:#E96F9A"><b>Beauty CD</b><span>2:00 · 50%</span></div><div class="cb" style="flex:40 1 0;background:#E5A93C"><b>Chú rể</b><span>0:40</span></div><div class="cb" style="flex:50 1 0;background:#4A8CF0"><b>Gia đình</b><span>0:50</span></div><div class="cb" style="flex:70 1 0;background:#A06CF0"><b>Phỏng vấn</b><span>1:10</span></div></div></div>
+          <div class="fr" style="flex:240 1 0;border-color:#4A8CF0;margin-left:3px"><div class="fh"><svg width="12" height="12" viewBox="0 0 24 24" fill="#C4C4CC" aria-hidden="true"><circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg>02_Đón khách <span>4:00</span><span class="ctl"><span class="cs"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></span><span class="cp">100%</span></span></div><div class="fb"><div class="cb" style="flex:1;background:#4A8CF0"><b>Đón khách</b><span>4:00</span></div></div></div>
+          <div class="fr" style="flex:170 1 0;border-color:#34B58A;margin-left:3px"><div class="fh"><svg width="12" height="12" viewBox="0 0 24 24" fill="#C4C4CC" aria-hidden="true"><circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg>03_Lễ sân khấu <span>2:50</span><span class="ctl"><span class="cs"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></span><span class="cp">100%</span></span></div><div class="fb"><div class="cb" style="flex:1;background:#34B58A"><b>Lễ sân khấu</b><span>2:50</span></div></div></div>
+          <div class="gap" style="flex:30 1 0;margin-left:3px">thiếu 0:30</div>
+          <i class="goal"></i>
+        </div>
+      </div>
+      <div class="lane" style="height:26px"><div class="lab" style="color:#7FD08A;border-color:#2F5B36;gap:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>A1</div><div class="lb"><i class="gl" style="left:8.333%"></i><i class="gl" style="left:16.667%"></i><i class="gl" style="left:25.000%"></i><i class="gl" style="left:33.333%"></i><i class="gl" style="left:41.667%"></i><i class="gl" style="left:50.000%"></i><i class="gl" style="left:58.333%"></i><i class="gl" style="left:66.667%"></i><i class="gl" style="left:75.000%"></i><i class="gl" style="left:83.333%"></i><i class="gl" style="left:91.667%"></i><div style="flex:280 1 0;display:flex;gap:2px"><div class="ab mute" style="flex:120 1 0">tắt</div><div class="ab" style="flex:40 1 0"></div><div class="ab" style="flex:50 1 0"></div><div class="ab" style="flex:70 1 0"></div></div><div class="ab" style="flex:240 1 0;margin-left:3px"></div><div class="ab" style="flex:170 1 0;margin-left:3px"></div><div style="flex:30 1 0;margin-left:3px"></div></div></div>
+      <div class="lane" style="height:26px"><div class="lab off" style="gap:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>A2</div><div class="lb"><i class="gl" style="left:8.333%"></i><i class="gl" style="left:16.667%"></i><i class="gl" style="left:25.000%"></i><i class="gl" style="left:33.333%"></i><i class="gl" style="left:41.667%"></i><i class="gl" style="left:50.000%"></i><i class="gl" style="left:58.333%"></i><i class="gl" style="left:66.667%"></i><i class="gl" style="left:75.000%"></i><i class="gl" style="left:83.333%"></i><i class="gl" style="left:91.667%"></i><div style="flex:180 1 0"></div><div class="ab mute" style="flex:100 1 0">tắt</div><div style="flex:440 1 0"></div></div></div>
+      <div class="lg"><span>Kéo thân khối = dời chỗ (khối mẹ đi cả cụm)</span><span>Kéo mép phải = đổi thời lượng</span><span>Kéo khối con lên V2 = chạy chồng lên V1, không cộng vào độ dài</span><span>Mỗi khối có loa (tiếng) và ô tốc độ riêng; vạch chéo = đang tắt tiếng, giống tắt nút A trong DaVinci</span><span class="tagb">giờ quay thật là thứ tự mặc định</span></div>
+    </div>
+
+    <div class="bot">
+      <div class="card ord">
+        <div class="oh">Thứ tự trong cụm 01_Chuẩn bị <span class="tagb">bấm khối mẹ trên timeline để chọn cụm</span></div>
+        <div class="th"><span class="c0">#</span><span class="cg"></span><span class="c1">BIN CON</span><span class="c2">CÓ</span><span class="c3">LẤY (gốc → ra)</span><span class="c4">TRACK</span><span class="c6">TỐC ĐỘ</span><span class="c7">TIẾNG</span><span class="c5">GHI CHÚ</span></div>
+        <div class="tb"><span class="c0">1</span><span class="cg"><svg width="14" height="14" viewBox="0 0 24 24" fill="#A1A1AA" aria-hidden="true"><circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg></span><span class="c1"><i class="dot" style="background:#E96F9A"></i>Beauty cô dâu</span><span class="c2">1:30 · 4 clip</span><span class="c3"><input class="inp sm" value="1:00" aria-label="Beauty cô dâu lấy"><span class="ra">→ 2:00</span></span><span class="c4"><span class="trk">V1</span></span><span class="c6"><span class="trk sl">Slow 50%</span></span><span class="c7"><span class="tog off">Tắt</span></span><span class="c5"><span class="tagb">xếp tay</span></span></div>
+        <div class="tb"><span class="c0">2</span><span class="cg"><svg width="14" height="14" viewBox="0 0 24 24" fill="#A1A1AA" aria-hidden="true"><circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg></span><span class="c1"><i class="dot" style="background:#E5A93C"></i>Chú rể</span><span class="c2">0:50 · 2 clip</span><span class="c3"><input class="inp sm" value="0:40" aria-label="Chú rể lấy"></span><span class="c4"><span class="trk">V1</span></span><span class="c6"><span class="trk">100%</span></span><span class="c7"><span class="tog">Bật</span></span><span class="c5"></span></div>
+        <div class="tb"><span class="c0">3</span><span class="cg"><svg width="14" height="14" viewBox="0 0 24 24" fill="#A1A1AA" aria-hidden="true"><circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg></span><span class="c1"><i class="dot" style="background:#4A8CF0"></i>Gia đình</span><span class="c2">1:20 · 3 clip</span><span class="c3"><input class="inp sm" value="0:50" aria-label="Gia đình lấy"></span><span class="c4"><span class="trk">V1</span></span><span class="c6"><span class="trk">100%</span></span><span class="c7"><span class="tog">Bật</span></span><span class="c5"></span></div>
+        <div class="tb"><span class="c0">4</span><span class="cg"><svg width="14" height="14" viewBox="0 0 24 24" fill="#A1A1AA" aria-hidden="true"><circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg></span><span class="c1"><i class="dot" style="background:#A06CF0"></i>Phỏng vấn</span><span class="c2">1:20 · 3 clip</span><span class="c3"><input class="inp sm" value="1:10" aria-label="Phỏng vấn lấy"></span><span class="c4"><span class="trk">V1</span></span><span class="c6"><span class="trk">100%</span></span><span class="c7"><span class="tog">Bật</span></span><span class="c5"></span></div>
+        <div class="tb"><span class="c0">5</span><span class="cg"><svg width="14" height="14" viewBox="0 0 24 24" fill="#A1A1AA" aria-hidden="true"><circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg></span><span class="c1"><i class="dot" style="background:#34B58A"></i>Decor</span><span class="c2">1:10 · 3 clip</span><span class="c3"><input class="inp sm" value="0:50" aria-label="Decor lấy"><span class="ra">→ 1:40</span></span><span class="c4"><span class="trk v2">V2 · chồng</span></span><span class="c6"><span class="trk sl">Slow 50%</span></span><span class="c7"><span class="tog off">Tắt</span></span><span class="c5"><span class="tagb">xếp tay</span></span></div>
+        <div class="hint" style="padding-top:8px">Kéo dòng bằng chấm sáu nút để đổi thứ tự; bấm ô Track để chuyển V1 / V2. Tốc độ chọn: 100% (giữ nguyên), “Slow mượt tự tính” (tốc độ timeline ÷ tốc độ quay: 50p→25p và 60p→30p đều ra 50%) hoặc gõ số. Mỗi khối (mẹ hoặc con) đều có công tắc Tiếng và Tốc độ riêng; đặt ở khối mẹ thì áp cho mọi khối con. Slow 50% giữ nguyên In/Out đã đặt nên clip dài gấp đôi trên timeline: Decor lấy 0:50 ra 1:40.</div>
+      </div>
+
+      <div class="side">
+        <div class="rt">Chưa đạt mục tiêu<span class="tagw">thiếu 0:30</span></div>
+        <div class="box">Timeline đang dài <b>11:30</b> (V1). Beauty CD Slow 50% làm khối này dài gấp đôi (1:00 → 2:00). Decor chạy chồng trên V2 nên <b>không cộng</b> vào độ dài.</div>
+        <button class="sug main"><b>Kéo thêm Đón khách +0:30 cho đủ 12:00</b>Đón khách còn dư clip sao chưa lấy.</button>
+        <button class="sug"><b>Hạ mục tiêu xuống 11:30</b>Giữ đúng cách anh vừa xếp.</button>
+        <button class="sug"><b>Đưa Beauty CD về 100%</b>Bớt 1:00 trên timeline.</button>
+        <button class="go">Đưa lên Timeline mới</button>
+        <div class="hint">Timeline mới có 2 track hình V1, V2 đúng như trên màn hình. Không sửa timeline đang có.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span>28 clip sao · V1 11:30 · V2 chồng 1:40 · mục tiêu 12:00</span><span>Chưa ghi gì vào DaVinci</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -105,10 +105,61 @@ def default_bin_minmax(name, natural):
     return 0.0, round(natural, 1), "khong_gioi_han"
 
 
-
-
 def _num(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool) and v == v and v not in (float("inf"), float("-inf"))
+
+
+# ---- Bản 3 (timeline kéo thả): khối = bin con trong cụm mẹ (giai đoạn); mỗi khối có track V1/V2, tốc độ, tiếng. Lưu ở plan["durations"]["tl"].
+def block_key(stage, bin_name):
+    return "%s|%s" % (stage, bin_name)
+
+
+def tl_cfg(plan):
+    d = (plan.get("durations") or {}) if isinstance(plan, dict) else {}
+    t = d.get("tl")
+    return t if isinstance(t, dict) else {}
+
+
+def _blk(tl, stage, bin_name):
+    b = (tl.get("blk") or {}).get(stage)
+    b = b.get(bin_name) if isinstance(b, dict) else None
+    return b if isinstance(b, dict) else {}
+
+
+def block_track(tl, stage, bin_name):
+    return "V2" if _blk(tl, stage, bin_name).get("track") == "V2" else "V1"
+
+
+def speed_spec(tl, stage, bin_name):
+    """Tốc độ của khối: khối con đặt riêng THẮNG khối mẹ. Trả None (100%), 'auto' (Slow mượt tự tính) hoặc số phần trăm."""
+    for src in (_blk(tl, stage, bin_name), (tl.get("stg") or {}).get(stage) or {}):
+        if isinstance(src, dict) and src.get("speed") is not None:
+            v = src["speed"]
+            if v == "auto":
+                return "auto"
+            if _num(v) and 5 <= v <= 400:
+                return None if abs(v - 100) < 1e-9 else float(v)
+            return None
+    return None
+
+
+def mute_of(tl, stage, bin_name):
+    """Tiếng của khối: True = TẮT. Khối con đặt riêng thắng khối mẹ; mặc định bật."""
+    for src in (_blk(tl, stage, bin_name), (tl.get("stg") or {}).get(stage) or {}):
+        if isinstance(src, dict) and isinstance(src.get("mute"), bool):
+            return src["mute"]
+    return False
+
+
+def speed_p(spec, clip, tl_fps):
+    """Hệ số tốc độ (1.0 = giữ nguyên, 0.5 = Slow 50%) của MỘT clip. 'auto' = fps timeline / fps source (50p->25p = 0.5; 60p->25p = 0.4167;
+    50p->30p = 0.6), không bao giờ nhanh hơn 100%. Độ dài trên timeline (RA) = độ dài In/Out gốc / hệ số."""
+    if spec == "auto":
+        f = getattr(clip, "fps", None)
+        return max(0.05, min(1.0, float(tl_fps) / float(f))) if f and tl_fps else 1.0
+    if _num(spec) and spec > 0:
+        return float(spec) / 100.0
+    return 1.0
 
 
 def fit_bin(entries, budget):
@@ -136,8 +187,9 @@ def fit_bin(entries, budget):
     return kept, dropped
 
 
-def build(plan, clips, assign, stages):
-    """Kế hoạch cắt gọt toàn project (xem docstring đầu file). Trả dict:
+def build(plan, clips, assign, stages, tl_fps=None):
+    """Kế hoạch cắt gọt toàn project (xem docstring đầu file). MỌI số giây ở đây là RA TIMELINE (= In/Out gốc / tốc độ); khối ở V2 không cộng vào
+    tổng/Hiện Tại. tl_fps = fps timeline của project (cho Slow mượt tự tính). Trả dict:
       target_s, total_s, delta_s, state (ok | short | over | no_star), stages[{name, share, budget_s, total_s, natural_s (CÓ = thanh đầy), avail_s, maxed,
       pinned, locked, n_starred, n_bins, n_used, dropped_n, dropped_s, dropped_clips, bins[{name, min, max, edited, natural_s, avail_s, pin,
       total_s, shots, dropped}]}], items[{uid, stage, bin, in_s, out_s, dur}] theo thứ tự giai đoạn rồi giờ quay, warnings[], n_starred, n_used."""
@@ -169,6 +221,17 @@ def build(plan, clips, assign, stages):
             e["cut"] = clip_cut(plan, e["clip"], e["label"])
     ranges = d.get("bins") or {}
     bin_pins = d.get("bin_s") if isinstance(d.get("bin_s"), dict) else {}
+    tl = tl_cfg(plan)
+    tl_fps = float(tl_fps) if _num(tl_fps) and tl_fps > 0 else 25.0
+    for (si, bname), lst in groups.items():                          # tốc độ từng clip: độ dài RA TIMELINE = In/Out gốc / hệ số; mọi số sau đây tính theo RA
+        spec = speed_spec(tl, stages[si]["name"], bname)
+        for e in lst:
+            pp = speed_p(spec, e["clip"], tl_fps)
+            c = e["cut"]
+            e["p"] = pp
+            c["len_src"] = c["len"]
+            c["len"] = c["len"] / pp
+            c["lmin"] = c["lmin"] / pp
 
     def bin_info(si, name, lst):
         sname = stages[si]["name"]
@@ -183,13 +246,15 @@ def build(plan, clips, assign, stages):
         pin = (bin_pins.get(sname) or {}).get(name) if isinstance(bin_pins.get(sname), dict) else None
         pin = min(float(pin), avail) if _num(pin) and pin >= 0 else None
         return {"name": name, "min": mn, "max": mx, "default_min": dmn, "default_max": dmx, "default_kind": kind, "edited": bool(ok2),
-                "natural_s": round(nat, 1), "n_starred": len(lst), "avail_s": round(avail, 1), "pin": pin, "hard_max": hard_max}
+                "natural_s": round(nat, 1), "n_starred": len(lst), "avail_s": round(avail, 1), "pin": pin, "hard_max": hard_max,
+                "track": block_track(tl, sname, name), "key": block_key(sname, name),
+                "t0": min((e["clip"].t_start.timestamp() for e in lst if e["clip"].t_start), default=None)}
 
     stage_rows = []
     for si, s in enumerate(stages):
         names = list(s["bins"]) + ([UNSORTED] if (si, UNSORTED) in groups else [])
         bins = [bin_info(si, n, groups.get((si, n), [])) for n in names]
-        stage_rows.append({"i": si, "name": s["name"], "bins": bins, "nat_cap": sum(b["avail_s"] for b in bins)})
+        stage_rows.append({"i": si, "name": s["name"], "bins": bins, "nat_cap": sum(b["avail_s"] for b in bins if b["track"] != "V2")})
     # mỗi giai đoạn MỘT số giây: giai đoạn anh gõ/kéo/khóa (stage_s) giữ nguyên (không quá số clip có), còn lại chia theo clip sao có
     stage_s = d.get("stage_s") if isinstance(d.get("stage_s"), dict) else {}
     locked_names = set(x for x in d.get("locked", []) if isinstance(x, str)) if isinstance(d.get("locked"), list) else set()
@@ -203,7 +268,9 @@ def build(plan, clips, assign, stages):
     # ---- vòng A: mỗi bin trong mỗi giai đoạn được bao nhiêu giây, clip nào giữ / bỏ
     sparts = []
     for r, budget in zip(stage_rows, budgets):
-        si, bins = r["i"], r["bins"]
+        si = r["i"]
+        bins = [b for b in r["bins"] if b["track"] != "V2"]          # khối chồng ở V2 KHÔNG cộng vào độ dài và không chia ngân sách
+        v2bins = [b for b in r["bins"] if b["track"] == "V2"]
         pin_sum = sum(b["pin"] for b in bins if b["pin"] is not None)
         budget = max(budget, pin_sum)                               # anh kéo bin con: tổng giai đoạn không thấp hơn tổng các bin đã kéo
         free = [b for b in bins if b["pin"] is None]
@@ -241,15 +308,22 @@ def build(plan, clips, assign, stages):
                     p_["kept"].append(e)
                     p_["dropped"].remove(e)
                     left -= ln
+        for b in v2bins:                                            # V2: lấy theo số anh kéo, không thì lấy hết clip sao của khối
+            lst = groups.get((si, b["name"]), [])
+            B = b["pin"] if b["pin"] is not None else b["avail_s"]
+            kept, dropped = fit_bin(lst, B)
+            parts.append({"b": b, "B": B, "kept": kept, "dropped": dropped, "v2": True})
         sparts.append({"r": r, "budget": budget, "parts": parts, "fixed": si in pinned or pin_sum > 0})
     # bù toàn cục: tổng còn thiếu mà vẫn có clip đã bỏ ở giai đoạn chưa chốt thì đặt lại clip quan trọng nhất nếu làm tổng gần mục tiêu hơn
-    total0 = sum(e["use"] for sp in sparts for p_ in sp["parts"] for e in p_["kept"])
+    total0 = sum(e["use"] for sp in sparts for p_ in sp["parts"] if not p_.get("v2") for e in p_["kept"])
     while starred and total0 < target - 0.5:
         best = None
         for sp in sparts:
             if sp["fixed"]:
                 continue
             for p_ in sp["parts"]:
+                if p_.get("v2"):
+                    continue
                 btot = sum(x["use"] for x in p_["kept"])
                 for e in p_["dropped"]:
                     ln = e["cut"]["len"]
@@ -271,7 +345,7 @@ def build(plan, clips, assign, stages):
     for sp in sparts:
         r, budget = sp["r"], sp["budget"]
         si = r["i"]
-        stage_total, dropped_clips = 0.0, []
+        stage_total, v2_total, dropped_clips = 0.0, 0.0, []
         for p_ in sp["parts"]:
             b, kept, dropped = p_["b"], p_["kept"], p_["dropped"]
             for e in dropped:
@@ -279,14 +353,19 @@ def build(plan, clips, assign, stages):
                                       "_k": (e["level"], -e["pos"])})
             btotal = sum(e["use"] for e in kept)
             b.update({"budget_s": round(p_["B"], 1), "total_s": round(btotal, 1), "shots": len(kept), "dropped": len(dropped)})
-            stage_total += btotal
+            if p_.get("v2"):
+                v2_total += btotal
+            else:
+                stage_total += btotal
             for e in kept:
                 c, cut = e["clip"], e["cut"]
-                out = cut["in_s"] + e["use"]
+                pp = e.get("p", 1.0)
+                out = cut["in_s"] + e["use"] * pp                       # In/Out GỐC: Slow giữ nguyên điểm vào, độ dài gốc = RA x hệ số
                 if c.dur:
                     out = min(out, float(c.dur))
-                items.append({"uid": c.uid, "stage": si, "bin": b["name"], "in_s": round(cut["in_s"], 2), "out_s": round(out, 2),
-                              "dur": round(out - cut["in_s"], 2), "t": c.t_start, "fixed": cut["fixed"]})
+                items.append({"uid": c.uid, "stage": si, "bin": b["name"], "key": b["key"], "track": b["track"], "in_s": round(cut["in_s"], 2),
+                              "out_s": round(out, 2), "p": round(pp, 4), "src_dur": round(out - cut["in_s"], 2),
+                              "dur": round((out - cut["in_s"]) / pp, 2), "t": c.t_start, "fixed": cut["fixed"]})
             if b["edited"] and b["n_starred"] and b["natural_s"] > b["max"] + 1e-9:
                 warnings.append({"kind": "bin_over", "stage": r["name"], "bin": b["name"],
                                  "text": "Bin “%s” (%s): clip sao dài %d giây, vượt Max %d giây anh đặt; đã cắt gọt%s." % (
@@ -299,12 +378,13 @@ def build(plan, clips, assign, stages):
         dropped_clips.sort(key=lambda c: c["_k"])                    # ít ưu tiên nhất đứng đầu
         for c in dropped_clips:
             c.pop("_k", None)
-        have = sum(b["natural_s"] for b in r["bins"])
+        have = sum(b["natural_s"] for b in r["bins"] if b["track"] != "V2")
         r["share"] = round(budget / target, 4) if target else 0.0
         r["budget_s"] = round(budget, 1)
         r["total_s"] = round(stage_total, 1)
         r["natural_s"] = round(have, 1)
         r["avail_s"] = round(r["nat_cap"], 1)
+        r["v2_s"] = round(v2_total, 1)
         r["n_starred"] = sum(b["n_starred"] for b in r["bins"])
         r["n_bins"] = sum(1 for b in r["bins"] if b["n_starred"])
         r["n_used"] = sum(b["shots"] for b in r["bins"])
@@ -330,12 +410,13 @@ def build(plan, clips, assign, stages):
     delta = total - target
     state = "no_star" if not starred else ("short" if delta < -TOL_S else ("over" if delta > TOL_S else "ok"))
     keys = ("name", "share", "budget_s", "total_s", "bins", "natural_s", "avail_s", "n_starred", "n_bins", "n_used", "dropped_n", "dropped_s",
-            "dropped_clips", "maxed", "pinned", "locked")
+            "dropped_clips", "maxed", "pinned", "locked", "v2_s")
     for r in stage_rows:
         for b in r["bins"]:
             b.pop("hard_max", None)
     return {"target_min": tmin, "target_s": target, "total_s": round(total, 1), "delta_s": round(delta, 1),
             "short_s": round(max(0.0, target - total), 1) if state == "short" else 0.0,
+            "v2_s": round(sum(r["v2_s"] for r in stage_rows), 1), "tl_fps": tl_fps,
             "shares": [round(sp["budget"] / target, 4) if target else 0.0 for sp in sparts],
             "stages": [{k: r[k] for k in keys} for r in stage_rows], "state": state, "tol_s": TOL_S,
             "items": items, "warnings": warnings, "n_starred": len(starred), "n_used": len(items), "n_excluded": excluded,
@@ -396,10 +477,11 @@ def _with_durations(plan, d):
     return p
 
 
-def plan_rebalance(plan, clips, assign, stages, r=None):
+def plan_rebalance(plan, clips, assign, stages, r=None, tl_fps=None):
     """(a) "Tự kéo thêm cho đủ": bỏ chốt (số gõ/kéo) của các giai đoạn CHƯA khóa để chúng co giãn, dồn phần thiếu sang giai đoạn còn dư clip sao
     (không vượt số clip có). Giai đoạn KHÓA giữ nguyên. Trả (durations mới, kết quả build mới) hoặc None nếu không làm tăng tổng."""
-    r = r or build(plan, clips, assign, stages)
+    r = r or build(plan, clips, assign, stages, tl_fps)
+    tl_fps = r["tl_fps"]
     d = copy.deepcopy(plan.get("durations") or {})
     locked = set(d.get("locked") or [])
     changed = False
@@ -410,20 +492,20 @@ def plan_rebalance(plan, clips, assign, stages, r=None):
             changed = True
     if not changed:
         return None
-    r2 = build(_with_durations(plan, d), clips, assign, stages)
+    r2 = build(_with_durations(plan, d), clips, assign, stages, tl_fps)
     if r2["total_s"] - r["total_s"] < 1.0:
         return None
     return d, r2
 
 
-def plan_lower_target(plan, clips, assign, stages, r=None):
+def plan_lower_target(plan, clips, assign, stages, r=None, tl_fps=None):
     """(b) "Hạ mục tiêu xuống <số Hiện Tại>": mục tiêu = tổng đang giữ (tròn giây); không hạ dưới 1 phút. Trả (durations mới, build mới) hoặc None."""
-    r = r or build(plan, clips, assign, stages)
+    r = r or build(plan, clips, assign, stages, tl_fps)
     if r["total_s"] < TARGET_LIMITS_MIN[0] * 60.0:
         return None
     d = copy.deepcopy(plan.get("durations") or {})
     d["target_min"] = round(round(r["total_s"]) / 60.0, 4)           # tròn giây, đúng con số "Hiện Tại" trên màn hình
-    return d, build(_with_durations(plan, d), clips, assign, stages)
+    return d, build(_with_durations(plan, d), clips, assign, stages, r["tl_fps"])
 
 
 def unstarred_by_bin(plan, clips, assign, stages):
@@ -476,7 +558,7 @@ def advise(plan, clips, assign, stages, r):
             out["reasons"].append("%s đã kéo hết cỡ (chỉ có %s clip sao)." % (s["name"], mmss(s["natural_s"])))
         for s in spare:
             out["reasons"].append("%s còn dư %s clip sao chưa lấy." % (s["name"], mmss(s["natural_s"] - s["total_s"])))
-    rb = plan_rebalance(plan, clips, assign, stages, r)
+    rb = plan_rebalance(plan, clips, assign, stages, r, r["tl_fps"])
     if rb:
         r2 = rb[1]
         moves = ["%s +%s (còn dư %s clip sao)" % (a["name"], mmss(b["total_s"] - a["total_s"]), mmss(a["natural_s"] - a["total_s"]))
@@ -488,7 +570,7 @@ def advise(plan, clips, assign, stages, r):
         if r2["state"] == "short":
             txt += " Vẫn còn thiếu %s." % mmss(r2["short_s"])
         out["rebalance"] = {"title": "Tự kéo thêm cho đủ %s" % mmss(r["target_s"]), "text": txt.strip(), "total_s": r2["total_s"]}
-    lw = plan_lower_target(plan, clips, assign, stages, r)
+    lw = plan_lower_target(plan, clips, assign, stages, r, r["tl_fps"])
     if lw:
         out["lower"] = {"title": "Hạ mục tiêu xuống %s" % mmss(lw[1]["target_s"]), "target_min": lw[0]["target_min"],
                         "text": "Giữ hết clip sao đang có, không phải thêm clip nào."}
