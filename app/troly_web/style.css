@@ -457,3 +457,6 @@ button, input, select { font-family: inherit; }
 .ai-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .ai-acts .btn { height: 30px; padding: 0 10px; font-size: 12px; }
 .tag.ai { border: 1px dashed var(--accent); color: var(--link); background: transparent; }
+/* cột phải Bước 2 dài hơn màn hình thấp: hai nút Áp dụng luôn dính đáy, phần còn lại cuộn */
+#page2 .col-right .v8 { position: sticky; bottom: -20px; background: var(--right); padding: 10px 0 20px; margin-bottom: -20px; z-index: 3; }
+#page2 .col-right > :not(.flex1) { flex-shrink: 0; }          /* cột dài hơn màn hình thì cuộn, không bóp nút/ô */

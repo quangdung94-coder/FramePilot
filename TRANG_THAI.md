@@ -77,9 +77,10 @@
 - Số liệu: D:\VideoAI\data	roly\inout_stats\ (index.html, by_bin.csv, vs_rules.csv). Giải thích + bảng đề xuất: docs/adr/0021. CHƯA áp vào panel; chờ anh duyệt bảng ghép tên bin và giá trị đề xuất.
 - Chưa tách Truyền thống/PSC (kế hoạch panel chưa chọn kiểu quay).
 
-## Bước 6 AI nhúng vào panel (18/11/2026, nhánh inout-ai) - ĐANG LÀM
-- Xong phần sau (commit 369f798): app/troly_ai.py + TrolyApi.ai_info/ai_for/ai_accept/ai_skip/ai_run/ai_stop (gợi ý hạng 1-3 theo bin của giai đoạn, học từ nhãn tay khi >= 20 nhãn, Nhận chỉ gán nhãn, Bỏ qua, chạy nền venv AI), tools/ai_cross.py (đo + đề xuất ghép tên bin).
-- CÒN DỞ: demo design/6_ai_goi_y, giao diện Bước 2 (nút Gợi ý AI, hộp hạng 1-3, Nhận/Bỏ qua), ADR-0022. Giao diện + demo CHƯA được anh duyệt.
+## Bước 6 AI nhúng vào panel (18/11/2026) - CHỜ ANH THỬ; demo + giao diện CHƯA được anh duyệt
+- Bước 2 có hộp "Gợi ý AI" (hạng 1-3, Nhận, Bỏ qua, gợi ý cả nhóm, phím A/X, Chạy/Dừng AI nền). Nhận chỉ gán nhãn trong Trợ lý, KHÔNG chuyển clip trong DaVinci. Demo: design/6_ai_goi_y. Quyết định + số đo: docs/adr/0022.
+- Đủ 20 nhãn tay thì học từ nhãn, không thì theo mô tả. Số đo: mô tả 47%/86% (hạng 1 / trong 3 đầu); học từ nhãn chia theo giờ 53%/90%.
+- Đã thử: bộ test, bàn thử trình duyệt với giao diện + TrolyApi thật + DaVinci thật (chỉ đọc), 1440x900 / 1100x700 / 1707x960. CHƯA mở cửa sổ pywebview thật. Chưa đo chéo project (chỉ 1 project đủ nhãn). Bảng ghép tên bin giữa project: file đề xuất, chờ anh duyệt.
 
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.

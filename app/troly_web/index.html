@@ -133,7 +133,7 @@
     </div>
     <div class="legend">
       <span><i class="pill-solid"></i>Đã xếp</span>
-      <span class="legend-off"><i class="pill-ai"></i>AI gợi ý, chờ anh duyệt (sắp có)</span>
+      <span><i class="pill-ai"></i>AI gợi ý, chờ anh duyệt</span>
       <span><i class="pill-none"></i>Chưa xếp</span>
       <span class="flex1"></span>
       <button class="btn-link hidden" id="undoBtn2">Hoàn tác lần chuyển gần nhất</button>
@@ -158,6 +158,12 @@
         <div class="row-between dim12"><span id="plTime">00:00:00 / 00:00:00</span><span id="plNote"></span></div>
       </div>
     </div></div>
+    <div class="ai-box" id="aiBox">
+      <div class="ai-head"><span class="ai-title">Gợi ý AI</span><span class="ai-src" id="aiSrc"></span></div>
+      <div id="aiBody"></div>
+      <div class="ai-acts" id="aiActs"></div>
+      <span class="ai-msg">Phím <b>A</b> nhận hạng 1 · <b>X</b> bỏ qua. Nhận chỉ gán nhãn, chưa chuyển clip trong DaVinci.</span>
+    </div>
     <button class="btn btn-star btn-44" id="starToggleBtn">☆ Gắn sao (phím J)</button>
     <span class="dim12">Đặt điểm In / Out ở bước 3 · In / Out (có sóng âm và bảng quy tắc).</span>
     <div class="info-box">
@@ -342,5 +348,6 @@
 <script src="player.js"></script>
 <script src="speech.js"></script>
 <script src="step3.js"></script>
+<script src="ai.js"></script>
 </body>
 </html>

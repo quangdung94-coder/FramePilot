@@ -465,8 +465,12 @@ function sameItems() {
 function tagHtml(c) {
   const s = stageObj();
   const b = s && c.label ? s.bins.find((x) => x.name === c.label) : null;
-  return b ? `<span class="tag" style="background:${b.color}33;color:var(--text);border:1px solid ${b.color}">${esc(b.name)}</span>` : `<span class="tag none">Chưa xếp</span>`;
+  if (b) return `<span class="tag" style="background:${b.color}33;color:var(--text);border:1px solid ${b.color}">${esc(b.name)}</span>`;
+  const g = !c.label && AI.group && AI.group[c.uid];                      // gợi ý AI của cả nhóm (ai.js): viền đứt, chờ anh duyệt
+  if (g && g.top) return `<span class="tag ai" title="${esc("AI gợi ý (chờ anh duyệt): " + g.top.map((t) => t.bin + " " + Math.round(t.score * 100) + "%").join(" · "))}">AI · ${esc(g.top[0].bin)} ${Math.round(g.top[0].score * 100)}%</span>`;
+  return `<span class="tag none">Chưa xếp</span>`;
 }
+function cardKey(c) { return (c.label || "") + "|" + aiKey(c.uid); }
 function setThumb(box, src) {
   let img = box.querySelector("img");
   if (!img) { img = document.createElement("img"); img.draggable = false; box.prepend(img); const ic = box.querySelector("svg"); if (ic) ic.remove(); }
@@ -475,7 +479,7 @@ function setThumb(box, src) {
 const PLAY = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5l4 2.5-4 2.5z"></path></svg>';
 function renderGrid() {
   $("grid").innerHTML = items.length ? items.map((c, i) => `
-    <div class="card${i === cur ? " cur" : sel.has(i) ? " picked" : ""}${c.star ? " starred" : ""}" data-i="${i}" data-uid="${esc(c.uid)}" data-label="${esc(c.label || "")}" draggable="true">
+    <div class="card${i === cur ? " cur" : sel.has(i) ? " picked" : ""}${c.star ? " starred" : ""}" data-i="${i}" data-uid="${esc(c.uid)}" data-label="${esc(cardKey(c))}" draggable="true">
       <div class="thumb">${thumbs[c.uid] ? `<img src="${thumbs[c.uid]}" draggable="false">` : PLAY}<span class="badge tl">${c.time}</span><span class="badge br">${durTxt(c.dur)}</span>${c.star ? '<span class="star-badge">★</span>' : ""}</div>
       <div class="card-foot"><span class="f">${esc(c.name)}</span>${tagHtml(c)}</div>
     </div>`).join("") : `<div class="empty">${S && S.n ? "Không có clip." : 'Bấm "Đọc clip" ở bước 1 trước.'}</div>`;
@@ -488,7 +492,7 @@ function patchGrid() {
     const hasStar = !!el.querySelector(".star-badge");
     if (!!c.star !== hasStar) { if (c.star) el.querySelector(".thumb").insertAdjacentHTML("beforeend", '<span class="star-badge">★</span>'); else el.querySelector(".star-badge").remove(); }
     if (el.className !== cls) el.className = cls;               // chỉ đổi class, không dựng lại ô
-    const key = c.label || "";
+    const key = cardKey(c);
     if (el.dataset.label !== key) { el.dataset.label = key; el.querySelector(".tag").outerHTML = tagHtml(c); }
   });
 }
@@ -789,6 +793,7 @@ async function showCur() {
   $("starToggleBtn").textContent = c.star ? "★ Bỏ sao (phím J)" : "☆ Gắn sao (phím J)";
   $("starToggleBtn").classList.toggle("active", !!c.star);
   renderPage3Cur(c);
+  aiBoxRender();                                           // hộp Gợi ý AI (ai.js)
   $("curBin").textContent = c.label ? c.label : "Chưa xếp";
   const src = { created: "Date Created", modified: "Date Modified − độ dài", none: "không rõ" }[c.src] || c.src;
   $("curInfo").textContent = `Giờ quay ${c.time} (${src}) · dài ${durTxt(c.dur)}\nMáy ${c.camera}\nHình: ${notes[c.uid] || "đang làm..."}\nLUT: ${c.lut || "(không gắn)"}` +
