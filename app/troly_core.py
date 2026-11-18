@@ -892,3 +892,89 @@ def cut_frames(in_s, out_s, fps, frames):
         b = min(b, int(frames) - 1)
         a = min(a, max(0, int(frames) - 2))
     return a, max(a + 1, b)
+
+
+# --- Gợi ý In/Out cho clip sao: mức 1 theo quy tắc bin, mức 2 theo lời nói (Bước 3 làm lại, ADR-0024) ---------------------
+SUG_PAD_DEFAULT = 0.3                 # đệm hai đầu khi gợi ý theo lời nói (giây), ô chỉnh trong panel
+SUG_PAD_MAX = 3.0
+SUG_MIN_SPAN = 0.5                    # đoạn theo lời nói ngắn hơn ngần này thì coi như không có (rơi về mức 1)
+
+
+def sug_pad(plan):
+    v = (plan.get("inout_sug_cfg") or {}).get("pad")
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return SUG_PAD_DEFAULT
+    return v if 0.0 <= v <= SUG_PAD_MAX else SUG_PAD_DEFAULT
+
+
+def speech_span(lines, dur, pad=SUG_PAD_DEFAULT):
+    """Mức 2: In = đầu câu có tiếng nói đầu tiên, Out = cuối câu cuối cùng, cộng đệm pad hai đầu, kẹp trong [0, dur].
+    lines = [{'t0','t1'}] từ kho lời nói. Không có câu hợp lệ / đoạn ngắn hơn SUG_MIN_SPAN -> None."""
+    ls = []
+    for l in lines or []:
+        try:
+            a, b = float(l["t0"]), float(l["t1"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if b > a:
+            ls.append((a, b))
+    if not ls:
+        return None
+    a = max(0.0, min(x for x, _ in ls) - pad)
+    b = max(y for _, y in ls) + pad
+    if dur:
+        b = min(b, float(dur))
+        a = min(a, b)
+    if b - a < SUG_MIN_SPAN:
+        return None
+    return round(a, 2), round(b, 2)
+
+
+def sug_signature(plan, label):
+    """Chữ ký các thông số làm nên gợi ý (kiểu quay, quy tắc của bin, số giây Truyền thống, đệm) để biết gợi ý đã lưu có cũ không."""
+    t = rule_for(label, plan.get("bin_rules") or None)
+    return "|".join(str(x) for x in (plan.get("shoot_style") or "", t[1], t[2], t[3], plan.get("trad_trim_s"), sug_pad(plan)))
+
+
+def compute_sug(plan, clip, label, lines):
+    """Gợi ý cho một clip: mức 2 nếu có chữ Whisper, không thì mức 1. Trả dict {in, out, src: 'speech'|'rule', rule, sig, pad} hoặc None."""
+    dur = float(clip.dur or 0)
+    pad = sug_pad(plan)
+    sp = speech_span(lines, dur, pad) if lines else None
+    if sp:
+        return {"in": sp[0], "out": sp[1], "src": "speech", "rule": "Theo lời nói (đệm %g s)" % pad, "sig": sug_signature(plan, label), "pad": pad}
+    r = suggest_inout(dur, label, plan.get("shoot_style") or "", plan.get("bin_rules") or None, plan.get("trad_trim_s"))
+    if r is None:
+        return None
+    return {"in": r["in_s"], "out": r["out_s"], "src": "rule", "rule": r["rule"], "sig": sug_signature(plan, label), "pad": pad}
+
+
+def sug_note(plan, clip, label, sug, new_in, new_out, via):
+    """Ghi lại để có số đo thật: anh NHẬN NGUYÊN gợi ý (via='accept') hay CHỈNH (via='edit' mà khác gợi ý). sug = (vào, ra, nguồn)."""
+    if not sug:
+        return
+    a, b, src = sug
+    same = abs(new_in - a) <= 0.02 and abs(new_out - b) <= 0.02
+    if via == "edit" and same:
+        state = "accepted"
+    else:
+        state = "accepted" if via == "accept" else "adjusted"
+    plan.setdefault("inout_stats", {}).setdefault("clips", {})[clip.rel] = {
+        "src": src, "state": state, "bin": label or "", "sug": [round(a, 2), round(b, 2)], "final": [round(new_in, 2), round(new_out, 2)]}
+
+
+def sug_forget(plan, clip):
+    """Anh xóa In/Out đặt tay: bỏ ghi nhận của clip đó."""
+    ((plan.get("inout_stats") or {}).get("clips") or {}).pop(clip.rel, None)
+
+
+def sug_counts(plan):
+    c = (plan.get("inout_stats") or {}).get("clips") or {}
+    out = {"accepted": 0, "adjusted": 0, "by_src": {}}
+    for v in c.values():
+        out[v["state"]] = out.get(v["state"], 0) + 1
+        d = out["by_src"].setdefault(v["src"], {"accepted": 0, "adjusted": 0})
+        d[v["state"]] += 1
+    return out
