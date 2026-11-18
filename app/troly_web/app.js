@@ -804,7 +804,7 @@ async function showCur() {
 
   const uid = c.uid;
   if (PL.uid !== uid) { plStop(); PL.uid = uid; plOpen(c); }          // trình phát proxy (player.js); thumbnail là nền
-  const showImg = (src) => { const v = $("preview").querySelector("video"); $("preview").innerHTML = `<img src="${src}">`; if (v) $("preview").appendChild(v); };
+  const showImg = (src) => { const v = $("preview").querySelector("video"), lc = $("preview").querySelector("canvas.pv-lut"); $("preview").innerHTML = `<img src="${src}">`; if (v) $("preview").appendChild(v); if (lc) $("preview").appendChild(lc); };
   if (bigs[uid]) { showImg(bigs[uid]); return; }
   if (thumbs[uid]) showImg(thumbs[uid]); else if (!$("preview").querySelector("video")) $("preview").innerHTML = "<span>Đang làm hình xem trước...</span>";
   const r = await api().big(uid);

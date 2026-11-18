@@ -24,6 +24,7 @@ import troly_resolve as tr        # noqa: E402
 import troly_thumbs as tt         # noqa: E402
 import troly_ai as ai             # noqa: E402
 import troly_dur as td            # noqa: E402
+import troly_lut as tl            # noqa: E402
 
 SUB_COLORS = ["#4FC1A6", "#E88AB0", "#F2A33A", "#5B9BF5", "#C98BE0", "#EF7D65", "#A9CF62", "#E0B860", "#7FB7E8",
               "#8A8A94"]
@@ -933,6 +934,24 @@ class TrolyApi(object):
         if not url:
             return {"error": "Không phát được file này."}
         return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "transcoded": bool(transcode)}
+
+    def lut_cube(self, uid):
+        """Dữ liệu LUT .cube của clip để giao diện áp bằng WebGL lên khung xem (Việc 1, ADR-0023). Chỉ ĐỌC file LUT; không có LUT thì {'none': True}."""
+        c = self._by_uid.get(uid)
+        if c is None:
+            return {"error": "Không thấy clip."}
+        if not c.lut:
+            return {"none": True}
+        path = self._thumbs.lut_for(c.lut)
+        if not path:
+            return {"error": "Không thấy file LUT %s" % c.lut}
+        cache = self.__dict__.setdefault("_lut_payloads", {})
+        if path not in cache:
+            try:
+                cache[path] = tl.payload(path)
+            except (tl.LutError, OSError) as e:
+                cache[path] = {"error": str(e)}
+        return cache[path]
 
     def _pump_thumbs(self):
         with self._lock:

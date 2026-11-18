@@ -94,6 +94,10 @@
 - Đã chạy THẬT trên DaVinci: tạo 1 timeline thử (project 0 -> 1 timeline, 6 đoạn, clip gốc không bị ghi In/Out). Mới chạy GIẢ LẬP: các nhánh dự phòng, lỗi, đổi project giữa chừng (test). Cửa sổ pywebview thật: đã mở Bước 5 ở 4K 150% (dữ liệu bản sao), đối chiếu demo ~85%. Chưa thử với nhiều timeline/nhiều clip sao thật của anh; công thức frame sau khi sửa chưa kiểm lại bằng timeline thứ hai.
 - Timeline thử còn trong project đang mở ("Rough Cut thoi luong ..."): anh xóa tay nếu không cần. Backup .drp trước khi thử: D:\VideoAI\backup\drp_*_truoc_thu_timeline.
 
+## Lượt 18/11 (nhánh lut-smooth-aiauto): LUT, lướt mượt, AI tự xếp (ADR-0023)
+- Việc 1 XONG (CHỜ ANH THỬ): khung xem trước áp LUT .cube bằng WebGL2 (player.js, nút LUT bật/tắt), không tạo file mới; máy chủ phát thêm CORS để WebGL đọc khung. Đo trong cửa sổ pywebview thật (4K 150%): sai khác trung bình so với ảnh ffmpeg+LUT 4,5-4,9/255 (tắt LUT: 26-30/255). Chưa thử LUT khác ngoài Sony SLog3 ... TypeA; LUT 1D/ cỡ > 65 chưa hỗ trợ (hiện màu gốc).
+- Việc 2 (lướt mượt), Việc 3 (AI tự xếp): đang làm.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
 2. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin
