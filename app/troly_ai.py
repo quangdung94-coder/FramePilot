@@ -158,6 +158,8 @@ def labels_by_stem(plan):
     out = {}
     for rel, v in (plan.get("labels") or {}).items():
         b = v.get("bin") if isinstance(v, dict) else v
+        if isinstance(v, dict) and v.get("by") == "ai_auto":
+            continue                                        # nhãn AI tự xếp không phải nhãn của anh
         if b:
             parts = rel.replace("\\", "/").split("/")
             out[(parts[-2].casefold() if len(parts) > 1 else "", os.path.splitext(parts[-1])[0].casefold())] = b

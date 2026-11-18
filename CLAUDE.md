@@ -72,6 +72,7 @@ Quy trình:
 - app/troly_ai.py: Bước 6 AI (ADR-0020): nhúng thumbnail bằng OpenCLIP ViT-B/32, gợi ý bin theo mô tả, trang báo cáo tĩnh. Chạy bằng venv AI: `C:\VideoAI_ai_venv\Scripts\python.exe app\troly_ai.py all --project "<tên>"`. Giao diện gợi ý ở Bước 2 (app/troly_web/ai.js, ADR-0022; demo design/6_ai_goi_y). Chỉ gợi ý, Nhận chỉ gán nhãn.
 - tools/inout_dump.py + tools/inout_stats.py: đọc In/Out thật từ project đã dựng (chỉ đọc DaVinci, đổi project rồi trả lại) và thống kê ra số (ADR-0021).
 - app/troly_dur.py + app/troly_web/step5.js: Bước 5 Thời lượng (ADR-0013): chia thời lượng, cắt gọt, timeline mới bằng clip con. Số mặc định là ĐỀ XUẤT; demo design/4_thoi_luong (bản tĩnh design/4_thoi_luong_tinh).
+- app/troly_lut.py (đọc .cube cho WebGL), app/troly_kf.py (keyframe proxy bằng ffprobe, chỉ đọc): khung xem đúng màu LUT + lướt mượt + AI tự xếp theo ngưỡng (ADR-0023).
 - app/troly_env.py: đọc config.json, kết nối DaVinci, hộp báo lỗi.
 - install.py: cài mục menu "VideoAI Trợ lý File Quay" vào Workspace > Scripts. Sửa code trong app\ không cần cài lại,
   chỉ đóng và mở lại cửa sổ Trợ lý.

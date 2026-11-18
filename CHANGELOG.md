@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – LUT trong khung xem, lướt mượt, AI tự xếp (ADR-0023) - CHỜ NGƯỜI DỰNG THỬ
+- Khung xem áp LUT .cube bằng WebGL2 (nút LUT, không tạo file mới); lướt mượt: lệnh nhảy tuần tự, kéo theo keyframe (ffprobe chỉ đọc), thả chính xác, một thẻ video (đo trên cửa sổ thật: 13 -> 63 khung hiện khi kéo); AI tự xếp theo ngưỡng (mặc định 50%, dấu "AI xếp", không vào dữ liệu học, Hoàn tác). 33 bài test mới (316 bài).
+- Độ đúng của AI tự xếp ở cảnh mới chỉ 43-59% từ ngưỡng 50% (chia theo giờ): xem ADR-0023.
+
 ## 2026-11-18 – Bước 5 Thời lượng (ADR-0013) - CHỜ NGƯỜI DỰNG THỬ; số mặc định là ĐỀ XUẤT
 - Ô Video mục tiêu (12 phút), thanh chia tỉ lệ giai đoạn kéo được (tổng luôn khớp), bảng Min-Max TỔNG từng bin (Decor 10-20 s, Beauty 20-30 s, bin khác tự suy ra từ bảng quy tắc Bước 3), cảnh báo bin thiếu/dư, "Cắt gọt cho vừa" (chỉ kế hoạch trong panel), "Đưa lên Timeline mới" (hộp xác nhận, nhật ký trước, chỉ tạo timeline MỚI bằng clip con theo In/Out, không SetMarkInOut lên clip gốc, kiểm lại số timeline).
 - Lưu plan["durations"] (chỉ khi anh sửa, có .bak). Đo thật 1 timeline thử trên DaVinci: độ dài = endFrame - startFrame (đã sửa công thức frame). Mã mới: app/troly_dur.py, step5.js, do_create_cut_timeline.

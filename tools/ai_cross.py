@@ -24,7 +24,7 @@ def labeled_rows(plan, vectors):
     rows = []
     for rel, v in (plan.get("labels") or {}).items():
         k = ai.ck(rel)
-        if isinstance(v, dict) and v.get("bin") and k in vectors and v.get("stage") in st:
+        if isinstance(v, dict) and v.get("bin") and v.get("by") != "ai_auto" and k in vectors and v.get("stage") in st:
             rows.append({"k": k, "bin": v["bin"], "cand": st[v["stage"]], "t": v.get("t") or ""})
     return rows
 
