@@ -35,7 +35,7 @@ function plRenderIo(c) {
     if (c.io_src === "manual" && !sameDv) { cls = "io-range man"; tcls = "active"; rule = "Đặt tay trong panel (chưa ghi vào DaVinci)"; }
     else { cls = "io-range"; tcls = "active"; rule = "Đã đặt trong DaVinci"; }
   } else if (c.sug) {
-    a = c.sug.in_s; b = c.sug.out_s; cls = "io-sug"; tcls = "sug"; rule = "Gợi ý (" + c.sug.rule + ") - kéo mép hoặc bấm I / O để đặt tay";
+    a = c.sug.in_s; b = c.sug.out_s; cls = "io-sug"; tcls = "sug"; rule = "Gợi ý " + ({ speech: "theo lời nói", rule: "theo quy tắc bin", live: "tức thời theo quy tắc bin" }[c.sug.src] || "") + " (" + c.sug.rule + ") - bấm A để nhận, hoặc kéo mép / I, O để đặt tay";
   }
   let h = "";
   if (a != null) {
@@ -232,6 +232,7 @@ function plTime() {
   if (!PL.vid) return;
   $("plTime").textContent = fmtF(PL.vid.currentTime, PL.fps) + " / " + fmtF(PL.dur, PL.fps);
   if (!SK.drag) $("plSeek").value = PL.dur ? Math.round(PL.vid.currentTime / PL.dur * 1000) : 0;
+  if (typeof p3TxNow === "function" && page === 3) p3TxNow();
 }
 function plToggle() {
   if (!PL.vid || !PL.ok) return;

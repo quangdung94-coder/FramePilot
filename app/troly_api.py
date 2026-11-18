@@ -1579,13 +1579,13 @@ class TrolyApi(object):
             st = self._speech_store()
             c = self._by_uid.get(uid)
             if st is None or c is None:
-                return {"lines": [], "span": None}
+                return {"lines": [], "span": None, "has_row": False}
             row = next((r for r in st.clip_rows() if r["key"] == c.rel), None)
             if row is None:
-                return {"lines": [], "span": None}
+                return {"lines": [], "span": None, "has_row": False}                  # chưa chép lời
             lines = st.lines_of(c.rel)
             fl = [(l["t0"], l["t1"], len(l["keys"]), ",".join(l["why"])) for l in lines]
-            return {"lines": lines, "span": self._span(c.rel, row, fl, c), "lang": row["lang"], "dur": row["dur"], "fps": c.fps or 25.0,
+            return {"lines": lines, "span": self._span(c.rel, row, fl, c), "has_row": True, "lang": row["lang"], "dur": row["dur"], "fps": c.fps or 25.0,
                     "tc": row["tc"], "suspect": bool(row["suspect"]), "star": tc.is_starred(self._plan, c)}
 
     def speech_set_inout(self, uid, in_s, out_s):

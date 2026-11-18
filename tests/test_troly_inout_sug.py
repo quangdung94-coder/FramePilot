@@ -210,6 +210,14 @@ class Api(unittest.TestCase):
         self.run_sug()
         self.assertEqual({self.clip(n)["sug"]["src"] for n in ("DGa.MP4", "DGb.MP4", "DGc.MP4", "DGd.MP4")}, {"rule"})
 
+    def test_chi_tiet_loi_noi_phan_biet_chua_chep_va_khong_co_tieng_noi(self):
+        d = self.api.speech_detail
+        self.assertEqual((d(self.uid["DGb.MP4"])["has_row"], d(self.uid["DGb.MP4"])["lines"]), (False, []))      # chưa chép lời: giao diện hiện "Chưa chép lời" + nút Bước 4
+        self.assertEqual((d(self.uid["DGc.MP4"])["has_row"], d(self.uid["DGc.MP4"])["lines"]), (True, []))        # đã chép, không có tiếng nói: giao diện ẩn khung chữ
+        a = d(self.uid["DGa.MP4"])
+        self.assertTrue(a["has_row"])
+        self.assertEqual([(l["t0"], l["t1"]) for l in a["lines"]], [(10, 14), (20, 24)])
+
     def test_ke_hoach_chi_co_khoa_moi_khi_anh_dung(self):
         self.assertFalse({"inout_sug", "inout_sug_cfg", "inout_stats"} & set(self.api._plan))
         self.run_sug()
