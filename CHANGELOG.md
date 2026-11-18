@@ -1,5 +1,8 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Áp bảng quy tắc In/Out mới (ADR-0021, anh đã duyệt)
+- Số mặc định theo bin đổi theo số đo thật: Nghi lễ 2,5–5, Chào bàn 3–4, Khách 2,5–4, Gia đình 3–4, Nhà trai đến 3–4,5, Cô dâu chú rể 2–3, Phỏng vấn 4–8,5 (không còn trọn câu). Quy tắc anh tự sửa vẫn thắng. 231 bài test đạt.
+
 ## 2026-11-18 – Gợi ý AI trong Bước 2 của panel (ADR-0022) - CHỜ NGƯỜI DỰNG THỬ, giao diện/demo CHƯA được duyệt
 - Hộp "Gợi ý AI" cột phải Bước 2: hạng 1-3 + điểm, Nhận (gán nhãn, như xếp tay; không chạm DaVinci), Bỏ qua, gợi ý cho cả nhóm (thẻ viền đứt trên lưới, Nhận cả nhóm qua hộp xác nhận), phím A/X, Chạy/Dừng AI nền. Demo design/6_ai_goi_y.
 - Gợi ý chỉ xét bin của giai đoạn clip đang ở; đủ 20 nhãn tay thì học từ nhãn (kNN trên vector OpenCLIP), không thì theo mô tả. Đo (project 324 nhãn): mô tả 47%/86% (hạng 1/trong 3), học từ nhãn 85%/97% (LOO, lạc quan), chia theo giờ 53%/90%.

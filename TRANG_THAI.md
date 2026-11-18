@@ -72,9 +72,9 @@
 - Một project không còn proxy nên thumbnail không ghép được tên clip.
 - Chưa làm: giao diện trong panel, học từ nhãn (few-shot), dùng giai đoạn/giờ quay để thu hẹp bin.
 
-## Thống kê In/Out thật (18/11/2026, nhánh inout-ai) - CHỜ ANH DUYỆT ĐỀ XUẤT
+## Thống kê In/Out thật (18/11/2026) - anh ĐÃ DUYỆT bảng, đã áp làm mặc định
 - Đã đọc 2 project đã dựng (P1, P2; media online) bằng tools/inout_dump.py; sao lưu .drp ở D:\VideoAIackup\drp_20261118-102823 (15 MB). Đã mở lại đúng project gốc.
-- Số liệu: D:\VideoAI\data	roly\inout_stats\ (index.html, by_bin.csv, vs_rules.csv). Giải thích + bảng đề xuất: docs/adr/0021. CHƯA áp vào panel; chờ anh duyệt bảng ghép tên bin và giá trị đề xuất.
+- Số liệu: D:\VideoAI\data	roly\inout_stats\ (index.html, by_bin.csv, vs_rules.csv). Giải thích + bảng đề xuất: docs/adr/0021. Bảng giá trị ĐÃ ÁP vào BUILTIN_RULES (Nghi lễ 2,5–5, Chào bàn 3–4, Khách 2,5–4, Gia đình 3–4, Nhà trai đến 3–4,5, Cô dâu chú rể 2–3, Phỏng vấn 4–8,5). Bảng ghép tên bin giữa project vẫn chờ anh duyệt.
 - Chưa tách Truyền thống/PSC (kế hoạch panel chưa chọn kiểu quay).
 
 ## Bước 6 AI nhúng vào panel (18/11/2026) - CHỜ ANH THỬ; demo + giao diện CHƯA được anh duyệt

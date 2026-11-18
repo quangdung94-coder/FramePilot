@@ -417,12 +417,13 @@ class Worker(unittest.TestCase):
         self.assertEqual(d["dur"], 3.0)
         self.assertEqual(d["in_s"], 1.2)
         self.assertEqual(d["out_s"], 4.2)
-        # CD-CR: 4s
+        # CD-CR: 2-3s (ADR-0021); Beauty vẫn 4s
         cr = tc.suggest_inout(8.0, "Cô dâu chú rể")
-        self.assertEqual(cr["dur"], 4.0)
+        self.assertEqual(cr["dur"], 3.0)
+        self.assertEqual(tc.suggest_inout(8.0, "Beauty cô dâu")["dur"], 4.0)
         # Nghi lễ: dài hơn
         nl = tc.suggest_inout(10.0, "Nghi lễ gia tiên")
-        self.assertEqual(nl["dur"], 7.0)
+        self.assertEqual(nl["dur"], 5.0)
         # Clip quá ngắn
         self.assertIsNone(tc.suggest_inout(0.8, "Decor"))
 

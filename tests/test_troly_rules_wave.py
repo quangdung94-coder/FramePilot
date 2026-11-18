@@ -40,10 +40,22 @@ class Rules(unittest.TestCase):
         v = {r["name"]: r for r in tc.rules_view({}, ["Decor", "Beauty cô dâu", "Nghi lễ", "Phỏng vấn"])}
         self.assertEqual((v["Decor"]["min"], v["Decor"]["max"], v["Decor"]["whole"]), (3.0, 3.0, False))
         self.assertEqual((v["Beauty cô dâu"]["min"], v["Beauty cô dâu"]["max"]), (4.0, 4.0))
-        self.assertEqual((v["Nghi lễ"]["min"], v["Nghi lễ"]["max"]), (3.0, 7.0))
-        self.assertEqual((v["Phỏng vấn"]["min"], v["Phỏng vấn"]["max"], v["Phỏng vấn"]["whole"]), (3.0, None, True))
+        self.assertEqual((v["Nghi lễ"]["min"], v["Nghi lễ"]["max"]), (2.5, 5.0))                       # ADR-0021: số đo thật
+        self.assertEqual((v["Phỏng vấn"]["min"], v["Phỏng vấn"]["max"], v["Phỏng vấn"]["whole"]), (4.0, 8.5, False))
         self.assertEqual((v["*"]["min"], v["*"]["max"]), (3.0, 3.0))
         self.assertFalse(any(r["edited"] for r in v.values()))
+
+    def test_bang_moi_theo_so_do_that_adr_0021(self):
+        want = {"Nghi lễ": (2.5, 5.0), "Chào bàn": (3.0, 4.0), "Khách": (2.5, 4.0), "Gia đình cô dâu": (3.0, 4.0), "Nhà trai đến": (3.0, 4.5),
+                "Cô dâu chú rể": (2.0, 3.0), "Phỏng vấn": (4.0, 8.5), "Decor": (3.0, 3.0), "Beauty cô dâu": (4.0, 4.0), "Đón khách": (2.5, 4.0)}
+        v = {r["name"]: r for r in tc.rules_view({}, list(want))}
+        for b, mm in want.items():
+            self.assertEqual((v[b]["min"], v[b]["max"]), mm, b)
+            self.assertFalse(v[b]["whole"], b)
+        self.assertEqual(tc.suggest_inout(30.0, "Phỏng vấn")["dur"], 8.5)                           # không còn giữ trọn câu
+        self.assertEqual(tc.suggest_inout(30.0, "Nghi lễ")["dur"], 5.0)
+        self.assertEqual(tc.suggest_inout(30.0, "Gia đình cô dâu")["rule"], "Gia đình: giữ 3–4s")   # "gia đình" xét trước "cô dâu"
+        self.assertEqual(tc.suggest_inout(30.0, "Bin lạ")["rule"], "Quy tắc v4: vào +1.2s, giữ 3s")
 
     def test_kiem_hop_le(self):
         self.assertTrue(tc.check_bin_rule(3, 5)[0])
