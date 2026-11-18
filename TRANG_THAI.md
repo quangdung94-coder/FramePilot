@@ -77,6 +77,10 @@
 - Số liệu: D:\VideoAI\data	roly\inout_stats\ (index.html, by_bin.csv, vs_rules.csv). Giải thích + bảng đề xuất: docs/adr/0021. CHƯA áp vào panel; chờ anh duyệt bảng ghép tên bin và giá trị đề xuất.
 - Chưa tách Truyền thống/PSC (kế hoạch panel chưa chọn kiểu quay).
 
+## Bước 6 AI nhúng vào panel (18/11/2026, nhánh inout-ai) - ĐANG LÀM
+- Xong phần sau (commit 369f798): app/troly_ai.py + TrolyApi.ai_info/ai_for/ai_accept/ai_skip/ai_run/ai_stop (gợi ý hạng 1-3 theo bin của giai đoạn, học từ nhãn tay khi >= 20 nhãn, Nhận chỉ gán nhãn, Bỏ qua, chạy nền venv AI), tools/ai_cross.py (đo + đề xuất ghép tên bin).
+- CÒN DỞ: demo design/6_ai_goi_y, giao diện Bước 2 (nút Gợi ý AI, hộp hạng 1-3, Nhận/Bỏ qua), ADR-0022. Giao diện + demo CHƯA được anh duyệt.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
 2. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin
