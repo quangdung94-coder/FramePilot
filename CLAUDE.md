@@ -64,6 +64,7 @@ Quy trình:
 - app/troly_api.py: lớp TrolyApi, mọi hàm giao diện gọi (state, move, toggle_star, append_starred...).
 - app/troly_core.py: logic thuần (giờ quay, giai đoạn, nhãn, sao, gợi ý In/Out suggest_inout, lưu kế hoạch).
 - app/troly_resolve.py: luồng nền duy nhất gọi DaVinci (đọc clip, chuyển bin, hoàn tác, tạo timeline).
+- app/troly_wave.py: sóng âm từ proxy bằng ffmpeg (chỉ đọc, cache <data_root>\cache\troly_wave). app/troly_web/step3.js: trang Bước 3 (danh sách clip, sóng âm, bảng quy tắc từng bin). Quyết định: docs/adr/0019. Demo: design/3_inout.
 - app/troly_play.py: máy chủ phát proxy 127.0.0.1 (Range, chỉ trong proxy_root); app/troly_web/player.js: trình phát + kéo In/Out + nút Ghi In/Out (ADR-0016).
 - app/troly_thumbs.py: làm thumbnail bằng ffmpeg (proxy + LUT, 4 luồng, cache).
 - app/troly_speech.py (kéo âm lượng, VAD, Whisper, câu nghi bịa), troly_speech_store.py (kho SQLite mỗi project), troly_speech_run.py (chạy cả bin nền), troly_speech_srt.py (xuất/đọc lại SRT), do_loi_noi.py (đo). Giao diện bước 4: app/troly_web/speech.js. Quyết định: docs/adr/0014.

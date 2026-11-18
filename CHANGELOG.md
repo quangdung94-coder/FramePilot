@@ -1,5 +1,8 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Trang Bước 3 In/Out riêng (ADR-0019)
+- Demo design/3_inout (CHƯA được người dựng duyệt) + trang Bước 3: clip theo bin, trình phát, sóng âm từ proxy (app/troly_wave.py, cache, chỉ đọc), thanh In/Out kéo tay, bảng quy tắc gợi ý từng bin chỉnh được (lưu theo project, chưa sửa = như cũ), số giây cắt Truyền thống chỉnh được. Bước 2 không còn thanh In/Out. 30 bài kiểm thử mới, tổng 202.
+
 ## 2026-11-18 – Danh sách clip "có thể sai" (mục D)
 - app/troly_speech_review.py: gộp tối đa 50 clip có thể sai (chỉ đọc kho) thành CSV + SRT trong thư mục dữ liệu (không vào Git/Notion). 5 bài kiểm thử mới. Đã chạy trên kho thật: 50 clip, 94 dòng. Không có lỗi chính tả "Quy quy tắc" trong kho.
 
