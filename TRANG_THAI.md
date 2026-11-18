@@ -82,6 +82,12 @@
 - Đủ 20 nhãn tay thì học từ nhãn, không thì theo mô tả. Số đo: mô tả 47%/86% (hạng 1 / trong 3 đầu); học từ nhãn chia theo giờ 53%/90%.
 - Đã thử: bộ test, bàn thử trình duyệt với giao diện + TrolyApi thật + DaVinci thật (chỉ đọc), 1440x900 / 1100x700 / 1707x960. CHƯA mở cửa sổ pywebview thật. Chưa đo chéo project (chỉ 1 project đủ nhãn). Bảng ghép tên bin giữa project: file đề xuất, chờ anh duyệt.
 
+## Rà soát lỗi toàn bộ (18/11/2026) - CHỜ ANH THỬ
+- Sửa 7 lỗi (xem CHANGELOG), test: tests/test_ra_soat.py. Máy chủ phát proxy và đọc-ghi vòng 4 kế hoạch thật (bản sao): không lỗi.
+- Đã mở panel THẬT (pywebview/WebView2, 4K 150%) với DaVinci thật chỉ đọc, dữ liệu là bản sao tạm: Bước 1-5 chuyển qua lại 19-33 ms, console không có lỗi JS (chỉ favicon 404). Mở với 376 clip: clip nạp xong trong khoảng 15 giây kể từ lúc chạy lệnh (gồm khởi động Python/WebView2, không đo tách).
+- Chưa làm/chưa đo: project 500+ clip (không đổi project DaVinci nên chỉ có 376 clip), chép lời thật rồi đóng cửa sổ (chỉ thử Job Object với AI nền và tiến trình mẫu), kiểm JS bằng node (máy không có node, kiểm cú pháp bằng trình duyệt).
+- Lỗi nhẹ chưa sửa: trang tải font Inter từ Google Fonts (cần mạng, mất mạng thì dùng font hệ thống); favicon 404; mã vé của máy chủ phát proxy không hết hạn (chỉ trong bộ nhớ).
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
 2. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin

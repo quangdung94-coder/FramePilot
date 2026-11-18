@@ -234,5 +234,28 @@ class PlaySecurity(unittest.TestCase):
             s.close()
 
 
+class LegacyPlan(unittest.TestCase):
+    def test_ke_hoach_cu_doc_ghi_vong_khong_them_khoa_moi(self):
+        """Kế hoạch cũ (không có khóa mới) đọc được; đọc-ghi vòng không tự thêm shoot_style/bin_rules/trad_trim_s/ai_skip/inout/last_inout_backup."""
+        import json
+        import troly_core as tc
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "troly", "projects"))
+        old = {"schema": 1, "project": "2026.10.17.LV_Ten", "source_bin": "Master/01", "template": "x", "stages": [], "offsets": {},
+               "labels": {"01_footage/DG1.MP4": {"uid": "u", "stage": "S", "bin": "Decor", "by": "nguoi"}}, "moves": [], "updated": None, "day0": None}
+        p = os.path.join(d, "troly", "projects", "2026.10.17.LV_Ten.json")
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(old, f)
+        plan = tc.load_plan(d, "2026.10.17.LV_Ten")
+        tc.save_plan(d, plan)
+        with open(p, encoding="utf-8") as f:
+            back = json.load(f)
+        self.assertEqual(back["labels"], old["labels"])
+        for k in ("shoot_style", "bin_rules", "trad_trim_s", "ai_skip", "inout", "last_inout_backup"):
+            self.assertNotIn(k, back, k)
+        with open(p + ".bak", encoding="utf-8") as f:                         # lần ghi đầu giữ nguyên bản cũ của người dùng làm .bak
+            self.assertEqual(json.load(f), old)
+
+
 if __name__ == "__main__":
     unittest.main()
