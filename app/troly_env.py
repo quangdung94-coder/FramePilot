@@ -31,7 +31,7 @@ def fail(msg):
     print("[LỖI] " + msg)
     try:
         import ctypes
-        ctypes.windll.user32.MessageBoxW(None, msg, "Trợ lý File Quay", 0x10)
+        ctypes.windll.user32.MessageBoxW(None, msg, "FramePilot", 0x10)
     except Exception:                         # noqa: BLE001  không phải Windows
         pass
     sys.exit(1)

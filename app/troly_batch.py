@@ -20,7 +20,7 @@ def system_shutdown():
     """Lệnh tắt máy thật (Windows). Từ chối nếu TROLY_NO_SHUTDOWN được đặt (kiểm thử, chạy thử)."""
     if os.environ.get("TROLY_NO_SHUTDOWN"):
         raise RuntimeError("TROLY_NO_SHUTDOWN được đặt: từ chối tắt máy thật.")
-    subprocess.run(["shutdown", "/s", "/t", "10", "/c", "Trợ lý File Quay: phân tích xong, tắt máy theo yêu cầu."], check=True,
+    subprocess.run(["shutdown", "/s", "/t", "10", "/c", "FramePilot: phân tích xong, tắt máy theo yêu cầu."], check=True,
                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
 

@@ -1,4 +1,4 @@
-# Trợ lý File Quay (panel DaVinci Resolve)
+# FramePilot, trước 18/11/2026 tên là "Trợ lý File Quay" (panel DaVinci Resolve)
 
 Thư mục này là dự án ĐỘC LẬP, tách từ repo VideoAI cũ ngày 17/11/2026. Mọi thứ cần biết nằm trong 2 file:
 CLAUDE.md (file này: mục tiêu, quy tắc, cấu trúc) và TRANG_THAI.md (đã làm gì, đang dở gì, làm gì tiếp).
@@ -75,7 +75,7 @@ Quy trình:
 - app/troly_lut.py (đọc .cube cho WebGL), app/troly_kf.py (keyframe proxy bằng ffprobe, chỉ đọc): khung xem đúng màu LUT + lướt mượt + AI tự xếp theo ngưỡng (ADR-0023).
 - Bước 3 làm lại (ADR-0024): gợi ý In/Out hai mức trong troly_core (speech_span, compute_sug, sug_note) + TrolyApi.inout_suggest_start/inout_accept; giao diện app/troly_web/step3.js; canvas chuẩn bản sao design/3_inout_moi; tools/sug_accuracy.py.
 - app/troly_env.py: đọc config.json, kết nối DaVinci, hộp báo lỗi.
-- install.py: cài mục menu "VideoAI Trợ lý File Quay" vào Workspace > Scripts. Sửa code trong app\ không cần cài lại,
+- install.py: cài mục menu "FramePilot" vào Workspace > Scripts (mục tên cũ "VideoAI Trợ lý File Quay" chỉ bị xóa khi chạy `install.py --remove-old`). Sửa code trong app\ không cần cài lại,
   chỉ đóng và mở lại cửa sổ Trợ lý.
 - design/: demo đã duyệt (1_giai_doan, 2_phan_loai_inout, 4_thoi_luong = Bước 5 Thời lượng từ 17/11/2026) và loi_noi_demo/ (Bước 4 Lời nói: ảnh 4a, 4b + HTML). Mở bằng trình duyệt.
 - Số bước: 1 Giai đoạn, 2 Phân loại bin, 3 In/Out, 4 Lời nói, 5 Thời lượng (đã làm, ADR-0013), 6 AI (gợi ý ở Bước 2, ADR-0020/0022). Bước Lời nói làm theo docs/de_bai_loi_noi_A.md.

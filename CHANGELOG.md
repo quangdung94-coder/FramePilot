@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 (đêm) – Đêm #3: đổi tên hiển thị thành FramePilot và icon (ADR-0027) - CHỜ NGƯỜI DỰNG XEM
+- Tên hiển thị FramePilot: tiêu đề cửa sổ, trang web, hộp lỗi, menu DaVinci (`FramePilot.py`; mục cũ chỉ xóa khi `install.py --remove-old`). KHÔNG đổi tên thư mục/repo/khóa lưu/tên timeline.
+- Icon framepilot.ico gắn lên cửa sổ (WM_SETICON) và AppUserModelID "FramePilot" cho taskbar. Đã mở panel thật ở 4K 150%: taskbar và titlebar đúng icon, nét rõ. Chưa chụp ở 100%.
+- Test: +8 (tests/test_troly_framepilot.py); 460 bài đạt.
+
 ## 2026-11-18 (đêm) – Đêm #2: sửa lag khi lướt xem trước (ADR-0016) - CHỜ NGƯỜI DỰNG THỬ trong panel thật
 - Đọc mã thấy hàng đợi một lệnh nhảy, nhảy keyframe khi kéo, dùng lại một thẻ video, màu Log WebGL đã có từ ADR-0023: không làm lại, đem đo.
 - Thêm nút **Đo lướt** (chỉ khi `--debug`): kéo giả đầu tới cuối clip, so cách cũ / keyframe / chính xác. Đo trên proxy thật: cách cũ 2-3 hình/giây, đứng hình tới 1,2 giây; hiện tại 27 hình/giây, đứng tối đa 55 ms (Chromium, chưa đo trong pywebview).

@@ -1,8 +1,9 @@
-# Trạng thái Trợ lý File Quay (cập nhật 18/11/2026, đêm)
+# Trạng thái FramePilot, trước đây "Trợ lý File Quay" (cập nhật 18/11/2026, đêm)
 
 ## Đêm 18/11 (4 dòng Notion [Đêm #1]-[Đêm #4]), nhánh xếp chồng, KHÔNG gộp main
 - #1 xong code (nhánh tu-phan-loai-b2-b3, ADR-0026): Tự phân loại chạy luôn ở Bước 2 và 3. Chờ thử bằng chuột thật và AI thật.
 - #2 xong code (nhánh sua-lag-luot, ADR-0016): đo lướt + dừng tay thì nhảy chính xác + tải trước clip kế. CHƯA đo trong panel pywebview thật (chạy panel với --debug, bấm Đo lướt).
+- #3 xong code (nhánh doi-ten-framepilot, ADR-0027): đổi tên FramePilot + icon; đã mở panel thật 4K 150% thấy icon đúng. Chạy `install.py` để menu DaVinci hiện "FramePilot" (mục cũ xóa bằng `--remove-old`).
 
 
 ## Đã chạy được
