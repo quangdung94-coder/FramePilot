@@ -73,6 +73,7 @@ Quy trình:
 - tools/inout_dump.py + tools/inout_stats.py: đọc In/Out thật từ project đã dựng (chỉ đọc DaVinci, đổi project rồi trả lại) và thống kê ra số (ADR-0021).
 - app/troly_dur.py + app/troly_web/step5.js: Bước 5 Thời lượng (ADR-0013): chia thời lượng, cắt gọt, timeline mới bằng clip con. Số mặc định là ĐỀ XUẤT; demo design/4_thoi_luong (bản tĩnh design/4_thoi_luong_tinh).
 - app/troly_lut.py (đọc .cube cho WebGL), app/troly_kf.py (keyframe proxy bằng ffprobe, chỉ đọc): khung xem đúng màu LUT + lướt mượt + AI tự xếp theo ngưỡng (ADR-0023).
+- Bước 3 làm lại (ADR-0024): gợi ý In/Out hai mức trong troly_core (speech_span, compute_sug, sug_note) + TrolyApi.inout_suggest_start/inout_accept; giao diện app/troly_web/step3.js; canvas chuẩn bản sao design/3_inout_moi; tools/sug_accuracy.py.
 - app/troly_env.py: đọc config.json, kết nối DaVinci, hộp báo lỗi.
 - install.py: cài mục menu "VideoAI Trợ lý File Quay" vào Workspace > Scripts. Sửa code trong app\ không cần cài lại,
   chỉ đóng và mở lại cửa sổ Trợ lý.

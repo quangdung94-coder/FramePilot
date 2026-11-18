@@ -100,6 +100,11 @@
 - Việc 3 XONG (CHỜ ANH THỬ): nút "AI tự xếp" (ngưỡng mặc định 50%, ô chỉnh 1-100%, ô "tự xếp sau khi AI chạy xong" mặc định tắt), dấu riêng "AI xếp" trên thẻ, KHÔNG tính vào dữ liệu AI học, Hoàn tác từng lần (giữ 10 lần), chỉ nhãn trong Trợ lý (không đụng DaVinci, không In/Out). ĐỘ CHÍNH XÁC (nhãn tay thật): bỏ từng clip ra ~87-90% đúng từ ngưỡng 50%, nhưng chia theo giờ (cảnh mới) chỉ 43-59% đúng từ 50%: nên tăng ngưỡng hoặc duyệt lại các thẻ "AI xếp". Chưa thử: ô tự xếp sau khi AI chạy xong (đầu-cuối), project chưa có nhãn tay.
 - Đề bài gốc "claude/de-bai-3-viec-18-11.md" nằm trong project doc, KHÔNG có trong máy: làm theo nội dung tóm tắt trong tin nhắn giao việc.
 
+## Bước 3 In/Out làm lại (18/11/2026, nhánh buoc3-moi) - CHỜ ANH THỬ (ADR-0024)
+- Làm theo canvas "Bước 3 In/Out (bản phác mới)" (bản sao design/3_inout_moi): cột trái cây giai đoạn > bin con + "sao / tổng", công tắc "Chỉ hiện clip có sao" (mặc định BẬT); nút "Gợi ý In/Out cho clip sao" chạy nền (mức 1 quy tắc bin, mức 2 theo lời nói, đệm 0,3 s chỉnh được; lưu plan["inout_sug"]); phím A / nút "Nhận gợi ý (A)" chỉ ở Bước 3 rồi sang clip kế; khung chữ Whisper (bấm câu, Shift nối dài, Đặt In/Out ở đây, chưa chép lời, không tiếng nói); chân trang đếm số.
+- Panel ghi lại số clip anh nhận nguyên / chỉnh (plan["inout_stats"]) để có số đo thật. Đo trước trên project cũ: mức 1 lệch < 1 s: 9% (P1), 25% (P2); < 2 s: 26% / 56%; mức 2 CHƯA ĐO ĐƯỢC (project cũ chưa chép lời).
+- CHƯA chạy thử thật: trạng thái "Chưa chép lời" (chỉ ép dữ liệu), nút Ghi In/Out từ trang mới (mã ghi giữ nguyên, đã có test), project rất nhiều clip sao. Đã mở cửa sổ pywebview thật (4K 150%, bản sao dữ liệu) và so với demo.
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
 2. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin

@@ -198,15 +198,17 @@
 <!-- ======================= BƯỚC 3: IN / OUT (trang riêng, ADR-0019; bố cục theo design/3_inout) ======================= -->
 <main class="page hidden" id="page3">
   <aside class="p3-left">
-    <span class="caps">Clip theo bin</span>
-    <select id="p3Stage" class="sel" title="Giai đoạn đang xem (cùng giai đoạn với bước 2)"></select>
-    <div class="p3-list" id="p3List" tabindex="0"></div>
+    <span class="caps">CLIP CÓ SAO THEO BIN</span>
+    <span class="dim12">Cây giống Bước 2. Chỉ hiện clip đã gắn sao để đặt In/Out kỹ.</span>
+    <label class="p3-tg"><input type="checkbox" id="p3OnlyStar" checked><span class="sw"><i></i></span>Chỉ hiện clip có sao</label>
+    <button class="p3-gy" id="p3Sug" type="button" title="Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4) hoặc theo quy tắc bin. Không tự ghi vào DaVinci."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span id="p3SugT">Gợi ý In/Out cho clip sao</span><span class="gn" id="p3SugN"></span></button>
+    <div class="p3-list p3-tree" id="p3List" tabindex="0"></div>
     <div class="p3-leg">
       <span><i class="dot man"></i>đặt tay</span><span><i class="dot dv"></i>có trong DaVinci</span><span><i class="dot sug"></i>gợi ý</span>
     </div>
   </aside>
 
-  <section class="p3-center">
+  <section class="p3-center" id="p3Center">
     <div class="row-between baseline">
       <h1 class="h20" id="p3Name">Chọn một clip</h1>
       <span class="dim13" id="p3Meta"></span>
@@ -217,14 +219,17 @@
     <div class="io-bar" id="ioBar"><div class="io-empty" id="ioEmpty">Chưa đặt In / Out</div></div>
     <div class="row-between dim12"><span class="io-in" id="ioIn">In --:--:--</span><span id="ioDur">Giữ --:--:--</span><span class="io-in" id="ioOut">Out --:--:--</span></div>
     <div class="p3-legend">
-      <span><i class="lg-man"></i>Cam: anh đặt tay / đã có trong DaVinci</span>
+      <span><i class="lg-man"></i>Cam: đặt tay / có trong DaVinci</span>
       <span><i class="lg-sug"></i>Xanh: gợi ý, không tự ghi</span>
-      <span class="dim12" id="ioRule"></span>
+      <span class="keys p3-keys"><b>Space</b> · <b>I</b>/<b>O</b> · <b>←/→</b> frame · <b>↑/↓</b> clip · <b>J</b> sao · <b>A</b> nhận gợi ý</span>
     </div>
-    <span class="keys"><b>Space</b> phát/dừng · <b>I</b> / <b>O</b> đặt In/Out tại chỗ đang xem · kéo hai mép · <b>←/→</b> từng frame (Shift = 10) · <b>↑/↓</b> clip trước/sau · <b>J</b> gắn sao · giờ hiện dạng phút:giây:frame</span>
-    <div class="flex1"></div>
+    <div class="p3-tx" id="p3Tx">
+      <div class="p3-txh"><b id="p3TxT">Lời nói (Whisper)</b><span class="p3-txpill" id="p3TxPill"></span><span class="p3-txhint" id="p3TxHint">Bấm một câu để đặt In/Out theo câu đó · Shift + bấm câu khác để nối dài</span></div>
+      <div class="p3-txl" id="p3TxList"></div>
+    </div>
     <div class="inline8 io-write">
       <button class="btn flex1" id="p3Star" title="Bật/tắt sao của clip đang xem (phím J)">☆ Gắn sao (J)</button>
+      <button class="btn flex1 p3-acc" id="p3Accept" title="Biến gợi ý xanh của clip đang xem thành In/Out đặt tay (cam) rồi sang clip kế (phím A). Chỉ trong Trợ lý, chưa ghi vào DaVinci.">Nhận gợi ý (A)</button>
       <button class="btn flex1" id="ioWriteStar" title="Ghi In/Out đặt tay của các clip có sao vào Media Pool (có hộp xác nhận)">Ghi In/Out clip sao</button>
       <button class="btn flex1" id="ioWriteSel" title="Ghi In/Out đặt tay của clip đang xem (hoặc các clip chọn ở bước 2)">Ghi clip đang chọn</button>
       <button class="btn" id="ioUndo" title="Khôi phục In/Out cũ theo bản sao lưu lần ghi gần nhất">Hoàn tác</button>
@@ -232,8 +237,16 @@
   </section>
 
   <aside class="p3-right">
-    <div class="row-between baseline"><h2>Quy tắc gợi ý từng bin</h2><span class="p3-pill" id="rulesStyle">chưa chọn kiểu quay</span></div>
-    <span class="dim12">Số giây cần giữ cho mỗi bin. Chưa sửa thì dùng mặc định. Chỉ đổi gợi ý màu xanh, In/Out anh đặt tay luôn thắng.</span>
+    <div class="row-between baseline"><h2>Clip đang chọn</h2><span class="p3-pill" id="p3Tag"></span></div>
+    <div class="p3-box" id="p3Cur"><span>Chưa chọn clip.</span></div>
+    <span class="dim12 p3-iorule" id="ioRule"></span>
+    <div class="p3-box">
+      <b>Chữ từ Whisper</b>
+      <span>Chép ở Bước 4, chỉ tiếng máy quay. Chữ giúp đọc nhanh để chọn câu; clip chưa chép hoặc không có tiếng nói thì chỉ dùng sóng âm.</span>
+      <label class="tr-row" for="p3Pad">Đệm gợi ý theo lời nói <input id="p3Pad" class="num" inputmode="decimal" value="0.3" title="Số giây thêm vào đầu và cuối đoạn có tiếng nói khi gợi ý (mặc định 0,3). Chạy lại gợi ý để áp dụng."> giây</label>
+    </div>
+    <div class="row-between baseline"><h2 style="font-size:14px">Quy tắc gợi ý từng bin</h2><span class="p3-pill" id="rulesStyle">chưa chọn kiểu quay</span></div>
+    <span class="dim12">Số giây cần giữ cho mỗi bin (gợi ý mức 1). Chưa sửa thì dùng mặc định. Chỉ đổi gợi ý màu xanh, In/Out anh đặt tay luôn thắng.</span>
     <table class="rt" id="rulesTbl"></table>
     <div class="dim12"><span id="rulesNote">Ô viền cam = anh đã sửa.</span> <button class="btn-link" id="rulesReset" title="Xóa mọi chỗ đã sửa trong bảng và số giây cắt của Truyền thống">Về mặc định</button></div>
     <div class="p3-box">
@@ -241,7 +254,6 @@
       <span id="trStyleText"></span>
       <label class="tr-row" for="tradTrim">Truyền thống cắt đầu/đuôi <input id="tradTrim" class="num" inputmode="decimal" title="Số giây cắt ở đầu và đuôi mỗi clip (kiểu Truyền thống)"> giây</label>
     </div>
-    <div class="p3-box" id="p3Cur"><b>Clip đang chọn</b><span>Chưa chọn clip.</span></div>
     <div class="flex1"></div>
     <span class="dim12">In/Out chỉ vào DaVinci khi anh bấm nút Ghi, có hộp xác nhận và sao lưu; gợi ý màu xanh không bao giờ tự ghi.</span>
   </aside>
@@ -356,7 +368,7 @@
   </div>
 </div>
 
-<footer class="status" id="status"><span id="statusText">Đang kết nối DaVinci...</span><span class="progress"><i id="progBar"></i></span><span id="thumbText"></span></footer>
+<footer class="status" id="status"><span id="statusText">Đang kết nối DaVinci...</span><span class="progress"><i id="progBar"></i></span><span id="p3Sum" class="p3-sum hidden"></span><span id="thumbText"></span></footer>
 
 <!-- Hộp xác nhận ghi vào DaVinci -->
 <!-- Menu chuột phải trên thumbnail, bảng nhỏ sau Shift+số -->

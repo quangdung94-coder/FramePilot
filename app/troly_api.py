@@ -198,7 +198,7 @@ class TrolyApi(object):
                 eff = tc.effective_inout(self._plan, c)          # đặt tay trong panel > đang có trong DaVinci
                 in_s, out_s, io_src = (round(eff[0], 2), round(eff[1], 2), eff[2]) if eff else (None, None, None)
                 dv = (round(c.mark_in / fps, 2), round(c.mark_out / fps, 2)) if c.mark_in is not None and c.mark_out is not None else None
-                sug = tc.suggest_inout(c.dur, lb, self._plan.get("shoot_style") or "", self._plan.get("bin_rules"), self._plan.get("trad_trim_s"))
+                sug = self._sug_view(c, lb)
                 clips.append({"uid": c.uid, "name": c.name, "m0": m[0] if m else None, "m1": m[1] if m else None,
                               "time": c.t_start.strftime("%H:%M:%S") if c.t_start else "--:--:--",
                               "dur": c.dur or 0, "stage": si, "label": lb, "label_by": ((tc.label_of(self._plan, c) or {}).get("by") if lb else None),
@@ -219,6 +219,7 @@ class TrolyApi(object):
                     "n": len(self._clips), "new_n": self._new_n, "gone_n": self._gone_n,
                     "n_manual": sum(1 for c in self._clips if tc.manual_of(self._plan, c)),
                     "n_starred": sum(1 for c in self._clips if tc.is_starred(self._plan, c)),
+                    "inout_sug": self._sug_state(),
                     "shoot_style": self._plan.get("shoot_style") or "",
                     "rules": self._rules_state(),
                     "stages": stages, "outside": outside, "clips": clips, "gap": gap,
@@ -906,6 +907,125 @@ class TrolyApi(object):
         _, p, note = self._thumbs.make(uid, c.path, c.proxy, c.lut, c.dur, width=640)
         return {"src": _data_uri(p) if p else None, "note": note}
 
+    # ------------------------------------------------------------------ BƯỚC 3: GỢI Ý In/Out CHO CLIP SAO (ADR-0024)
+    # Hai mức, KHÔNG mức nào tự ghi vào DaVinci: mức 1 theo quy tắc bin (bảng Bước 3, kiểu quay), mức 2 theo lời nói (kho Bước 4). In/Out đặt tay luôn thắng.
+    def _sug_view(self, c, lb):
+        """Gợi ý hiển thị (màu xanh): bản đã lưu theo project nếu có, không thì gợi ý tức thời theo quy tắc bin (mức 1) như trước."""
+        saved = (self._plan.get("inout_sug") or {}).get(c.rel)
+        if saved:
+            a, b = saved["in"], saved["out"]
+            return {"in_s": a, "out_s": b, "dur": round(b - a, 2), "rule": saved.get("rule") or "", "src": saved.get("src") or "rule",
+                    "stale": saved.get("sig") != tc.sug_signature(self._plan, lb)}
+        r = tc.suggest_inout(c.dur, lb, self._plan.get("shoot_style") or "", self._plan.get("bin_rules"), self._plan.get("trad_trim_s"))
+        if r is None:
+            return None
+        r = dict(r)
+        r["src"], r["stale"] = "live", False
+        return r
+
+    def _sug_state(self):
+        starred = [c for c in self._clips if tc.is_starred(self._plan, c)]
+        saved = self._plan.get("inout_sug") or {}
+        run = getattr(self, "_sug_run", None)
+        cnt = tc.sug_counts(self._plan)
+        return {"starred": len(starred), "done": sum(1 for c in starred if c.rel in saved), "pad": tc.sug_pad(self._plan),
+                "running": bool(run), "n": run["n"] if run else 0, "total": run["total"] if run else 0,
+                "accepted": cnt["accepted"], "adjusted": cnt["adjusted"], "by_src": cnt["by_src"]}
+
+    def _speech_lines_for(self, c):
+        """Chữ Whisper của clip từ kho Bước 4 (chỉ đọc): (có_dòng_trong_kho, danh sách câu). Chưa chép lời thì (False, [])."""
+        try:
+            st = self._speech_store()
+        except Exception:                                  # noqa: BLE001  kho chưa chọn / hỏng
+            st = None
+        if st is None or not c.rel:
+            return False, []
+        row = next((r for r in st.clip_rows() if r["key"] == c.rel), None)
+        if row is None:
+            return False, []
+        return True, st.lines_of(c.rel)
+
+    def inout_suggest_start(self):
+        """Nút "Gợi ý In/Out cho clip sao": chạy NỀN một lượt cho mọi clip sao, lưu vào kế hoạch (plan["inout_sug"]). Không ghi DaVinci,
+        không đụng In/Out đặt tay."""
+        with self._lock:
+            if getattr(self, "_sug_run", None):
+                return {"error": "Đang chạy gợi ý rồi."}
+            if not self._clips:
+                return {"error": "Chưa có clip. Hãy bấm 'Đọc clip' trước."}
+            todo = [(c, self._label_in_stage(c, self._assign.get(c.uid))) for c in self._clips if tc.is_starred(self._plan, c)]
+            if not todo:
+                return {"error": "Chưa có clip nào gắn sao ★. Gắn sao (phím J) ở Bước 2 trước."}
+            self._sug_run = {"n": 0, "total": len(todo)}
+
+        def go():
+            res, n_speech = {}, 0
+            try:
+                for i, (c, lb) in enumerate(todo):
+                    if self._closed:
+                        return
+                    _has, lines = self._speech_lines_for(c)
+                    with self._lock:
+                        r = tc.compute_sug(self._plan, c, lb, lines)
+                    if r:
+                        res[c.rel] = dict(r, at=datetime.datetime.now().isoformat(timespec="seconds"))
+                        n_speech += r["src"] == "speech"
+                    self._sug_run["n"] = i + 1
+                    if i % 8 == 0:
+                        self._emit("inout_sug_progress", {"n": i + 1, "total": len(todo)})
+                with self._lock:
+                    self._plan.setdefault("inout_sug", {}).update(res)
+                    self._save_now()
+            except Exception as e:                           # noqa: BLE001
+                self._emit("status", {"text": "Gợi ý In/Out lỗi: %s" % e, "kind": "error"})
+            finally:
+                with self._lock:
+                    self._sug_run = None
+                self._emit("inout_sug_done", {"total": len(todo), "speech": n_speech, "rule": len(res) - n_speech})
+        threading.Thread(target=go, daemon=True).start()
+        return {"ok": True, "total": len(todo)}
+
+    def inout_sug_pad(self, pad):
+        """Chỉnh đệm hai đầu của gợi ý theo lời nói (giây, 0-3). Sai thì báo lỗi, không ghi gì."""
+        with self._lock:
+            try:
+                v = float(pad)
+            except (TypeError, ValueError):
+                return {"error": "Đệm phải là số giây."}
+            if v != v or not 0.0 <= v <= tc.SUG_PAD_MAX:
+                return {"error": "Đệm từ 0 đến %g giây." % tc.SUG_PAD_MAX}
+            self._plan.setdefault("inout_sug_cfg", {})["pad"] = round(v, 2)
+            self._save_soon()
+            return {"ok": True, "pad": round(v, 2)}
+
+    def inout_accept(self, uid):
+        """Phím A / nút "Nhận gợi ý": biến gợi ý (xanh) của clip thành In/Out ĐẶT TAY (cam), chỉ trong kế hoạch panel; ghi nhận "nhận nguyên"."""
+        with self._lock:
+            c = self._by_uid.get(uid)
+            if c is None:
+                return {"error": "Không thấy clip."}
+            lb = self._label_in_stage(c, self._assign.get(c.uid))
+            v = self._sug_view(c, lb)
+            if not v:
+                return {"error": "Clip này chưa có gợi ý."}
+            r = tc.set_manual_inout(self._plan, c, v["in_s"], v["out_s"])
+            if not r:
+                return {"error": "Gợi ý không hợp lệ."}
+            tc.sug_note(self._plan, c, lb, (v["in_s"], v["out_s"], "speech" if v["src"] == "speech" else "rule"), r[0], r[1], "accept")
+            self._save_now()
+            return {"ok": True, "in_s": r[0], "out_s": r[1], "src": v["src"], "stats": self._sug_state()}
+
+    def inout_stats(self):
+        with self._lock:
+            return self._sug_state()
+
+    def _track_edit(self, c, a, b):
+        """Gọi sau khi anh đặt tay In/Out (kéo, I/O, mũi tên, bấm câu): có gợi ý thì ghi nhận 'nhận nguyên' hoặc 'đã chỉnh'."""
+        lb = self._label_in_stage(c, self._assign.get(c.uid))
+        v = self._sug_view(c, lb)
+        if v:
+            tc.sug_note(self._plan, c, lb, (v["in_s"], v["out_s"], "speech" if v["src"] == "speech" else "rule"), a, b, "edit")
+
     # ------------------------------------------------------------------ In/Out (ADR-0016)
     def set_inout(self, uid, in_s, out_s):
         """Lưu In/Out đặt tay (giây từ đầu file) vào KẾ HOẠCH panel; in_s/out_s None thì xóa. Không đụng DaVinci."""
@@ -917,6 +1037,10 @@ class TrolyApi(object):
                 r = tc.set_manual_inout(self._plan, c, in_s, out_s)
             except (TypeError, ValueError):
                 return {"error": "In/Out không hợp lệ."}
+            if r:
+                self._track_edit(c, r[0], r[1])
+            else:
+                tc.sug_forget(self._plan, c)
             self._save_now()
             return {"ok": True, "in_s": r[0] if r else None, "out_s": r[1] if r else None}
 
@@ -1455,13 +1579,13 @@ class TrolyApi(object):
             st = self._speech_store()
             c = self._by_uid.get(uid)
             if st is None or c is None:
-                return {"lines": [], "span": None}
+                return {"lines": [], "span": None, "has_row": False}
             row = next((r for r in st.clip_rows() if r["key"] == c.rel), None)
             if row is None:
-                return {"lines": [], "span": None}
+                return {"lines": [], "span": None, "has_row": False}                  # chưa chép lời
             lines = st.lines_of(c.rel)
             fl = [(l["t0"], l["t1"], len(l["keys"]), ",".join(l["why"])) for l in lines]
-            return {"lines": lines, "span": self._span(c.rel, row, fl, c), "lang": row["lang"], "dur": row["dur"], "fps": c.fps or 25.0,
+            return {"lines": lines, "span": self._span(c.rel, row, fl, c), "has_row": True, "lang": row["lang"], "dur": row["dur"], "fps": c.fps or 25.0,
                     "tc": row["tc"], "suspect": bool(row["suspect"]), "star": tc.is_starred(self._plan, c)}
 
     def speech_set_inout(self, uid, in_s, out_s):
@@ -1476,6 +1600,9 @@ class TrolyApi(object):
             else:
                 a, b = sorted((float(in_s), float(out_s)))
                 d[c.rel] = [round(a, 2), round(b, 2)]
+                self._track_edit(c, round(a, 2), round(b, 2))
+            if in_s is None or out_s is None:
+                tc.sug_forget(self._plan, c)
             self._save_now()
         return {"ok": True}
 

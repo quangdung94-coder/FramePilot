@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 2026-11-18 – Bước 3 In/Out làm lại (ADR-0024) - CHỜ NGƯỜI DỰNG THỬ
+- Cột trái cây clip sao (sao/tổng, công tắc mặc định BẬT); nút "Gợi ý In/Out cho clip sao" chạy nền, hai mức (quy tắc bin; lời nói + đệm 0,3 s); phím A nhận gợi ý rồi sang clip kế (chỉ Bước 3); khung chữ Whisper (bấm câu, Shift nối dài, chưa chép lời, không tiếng nói); ghi nhận nhận nguyên/chỉnh (plan["inout_stats"]); tools/sug_accuracy.py. 24 bài test mới (340 bài).
+- Đo mức 1 trên project cũ: lệch < 1 s: 9% / 25%; mức 2 chưa đo được (chưa có chữ).
+
 ## 2026-11-18 – LUT trong khung xem, lướt mượt, AI tự xếp (ADR-0023) - CHỜ NGƯỜI DỰNG THỬ
 - Khung xem áp LUT .cube bằng WebGL2 (nút LUT, không tạo file mới); lướt mượt: lệnh nhảy tuần tự, kéo theo keyframe (ffprobe chỉ đọc), thả chính xác, một thẻ video (đo trên cửa sổ thật: 13 -> 63 khung hiện khi kéo); AI tự xếp theo ngưỡng (mặc định 50%, dấu "AI xếp", không vào dữ liệu học, Hoàn tác). 33 bài test mới (316 bài).
 - Độ đúng của AI tự xếp ở cảnh mới chỉ 43-59% từ ngưỡng 50% (chia theo giờ): xem ADR-0023.

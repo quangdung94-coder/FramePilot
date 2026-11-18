@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Các trạng thái khác của Bước 3</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.s{width:1440px;height:440px;background:#18181B;color:#E7E7EA;font-family:Inter,"Segoe UI",system-ui,sans-serif;padding:28px 32px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px}
+.hd{font-size:18px;font-weight:700}
+.sub{font-size:13px;color:#A1A1AA}
+.cards{display:flex;gap:24px;flex:1;min-height:0}
+.cd{flex:1;min-width:0;border-radius:12px;background:#1C1C20;border:1px solid #2E2E34;padding:18px;display:flex;flex-direction:column;gap:12px}
+.ct{font-size:14px;font-weight:600}
+.cn{font-size:12px;color:#A1A1AA;line-height:1.6}
+.dash{border:1px dashed #3A3A42;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;font-size:13px;color:#C4C4CC;line-height:1.6}
+.bn{height:40px;padding:0 16px;border-radius:8px;border:1px solid #3A3A42;background:#26262B;color:#E7E7EA;font-size:13px;font-weight:500;display:inline-flex;align-items:center;align-self:flex-start}
+.wv{height:64px;border-radius:8px;background:#18181B;border:1px solid #2E2E34;position:relative;overflow:hidden}
+.tg{display:flex;align-items:center;gap:10px;font-size:13px;color:#E7E7EA;font-weight:500}
+.sw{width:34px;height:20px;border-radius:999px;background:#3A3A42;position:relative;flex-shrink:0}
+.sw i{position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#C4C4CC}
+.ck{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;color:#E7E7EA}
+.ck.off{color:#A1A1AA}
+.ck .t{flex:1}
+.ck .tm{font-size:11px;color:#A1A1AA}
+.ck .st{width:12px;text-align:center;color:#F2A33A;font-size:12px}
+.io{width:9px;height:9px;border-radius:50%;flex-shrink:0;box-sizing:border-box}
+.io.man{background:#F2A33A}.io.none{border:2px solid #3A3A42}
+</style>
+</helmet>
+<div class="s">
+  <div><div class="hd">Các trạng thái khác của Bước 3</div><div class="sub">Vùng giữa tự đổi theo clip; cột trái đổi theo công tắc "Chỉ hiện clip có sao".</div></div>
+  <div class="cards">
+    <div class="cd">
+      <div class="ct">Clip có tiếng nói nhưng chưa chép lời</div>
+      <div class="wv"><svg width="100%" height="64" viewBox="0 0 380 64" preserveAspectRatio="none" aria-hidden="true"><path d="M4 28V36M12 20V44M20 12V52M28 18V46M36 24V40M44 10V54M52 16V48M60 22V42M68 26V38M76 14V50M84 20V44M92 28V36M100 18V46M108 12V52M116 22V42M124 26V38M132 16V48M140 24V40M148 10V54M156 20V44M164 28V36M172 14V50M180 22V42M188 18V46M196 26V38M204 12V52M212 20V44M220 24V40M228 16V48M236 28V36M244 10V54M252 22V42M260 18V46M268 26V38M276 14V50M284 20V44M292 28V36M300 12V52M308 22V42M316 24V40M324 18V46M332 28V36M340 16V48M348 22V42M356 26V38M364 20V44M372 28V36" stroke="#6B6B76" stroke-width="2"/></svg></div>
+      <div class="dash">
+        <span>Chưa chép lời cho clip này. Chạy Whisper ở Bước 4 để chữ hiện ở đây.</span>
+        <span class="bn">Mở Bước 4 · Lời nói</span>
+      </div>
+      <div class="cn">Vẫn đặt In/Out được bằng sóng âm và hình.</div>
+    </div>
+
+    <div class="cd">
+      <div class="ct">Clip không có tiếng nói (decor, beauty)</div>
+      <div class="wv"><svg width="100%" height="64" viewBox="0 0 380 64" preserveAspectRatio="none" aria-hidden="true"><path d="M4 30V34M12 29V35M20 30V34M28 28V36M36 30V34M44 29V35M52 30V34M60 29V35M68 30V34M76 28V36M84 30V34M92 29V35M100 30V34M108 29V35M116 30V34M124 28V36M132 30V34M140 29V35M148 30V34M156 29V35M164 30V34M172 28V36M180 30V34M188 29V35M196 30V34M204 29V35M212 30V34M220 28V36M228 30V34M236 29V35M244 30V34M252 29V35M260 30V34M268 28V36M276 30V34M284 29V35M292 30V34M300 29V35M308 30V34M316 28V36M324 30V34M332 29V35M340 30V34M348 29V35M356 30V34M364 28V36M372 30V34" stroke="#6B6B76" stroke-width="2"/></svg></div>
+      <div class="dash">
+        <span>Không có tiếng nói trong clip này, nên không có phần chữ.</span>
+        <span style="color:#A1A1AA;font-size:12px">Khung chữ tự ẩn, trình phát và thanh In/Out được kéo dài ra.</span>
+      </div>
+      <div class="cn">Dùng hình và sóng âm nền để đặt In/Out.</div>
+    </div>
+
+    <div class="cd">
+      <div class="ct">Tắt "Chỉ hiện clip có sao"</div>
+      <div class="tg"><div class="sw"><i></i></div>Chỉ hiện clip có sao</div>
+      <div>
+        <div class="ck"><span class="st">★</span><span class="io man"></span><span class="t">DG7391.MP4</span><span class="tm">09:48:20</span></div>
+        <div class="ck off"><span class="st"></span><span class="io none"></span><span class="t">DG7392.MP4</span><span class="tm">09:49:02</span></div>
+        <div class="ck off"><span class="st"></span><span class="io none"></span><span class="t">DG7393.MP4</span><span class="tm">09:49:31</span></div>
+        <div class="ck"><span class="st">★</span><span class="io man"></span><span class="t">DG7396.MP4</span><span class="tm">09:51:05</span></div>
+      </div>
+      <div class="cn">Clip chưa sao hiện mờ; bấm J ngay tại đây để gắn sao. Ghi In/Out chỉ cho clip có sao hoặc clip đang chọn.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":440}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

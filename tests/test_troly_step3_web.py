@@ -16,7 +16,7 @@ class Step3Web(unittest.TestCase):
         self.html, self.app, self.pl, self.s3 = rd("index.html"), rd("app.js"), rd("player.js"), rd("step3.js")
 
     def test_phan_tu_chinh_cua_trang(self):
-        for i in ('id="page3"', 'id="p3List"', 'id="p3Stage"', 'id="waveBox"', 'id="waveCv"', 'id="ioBar"', 'id="rulesTbl"', 'id="tradTrim"',
+        for i in ('id="page3"', 'id="p3List"', 'id="p3OnlyStar"', 'id="p3Sug"', 'id="p3Accept"', 'id="p3Tx"', 'id="p3TxList"', 'id="waveBox"', 'id="waveCv"', 'id="ioBar"', 'id="rulesTbl"', 'id="tradTrim"',
                   'id="rulesReset"', 'id="ioWriteStar"', 'id="ioWriteSel"', 'id="ioUndo"', 'id="stageHost3"', 'id="stageHost2"', 'id="stageBox"'):
             self.assertEqual(self.html.count(i), 1, i)                                              # mỗi id đúng một lần
         self.assertIn('<script src="step3.js"></script>', self.html)
@@ -30,12 +30,13 @@ class Step3Web(unittest.TestCase):
         self.assertIn('id="stageHost2"', p2)                                                        # vẫn xem được clip ở Bước 2
 
     def test_chu_huong_dan_co_chuc_nang_that(self):
-        keys = self.html[self.html.index('<span class="keys"><b>Space</b> phát/dừng · <b>I</b> / <b>O</b> đặt In/Out tại chỗ'):]
+        keys = self.html[self.html.index('<span class="keys p3-keys">'):]
         keys = keys[:keys.index("</span>")]
         for k in ("Space", "KeyI", "KeyO", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "KeyJ"):
             self.assertIn('"%s"' % k, self.pl + self.app, k)                                        # mỗi phím nêu trên trang có code xử lý
-        self.assertIn("←/→", keys)
-        self.assertIn("kéo hai mép", keys)
+        self.assertIn('e.code !== "KeyA"', self.s3)                                                 # A nhận gợi ý (Bước 3)
+        for t in ("←/→", "↑/↓", "<b>A</b> nhận gợi ý"):
+            self.assertIn(t, keys)
         self.assertIn('ioBar").addEventListener("mousedown"', self.pl)                              # kéo hai mép
         self.assertIn('waveBox").addEventListener("mousedown"', self.pl)                            # bấm sóng âm để lướt
         for fn in ("set_bin_rule", "reset_bin_rule", "set_trad_trim", "wave"):
