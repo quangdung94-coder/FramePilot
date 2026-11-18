@@ -4,7 +4,7 @@
 "use strict";
 
 const WV = { uid: null, peaks: null, err: "", timer: null };
-const P3 = { sig: "", rulesSig: "", onlyStar: true, saved2: false, entered: false, anchor: null, tx: { uid: null, data: null, now: -2 }, poll: 0 };
+const P3 = { sig: "", rulesSig: "", onlyStar: true, saved2: false, entered: false, anchor: null, tx: { uid: null, data: null, now: -2 }, poll: 0, fold: {}, sugRun: false };
 
 /* Khối xem clip (hình + nút phát) nằm ở Bước 2 hoặc Bước 3: chuyển chỗ khi đổi bước, rồi trình phát tự mở lại */
 function placeStage() {
@@ -45,15 +45,21 @@ function renderPage3() {
       return `<div class="p3-clip${i === cur ? " cur" : ""}${c.star ? "" : " off"}" data-i="${i}"><span class="st">${c.star ? "★" : ""}</span><i class="dot ${p3Dot(c)}"></i><span class="t" title="${esc(c.name)}">${esc(c.name)}</span><span class="tm">${c.time}</span><span class="kp">${k == null ? "" : durTxt(k)}</span></div>`;
     }).join("") + `</div>`;
   };
+  // Thu gọn / mở danh sách clip (P3.fold, nhớ khi đổi clip hoặc đổi bước). Cả giai đoạn: mặc định THU GỌN (chỉ hiện các bin con); bin: mặc định mở.
+  const folded = (key, dflt) => (P3.fold[key] === undefined ? dflt : P3.fold[key]);
+  const ar = (on, fold) => `<span class="p3-ar" data-ar="1" title="${on && !fold ? "Thu gọn danh sách clip" : "Mở danh sách clip"}">${on && !fold ? "▾" : "▸"}</span>`;
   let h = S.stages.map((s, i) => {
     const open = i === gStage;
-    let r = `<div class="pool-stage"><div class="pool-row${open && gSub === null ? " on" : ""}${open && gSub !== null ? " parent" : ""}" data-stage="${i}">${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span>${cnt(s.uids)}</div>`;
+    const fs = folded("s:" + i, true);
+    let r = `<div class="pool-stage"><div class="pool-row${open && gSub === null ? " on" : ""}${open && gSub !== null ? " parent" : ""}" data-stage="${i}">${ar(open && gSub === null, fs)}${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span>${cnt(s.uids)}</div>`;
     if (open) {
       r += `<div class="pool-subs">`;
-      if (gSub === null) r += clipsHtml();
-      r += `<div class="sub-none${gSub === NONE ? " on" : ""}" data-stage="${i}"><span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span>${cnt(s.none)}</div>` + (gSub === NONE ? clipsHtml() : "");
+      if (gSub === null && !fs) r += clipsHtml();
+      const fn = folded("n:" + i, false);
+      r += `<div class="sub-none${gSub === NONE ? " on" : ""}" data-stage="${i}">${ar(gSub === NONE, fn)}<span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span>${cnt(s.none)}</div>` + (gSub === NONE && !fn ? clipsHtml() : "");
       for (const bn of s.bins) {
-        r += `<div class="sub${gSub === bn.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(bn.name)}"><span class="sq" style="background:${bn.color}"></span><span class="t">${esc(bn.name)}</span>${cnt(bn.uids)}</div>` + (gSub === bn.name ? clipsHtml() : "");
+        const fb = folded("b:" + i + ":" + bn.name, false);
+        r += `<div class="sub${gSub === bn.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(bn.name)}">${ar(gSub === bn.name, fb)}<span class="sq" style="background:${bn.color}"></span><span class="t">${esc(bn.name)}</span>${cnt(bn.uids)}</div>` + (gSub === bn.name && !fb ? clipsHtml() : "");
       }
       r += `</div>`;
     }
@@ -72,11 +78,23 @@ function p3View(si, sub) {
   gStage = si; gSub = sub; $("onlyNew").checked = false; saveUi();
   renderPage2(true); renderPage3();
 }
+function p3FoldKey(si, sub) { return sub === null ? "s:" + si : sub === NONE ? "n:" + si : "b:" + si + ":" + sub; }
+function p3RowClick(si, sub, onArrow) {                         // bấm dòng: XEM (không đổi nhãn clip). Bấm lại dòng đang chọn hoặc bấm mũi tên: thu gọn / mở danh sách clip
+  const key = p3FoldKey(si, sub), dflt = sub === null;
+  const selected = si === gStage && sub === gSub;
+  if (!selected) {
+    if (onArrow) P3.fold[key] = false;                          // bấm mũi tên dòng khác: chọn và mở luôn danh sách clip
+    return p3View(si, sub);
+  }
+  P3.fold[key] = !(P3.fold[key] === undefined ? dflt : P3.fold[key]);
+  P3.sig = ""; renderPage3();
+}
 $("p3List").addEventListener("click", (e) => {
   const cl = e.target.closest(".p3-clip"); if (cl) { moveCur(+cl.dataset.i); $("p3List").focus(); return; }
-  const sn = e.target.closest(".sub-none"); if (sn) return p3View(+sn.dataset.stage, NONE);
-  const sb = e.target.closest(".sub"); if (sb) return p3View(+sb.dataset.stage, sb.dataset.bin);
-  const pr = e.target.closest(".pool-row"); if (pr) return p3View(+pr.dataset.stage, null);
+  const onAr = !!e.target.closest(".p3-ar");
+  const sn = e.target.closest(".sub-none"); if (sn) return p3RowClick(+sn.dataset.stage, NONE, onAr);
+  const sb = e.target.closest(".sub"); if (sb) return p3RowClick(+sb.dataset.stage, sb.dataset.bin, onAr);
+  const pr = e.target.closest(".pool-row"); if (pr) return p3RowClick(+pr.dataset.stage, null, onAr);
 });
 $("p3OnlyStar").addEventListener("change", () => { P3.onlyStar = $("p3OnlyStar").checked; $("onlyStar").checked = P3.onlyStar; renderPage2(true); renderPage3(); });
 $("p3Star").onclick = () => toggleStar();
@@ -84,14 +102,22 @@ $("p3Star").onclick = () => toggleStar();
 /* ---- nút "Gợi ý In/Out cho clip sao" (chạy nền, hai mức, không tự ghi vào DaVinci) ---- */
 function p3SugPaint() {
   const g = S && S.inout_sug, b = $("p3Sug"); if (!g || !b) return;
-  const run = g.running;
-  b.disabled = run || !g.starred;
+  const run = g.running, n = g.starred;
+  b.disabled = !!run;                                           // chỉ khoá khi đang chạy; không có clip sao thì bấm vẫn báo lý do (không im lặng)
   b.classList.toggle("run", !!run);
+  b.classList.toggle("again", !run && g.done > 0);
   if (run && g.total) b.style.setProperty("--pg", Math.round(g.n / g.total * 100) + "%"); else b.style.removeProperty("--pg");
-  $("p3SugT").textContent = run ? "Đang gợi ý…" : "Gợi ý In/Out cho clip sao";
-  $("p3SugN").textContent = run ? `${g.n}/${g.total}` : (g.starred ? `đã chạy ${g.done}/${g.starred}` : "chưa có clip sao");
-  b.title = g.starred ? "Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4), không thì theo quy tắc bin. Màu xanh, không tự ghi vào DaVinci."
+  $("p3SugT").textContent = run ? `Đang gợi ý… ${g.n}/${g.total}` : (g.done > 0 ? `Chạy lại gợi ý (${n} clip sao)` : `Chạy gợi ý cho ${n} clip sao`);
+  $("p3SugN").textContent = run ? "" : (n ? `đã chạy ${g.done}/${n}` : "chưa có clip sao");
+  b.querySelector(".gi").textContent = run ? "…" : (g.done > 0 ? "↻" : "▶");
+  b.title = n ? "Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4), không thì theo quy tắc bin. Màu xanh, không tự ghi vào DaVinci."
     : "Chưa có clip sao. Gắn sao (J) ở Bước 2 trước.";
+}
+function p3SugMsg(text, kind) { const m = $("p3SugMsg"); m.textContent = text || ""; m.className = "p3-gymsg" + (kind ? " " + kind : ""); }
+function p3SugSummary() {                                       // kết quả lần chạy, đọc từ chính trạng thái hiện có
+  const st = S.clips.filter((c) => c.star && c.sug && c.sug.src !== "live");
+  const sp = st.filter((c) => c.sug.src === "speech").length;
+  return { total: st.length, speech: sp, rule: st.length - sp };
 }
 function p3SumPaint() {
   const el = $("p3Sum"), g = S && S.inout_sug; if (!el || !g) return;
@@ -100,26 +126,34 @@ function p3SumPaint() {
   el.textContent = `${g.starred} clip có sao trong ${stages} giai đoạn · gợi ý đã chạy ${g.done}/${g.starred} · đã nhận hoặc chỉnh ${g.accepted + g.adjusted}/${g.starred}`;
 }
 async function p3SugStart() {
-  const r = await api().inout_suggest_start();
-  if (r.error) return status(r.error, "warn");
+  p3SugMsg("Đang bắt đầu…", "");
+  let r;
+  try { r = await api().inout_suggest_start(); } catch (e) { r = { error: "Không gọi được Trợ lý: " + (e && e.message ? e.message : e) }; }
+  if (!r || r.error) { const m = (r && r.error) || "Không chạy được gợi ý."; p3SugMsg("Không chạy: " + m, "err"); return status(m, "warn"); }
+  P3.sugRun = true;
   if (S.inout_sug) { S.inout_sug.running = true; S.inout_sug.n = 0; S.inout_sug.total = r.total; }
-  p3SugPaint(); p3SugPoll();
+  p3SugPaint(); p3SugMsg(`Đang chạy nền cho ${r.total} clip sao…`, ""); p3SugPoll();
 }
-async function p3SugPoll() {                                    // dự phòng: hỏi tiến độ nếu sự kiện nền không tới
+async function p3SugFinish() {                                  // lần chạy vừa xong (sự kiện nền hoặc hỏi tiến độ): nạp lại trạng thái, báo kết quả
+  if (!P3.sugRun) return;
+  P3.sugRun = false;
+  try { setState(await api().state()); } catch (e) { p3SugMsg("Chạy xong nhưng không nạp lại được trạng thái: " + e, "err"); return; }
+  const x = p3SugSummary();
+  const msg = `Đã gợi ý cho ${x.total} clip sao: ${x.speech} theo lời nói, ${x.rule} theo quy tắc bin. Màu xanh, chưa ghi gì vào DaVinci.`;
+  p3SugMsg(msg, "ok");
+  status(msg + " Bấm A để nhận từng clip.", "ok");
+}
+async function p3SugPoll() {                                    // hỏi tiến độ (dự phòng nếu sự kiện nền không tới)
   clearTimeout(P3.poll);
-  const g = await api().inout_stats(); if (S) S.inout_sug = g;
+  let g; try { g = await api().inout_stats(); } catch (e) { p3SugMsg("Mất kết nối khi hỏi tiến độ: " + e, "err"); P3.sugRun = false; return; }
+  if (S) S.inout_sug = g;
   p3SugPaint(); p3SumPaint();
-  if (g.running) P3.poll = setTimeout(p3SugPoll, 600);
+  if (g.running) P3.poll = setTimeout(p3SugPoll, 600); else p3SugFinish();
 }
 $("p3Sug").onclick = p3SugStart;
 function p3SugEvent(kind, d) {                                  // gọi từ onEvent
-  if (kind === "inout_sug_progress" && S && S.inout_sug) { S.inout_sug.running = true; S.inout_sug.n = d.n; S.inout_sug.total = d.total; p3SugPaint(); return; }
-  if (kind === "inout_sug_done") {
-    api().state().then((st) => {
-      setState(st);
-      status(`Đã gợi ý In/Out cho ${d.total} clip sao: ${d.speech} theo lời nói, ${d.rule} theo quy tắc bin. Màu xanh, chưa ghi gì vào DaVinci; bấm A để nhận từng clip.`, "ok");
-    });
-  }
+  if (kind === "inout_sug_progress" && S && S.inout_sug) { P3.sugRun = true; S.inout_sug.running = true; S.inout_sug.n = d.n; S.inout_sug.total = d.total; p3SugPaint(); return; }
+  if (kind === "inout_sug_done") { P3.sugRun = true; p3SugFinish(); }
 }
 
 /* ---- phím A / nút "Nhận gợi ý": gợi ý xanh -> In/Out đặt tay (cam), rồi sang clip kế. Chỉ ở Bước 3; không nhận hàng loạt ---- */

@@ -34,12 +34,40 @@ class Step3New(unittest.TestCase):
 
     def test_nut_goi_y_chay_nen_co_tien_do_va_da_chay_n_tren_m(self):
         self.assertIn('id="p3Sug"', self.html)
-        self.assertIn("Gợi ý In/Out cho clip sao", self.html)
+        self.assertIn("Chạy gợi ý cho", self.html)                                            # chữ trên nút chính (không còn là khung thông tin)
         self.assertIn("api().inout_suggest_start()", self.s3)
-        self.assertIn("đã chạy ${g.done}/${g.starred}", self.s3)
+        self.assertIn("đã chạy ${g.done}/${n}", self.s3)
         self.assertIn("inout_sug_progress", self.s3)
         self.assertIn('kind.indexOf("inout_sug_") === 0', self.app)                           # sự kiện nền được nối
         self.assertIn("đã nhận hoặc chỉnh", self.s3)                                          # chân trang đếm số thật
+
+    def test_cay_thu_gon_mo_bang_mui_ten_va_bam_lai_dong_dang_chon(self):
+        seg = self.s3
+        self.assertIn("P3.fold", seg)
+        self.assertIn("fold: {}", seg)                                                         # nhớ trạng thái thu gọn khi đổi clip / đổi bước
+        self.assertIn('folded("s:" + i, true)', seg)                                           # cả giai đoạn: mặc định THU GỌN
+        self.assertIn('folded("b:" + i + ":" + bn.name, false)', seg)                          # bin: mặc định mở
+        self.assertIn("▾", seg)
+        self.assertIn("▸", seg)
+        self.assertIn("p3-ar", seg)
+        fn = seg[seg.index("function p3RowClick"):seg.index('$("p3List").addEventListener("click"')]
+        self.assertIn("selected", fn)                                                          # bấm lại dòng đang chọn: đảo trạng thái thu gọn
+        self.assertIn("P3.fold[key] = !", fn)
+        for bad in ("api().label", "api().move(", "assign("):                                  # bấm bin chỉ XEM, không đổi nhãn
+            self.assertNotIn(bad, seg[seg.index("function p3FoldKey"):seg.index('$("p3OnlyStar")')], bad)
+        self.assertIn('e.code === "ArrowUp" || e.code === "ArrowDown"', self.app)              # mũi tên lên/xuống đổi clip vẫn chạy
+
+    def test_nut_goi_y_la_nut_chinh_va_khong_im_lang_khi_loi(self):
+        self.assertIn("Chạy gợi ý cho", self.s3)
+        self.assertIn("Chạy lại gợi ý", self.s3)                                               # xong thì đổi thành "Chạy lại"
+        self.assertIn("Đang gợi ý… ${g.n}/${g.total}", self.s3)                                # tiến độ ngay trên nút
+        seg = self.s3[self.s3.index("async function p3SugStart"):self.s3.index("async function p3SugFinish")]
+        self.assertIn("catch (e)", seg)                                                        # gọi API lỗi cũng bắt
+        self.assertIn('p3SugMsg("Không chạy: "', seg)                                          # hiện lỗi rõ
+        self.assertIn("status(m, \"warn\")", seg)
+        self.assertNotIn("b.disabled = run || !g.starred", self.s3)                            # không khoá im lặng khi chưa có sao
+        self.assertIn("p3SugSummary()", self.s3)                                               # dòng trạng thái báo kết quả
+        self.assertIn(".p3-gy { background: var(--accent)", self.css)                          # nền nổi
 
     def test_phim_a_chi_o_buoc_3_va_buoc_2_giu_a_cho_ai_xep_bin(self):
         self.assertIn('page !== 3 || e.code !== "KeyA"', self.s3)

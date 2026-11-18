@@ -105,6 +105,10 @@
 - Panel ghi lại số clip anh nhận nguyên / chỉnh (plan["inout_stats"]) để có số đo thật. Đo trước trên project cũ: mức 1 lệch < 1 s: 9% (P1), 25% (P2); < 2 s: 26% / 56%; mức 2 CHƯA ĐO ĐƯỢC (project cũ chưa chép lời).
 - CHƯA chạy thử thật: trạng thái "Chưa chép lời" (chỉ ép dữ liệu), nút Ghi In/Out từ trang mới (mã ghi giữ nguyên, đã có test), project rất nhiều clip sao. Đã mở cửa sổ pywebview thật (4K 150%, bản sao dữ liệu) và so với demo.
 
+## Bước 3: sửa 3 điểm (18/11/2026, ADR-0025) - CHỜ ANH THỬ
+- Cây cột trái thu gọn/mở bằng mũi tên ▸/▾ (cả giai đoạn mặc định thu gọn, chỉ hiện bin con; P3.fold nhớ). Nút "Chạy gợi ý cho N clip sao" là nút chính, tiến độ trên nút, xong thành "Chạy lại", lỗi hiện đỏ rõ. Quay Truyền thống: cắt ĐẦU/ĐUÔI riêng từng bin (plan["trad_trim"]) + hai ô chung (trad_trim_s số hoặc cặp), cache gợi ý đổi theo.
+- Đã thử trong cửa sổ pywebview thật (bản sao dữ liệu): thu gọn/mở, bấm nút (cả khi chưa có sao), bảng hai cột, nhập sai, về mặc định. CHƯA thử: Bước 5 với Truyền thống theo bin bằng tay; bin Đón khách/Tiễn khách thật (chỉ thử bằng Decor).
+
 ## Việc tiếp theo (theo thứ tự)
 1. Bước 3 In/Out: XONG phần code (ADR-0019), chờ anh thử và duyệt demo. Còn: quy tắc tự tính In/Out nâng cao (hoãn), sửa bố cục theo ý anh.
 2. Bước 5 Thời lượng: ô "Video mục tiêu" (10-15 phút), biểu đồ chia tỉ lệ giai đoạn, Min-Max tổng thời lượng từng bin
