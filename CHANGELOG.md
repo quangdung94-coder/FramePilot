@@ -1,6 +1,6 @@
 # Nhật ký thay đổi
 
-## 2026-11-19 – Kiểm tài nguyên trên git + dọn rác (nhánh kiem-git-19-11, CHƯA gộp main)
+## 2026-11-19 – Kiểm tài nguyên trên git + dọn rác (nhánh kiem-git-19-11, ĐÃ GỘP main: commit gộp 26d0fa9, tag sao lưu truoc-gop-kiem-git-19-11 = f8be717)
 - Clone từ GitHub vào thư mục tạm: 520 test đạt, install.py cài thử vào APPDATA tạm đạt; panel mở bằng DaVinci giả từ bản clone (có config.json chép từ mẫu) chạy được: gõ "+ Bin mới", proxy HEVC báo rõ, mở lần hai đưa cửa sổ cũ lên trước. Thiếu config.json thì panel báo "Không đọc được config.json (data_root)".
 - THIẾU và đã thêm: config.example.json (mẫu cấu hình, không nhạy cảm), requirements_speech.txt (numpy, silero-vad cho Bước 4), ghim phiên bản requirements.txt (pywebview 6.2.1, Pillow 12.3.0). docs/BAN_GIAO.md mục 2b: bảng tài nguyên (trên git / ngoài git có chủ ý và cách lấy), các bước cài máy mới.
 - Bỏ tên khách thật khỏi test S3. Sửa ký tự tab/xóa lùi chen vào đường dẫn Windows trong BAN_GIAO, RA_SOAT, CHANGELOG, TRANG_THAI, ADR-0016. Thêm tests/test_repo_tai_nguyen.py (524 bài test).

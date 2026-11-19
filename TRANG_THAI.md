@@ -2,7 +2,7 @@
 
 Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
 
-## Kiểm tài nguyên git + dọn rác 19/11 (nhánh kiem-git-19-11, CHƯA gộp main)
+## Kiểm tài nguyên git + dọn rác 19/11 (nhánh kiem-git-19-11, ĐÃ GỘP main: commit gộp 26d0fa9, tag truoc-gop-kiem-git-19-11)
 - Đã thêm config.example.json, requirements_speech.txt, bảng tài nguyên ở docs/BAN_GIAO.md mục 2b; clone sạch chạy được test, install thử và panel với DaVinci giả. 524 bài test. Chi tiết: CHANGELOG.md.
 
 ## Tổng duyệt 19/11 + S1-S6: ĐÃ GỘP main 19/11 (commit gộp e08fff5, tag sao lưu truoc-gop-ra-soat-19-11 = 67bfa7d) - 520 test đạt; các mục CHƯA CHẠY THẬT vẫn chờ bạn thử tay
