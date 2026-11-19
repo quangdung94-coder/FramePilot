@@ -1,5 +1,9 @@
 # Trạng thái FramePilot, trước đây "Trợ lý File Quay" (cập nhật 18/11/2026, đêm)
 
+## Gộp main 19/11
+- main (commit gộp 10d4d18, 19/11/2026) đã chứa mọi việc của chuỗi nhánh: Bước 5 bản 3 timeline (ADR-0013), Tự phân loại B2/B3 (ADR-0026), lag lướt + kho khung RAM (ADR-0016 bản 1, 2), FramePilot (ADR-0027), "bạn" (ADR-0028), K3. Tag sao lưu: truoc-gop-19-11 (đầu nhánh sua-lag-luot-2). Các nhánh cũ còn nguyên, không xóa. 493 test đạt.
+- Còn dở: rê chuột thật có sự kiện đầu trễ 50-112 ms ở trường hợp xấu (người dựng chấp nhận); chưa kiểm bằng mắt K3 (cmd chớp); chạy `install.py` để menu hiện "FramePilot".
+
 ## Đêm 18/11 (4 dòng Notion [Đêm #1]-[Đêm #4]), nhánh xếp chồng, KHÔNG gộp main
 - #1 xong code (nhánh tu-phan-loai-b2-b3, ADR-0026): Tự phân loại chạy luôn ở Bước 2 và 3. Chờ thử bằng chuột thật và AI thật.
 - #2 xong code (nhánh sua-lag-luot, ADR-0016): đo lướt + dừng tay thì nhảy chính xác + tải trước clip kế. CHƯA đo trong panel pywebview thật (chạy panel với --debug, bấm Đo lướt).

@@ -1,5 +1,8 @@
 # Nhật ký thay đổi
 
+## 2026-11-19 – GỘP vào main (commit gộp 10d4d18, tag sao lưu truoc-gop-19-11 trên đầu nhánh sua-lag-luot-2 = b8fc195)
+- main giờ chứa: Bước 5 bản 3 timeline kéo thả (ADR-0013, đã gộp từ trước), Tự phân loại Bước 2/3 (ADR-0026), sửa lag lướt + kho khung nhỏ trong RAM + nút Đo lướt (ADR-0016 bản 1 và 2), đổi tên FramePilot + icon (ADR-0027), xưng hô "bạn" (ADR-0028), K3 (tiến trình con chạy ẩn). 493 bài test đạt trên main. Không xung đột, không xóa nhánh nào.
+
 ## 2026-11-19 – K3: hết cửa sổ cmd chớp khi mở clip (ADR-0016 bản 2)
 - Thủ phạm theo mã: nạp sóng âm (ffmpeg thiếu cờ ẩn console); bản xem nhẹ ffmpeg cũng thiếu. Thêm app/troly_proc.py (chay_an / mo_an: CREATE_NO_WINDOW + SW_HIDE), mọi lời gọi tiến trình con đi qua đó; test quét không còn lời gọi subprocess ngoài file này. 493 bài đạt. Chưa kiểm bằng mắt.
 
