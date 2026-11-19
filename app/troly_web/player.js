@@ -337,7 +337,7 @@ function plCurT() { return FR.active ? FR.t : (PL.vid ? PL.vid.currentTime : 0);
 /* ---- trình phát ---- */
 function plTime() {
   if (!PL.vid) return;
-  $("plTime").textContent = fmtF(plCurT(), PL.fps) + " / " + fmtF(PL.dur, PL.fps);
+  $("plTime").textContent = fmtF(plCurT(), PL.fps) + " / " + (PL.dur > 0 ? fmtF(PL.dur, PL.fps) : "chưa rõ độ dài");
   if (!SK.drag) $("plSeek").value = PL.dur ? Math.round(plCurT() / PL.dur * 1000) : 0;
   if (typeof p3TxNow === "function" && page === 3) p3TxNow();
 }
@@ -386,7 +386,7 @@ async function plOpen(c) {                                    // gọi từ show
     $("player").classList.remove("hidden"); $("plCtl").classList.add("hidden"); return;
   }
   $("plCtl").classList.remove("hidden"); $("plNote").textContent = "";
-  PL.fps = r.fps || PL.fps; PL.dur = r.dur || PL.dur;
+  PL.fps = r.fps || PL.fps; PL.dur = r.dur || 0;         // clip thiếu độ dài: KHÔNG mượn độ dài clip trước (hiện "chưa rõ độ dài" tới khi video báo)
   const v = plEl();
   if (v.parentNode !== $("preview")) $("preview").appendChild(v);
   if (lutGL() && LUT.cv.parentNode !== $("preview")) $("preview").appendChild(LUT.cv);
