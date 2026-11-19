@@ -760,6 +760,10 @@ def load_plan(data_root, project):
     d = _read_json(p) if os.path.isfile(p) else None
     if d is None and os.path.isfile(p):
         keep = "%s.corrupt-%s" % (p, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        n_dup = 1
+        while os.path.exists(keep + ("" if n_dup == 1 else "-%d" % n_dup)):       # hai lần hỏng cùng một giây: thêm hậu tố, không ghi đè bản trước
+            n_dup += 1
+        keep += "" if n_dup == 1 else "-%d" % n_dup
         try:
             os.replace(p, keep)
             note = "File kế hoạch bị hỏng, đã giữ lại bản hỏng: %s" % os.path.basename(keep)
