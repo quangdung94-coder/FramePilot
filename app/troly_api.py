@@ -719,6 +719,11 @@ class TrolyApi(object):
             moves = self._plan.get("moves") or []
             if self._busy or not moves or not self._clips:
                 return False
+            mb = moves[-1].get("bin")
+            if mb and mb != self._plan.get("source_bin"):      # clip của lần chuyển đó chưa được đọc: worker không chuyển được clip nào
+                self._emit("status", {"text": "Lần chuyển gần nhất thuộc bin %s. Hãy chọn bin đó, bấm \"Đọc clip\" rồi mới Hoàn tác "
+                                              "(nhật ký vẫn giữ)." % mb, "kind": "warn"})
+                return False
             self._busy = True
             self._worker.jobs.put(("undo", [tuple(x) for x in moves[-1]["log"]]))
         self._emit("status", {"text": "Đang hoàn tác...", "kind": "info"})
