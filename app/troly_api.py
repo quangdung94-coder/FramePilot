@@ -1256,7 +1256,7 @@ class TrolyApi(object):
     def _on_inout_restored(self, r):
         self._busy = False
         data = tc.read_inout_backup(r["backup"]) or {}
-        if not r["bad"]:
+        if not r["bad"] and not r.get("skipped"):            # bỏ qua clip chưa đọc thì CHƯA khôi phục đủ: giữ để Hoàn tác lại
             data["restored"] = True                          # đánh dấu để lần Hoàn tác sau lấy bản trước nữa
             try:
                 tc._write_json(r["backup"], data)
@@ -1268,6 +1268,8 @@ class TrolyApi(object):
             if c is not None and e is not None:
                 c.mark_in, c.mark_out = e.get("in"), e.get("out")
         msg = "Đã khôi phục In/Out cũ cho %d clip, đọc lại khớp." % len(r["ok"])
+        if r.get("skipped") and not r["bad"]:
+            msg += " %d clip trong bản sao lưu chưa được đọc (bin khác), bản sao lưu vẫn giữ để Hoàn tác tiếp." % r["skipped"]
         if r["bad"]:
             msg = "Khôi phục %d clip; %d clip KHÔNG khớp, file sao lưu vẫn giữ: %s" % (len(r["ok"]), len(r["bad"]), r["backup"])
         self._emit("state", self.state())

@@ -471,7 +471,7 @@ def latest_inout_backup(data_root, project):
         return None
     for n in reversed(names):
         data = _read_json(os.path.join(d, n))
-        if data and not data.get("restored"):
+        if data and data.get("project") == project and not data.get("restored"):   # tên 'X' và 'X_B' cùng tiền tố 'X_': xét đúng project trong file
             return os.path.join(d, n)
     return None
 
