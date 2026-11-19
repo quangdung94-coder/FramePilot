@@ -1,8 +1,8 @@
 # Nhật ký thay đổi
 
-## 2026-11-19 – Nhiều camera, trang 1 (nhánh nhieu-camera-giao-dien, CHƯA gộp main, tag sao lưu truoc-nhieu-camera-ui)
-- Trang 1: thẻ máy A-D, đặt tên máy, chọn máy chuẩn, chỉnh đồng hồ bằng khoảnh khắc chung, độ lệch gõ tay, kiểm tra lệch, thanh thời gian mỗi máy một hàng, chip máy cạnh bin. ADR-0031. Không ghi gì vào DaVinci.
-- Thêm app/troly_cams.py, TrolyApi.cams_*, app/troly_web/cam.js + cam.css, tools/harness_cam.py; 22 bài test mới, 555 bài đạt. Chưa thử trên project nhiều máy thật.
+## 2026-11-19 – Nhiều camera, trang 1 làm lại theo timeline đã sync (nhánh nhieu-camera-giao-dien, CHƯA gộp main, tag sao lưu truoc-nhieu-camera-ui)
+- Trang 1 đọc timeline DaVinci (chỉ đọc): máy = track video, tên theo tiền tố tên file, trục từ đầu timeline, hàng giai đoạn kéo được, con trỏ đỏ, cắt giai đoạn tại con trỏ, bám mép clip, bin mẹ (nhóm trong panel), mẫu "Chỉ tiệc nhà hàng", công tắt máy quay dọc. ADR-0032 (ADR-0031 đã bị thay thế).
+- Thêm app/troly_src.py, worker tl_list/tl_read, TrolyApi add_event/rename_event/cut_stage/set_vertical, tools/harness_cam.py (--real). Bỏ troly_cams.py, cam.js, cam.css. 556 bài test đạt. Thử trên DaVinci thật project 2026.11.14, chưa ghi marker.
 
 ## 2026-11-19 – Bước 2: phím giai đoạn đổi sang F1–F12 (nhánh doi-phim-giai-doan-f, CHƯA gộp main, tag sao lưu truoc-doi-phim-f)
 - F1–F12 chọn giai đoạn rồi chờ số bin con; Shift+số hết là phím giai đoạn. Đọc event.code, chặn mặc định F1/F5/F11/F12, cảnh báo trên giao diện khi quá 12 giai đoạn. ADR-0030.

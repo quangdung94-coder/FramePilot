@@ -1,5 +1,7 @@
 # ADR-0031: Nhiều camera, trang 1: nhận máy, tên máy, máy chuẩn, chỉnh đồng hồ (19/11/2026, bản thử)
 
+> ĐÃ THAY THẾ cùng ngày bởi ADR-0032 (người dựng bỏ hướng chỉnh đồng hồ trong panel; việc sync do tool sync riêng làm, panel đọc timeline đã sync). Giữ lại làm lịch sử.
+
 ## Quyết định (người dựng chốt 19/11, xem demo design/nhieu_camera)
 - Tối đa 4 máy, chữ cái A-D, tên do người dựng đặt (không trống, không trùng, tối đa 20 ký tự, dùng chung 3 trang).
 - Nhận máy từ metadata (`Camera Type`/`Camera Serial #`...) rồi mới tới tên file; không giả định tiền tố tên file. Nhóm không có model/seri,

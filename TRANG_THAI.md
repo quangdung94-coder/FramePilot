@@ -2,10 +2,10 @@
 
 Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
 
-## Nhiều camera, trang 1 (nhánh nhieu-camera-giao-dien, 19/11/2026, CHƯA gộp main, tag sao lưu truoc-nhieu-camera-ui) - 555 test đạt
-- Đã làm trang 1 của giao diện nhiều camera (ADR-0031): thẻ máy A-D (nhận từ metadata, nhóm nhập nhằng để gán tay), đặt tên máy, máy chuẩn, chỉnh đồng hồ bằng khoảnh khắc chung hoặc gõ tay, thanh thời gian mỗi máy một hàng, chip máy ở bin, kiểm tra lệch (cảnh báo > 3 giờ, chặn > 12 giờ).
-- Đã thử bằng DaVinci GIẢ trong trình duyệt (tools/harness_cam.py) và so ảnh với demo; CHƯA thử trên project nhiều máy thật.
-- Còn: trang 2 (làn ngang theo máy, tô màu clip chỉ khi bấm Áp dụng) và trang 3 (In/Out mỗi máy). Mỗi trang dừng chờ người dựng thử.
+## Nhiều camera, trang 1 làm lại (nhánh nhieu-camera-giao-dien, 19/11/2026, CHƯA gộp main, tag sao lưu truoc-nhieu-camera-ui) - 556 test đạt
+- Trang 1 đọc thẳng timeline đã sync trong DaVinci (ADR-0032, thay ADR-0031): mỗi track video = một máy, tên máy theo tiền tố tên file (bỏ ngày ở đầu), trục từ đầu timeline, hàng giai đoạn kéo được + hàng máy + hàng âm thanh, con trỏ đỏ, cắt giai đoạn tại con trỏ, bám mép clip, bin mẹ (chỉ nhóm trong panel), mẫu "Chỉ tiệc nhà hàng". Bỏ panel chỉnh đồng hồ và thẻ máy cũ.
+- Đã thử trên DaVinci THẬT (chỉ đọc) qua tools/harness_cam.py --real: project 2026.11.14, timeline "test muliticam" (3 máy, 134 clip) và "multicam_01_footage" (3 máy, 1034 clip). CHƯA mở bằng cửa sổ pywebview thật, CHƯA ghi marker (người dựng chọn không ghi).
+- Còn: duyệt trang 1; trang 2 (làn ngang theo máy) và trang 3 (In/Out mỗi máy) làm sau, mỗi trang dừng chờ người dựng.
 
 ## Sửa lỗi Bước 3 và Khung xem trước (nhánh sua-loi-p3pad-showimg, 19/11/2026) - 526 test đạt
 - Đã sửa 2 lỗi phát hiện qua review:

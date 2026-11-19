@@ -113,15 +113,10 @@ def camera_key(props):
         if v:
             return v
     name = os.path.splitext(props.get("File Name") or "")[0]
+    name = re.sub(r"^\d{6,8}[_\-\s]?", "", name)                  # bỏ ngày ở đầu tên: 20261114_HM1947 -> HM1947
     m = re.match(r"^([A-Za-z_\-]*[A-Za-z])", name)
-    prefix = m.group(1).upper().rstrip("_-") if m else "?"
-    return "%s %s" % (prefix, props.get("Resolution") or "")
-
-
-def _cam_meta(props):
-    """(hãng, model, serial) máy quay đọc từ metadata (ADR-0031); thiếu thì chuỗi rỗng."""
-    import troly_cams
-    return troly_cams.meta(props)
+    prefix = m.group(1).upper().rstrip("_-") if m else "Máy"
+    return ("%s %s" % (prefix, props.get("Resolution") or "")).strip()
 
 
 def minutes_of(dt, day0):
@@ -154,7 +149,8 @@ class Clip(object):
     """Một clip trong media pool, chỉ giữ những gì Trợ lý cần."""
 
     __slots__ = ("uid", "name", "path", "proxy", "lut", "dur", "fps", "frames", "t_start", "t_src", "camera",
-                 "bin_path", "clip_color", "rel", "mark_in", "mark_out", "tc", "cam_maker", "cam_model", "cam_serial")
+                 "bin_path", "clip_color", "rel", "mark_in", "mark_out", "tc", "size", "rot",
+                 "tl_mode", "tl_pos", "tl_dur", "tl_track", "tl_n")
 
     def __init__(self, **kw):
         for k in self.__slots__:
@@ -169,8 +165,12 @@ class Clip(object):
     def from_props(cls, uid, props, bin_path="", mark_in=None, mark_out=None):
         t, src = shoot_time(props)
         path = props.get("File Path") or ""
-        maker, model, serial = _cam_meta(props)
-        return cls(cam_maker=maker, cam_model=model, cam_serial=serial, uid=uid, name=props.get("File Name") or props.get("Clip Name") or "", path=path,
+        import troly_src
+        try:
+            rot = int(float(props.get("Rotation") or props.get("Video Rotation") or 0))
+        except (TypeError, ValueError):
+            rot = 0
+        return cls(size=troly_src.parse_size(props.get("Resolution")), rot=rot, uid=uid, name=props.get("File Name") or props.get("Clip Name") or "", path=path,
                    proxy=props.get("Proxy Media Path") or "", lut=props.get("Input LUT") or "",
                    dur=clip_duration_s(props), fps=float(props.get("FPS") or 0) or None,
                    frames=int(float(props.get("Frames") or 0)), t_start=t, t_src=src, camera=camera_key(props),
@@ -502,6 +502,11 @@ def day0_of(clips):
 
 def clip_minutes(clip, day0, offsets=None):
     """(phút bắt đầu, phút kết thúc) của clip trên thanh thời gian, đã cộng lệch giờ của máy (giây)."""
+    if clip.tl_mode:                                     # nguồn = timeline DaVinci (ADR-0032): vị trí trên timeline, KHÔNG dùng giờ trong file
+        if clip.tl_pos is None:
+            return None                                  # clip không nằm trên timeline: ngoài mọi giai đoạn
+        a = clip.tl_pos / 60.0
+        return a, a + (clip.tl_dur if clip.tl_dur is not None else (clip.dur or 0)) / 60.0
     if not clip.t_start:
         return None
     off = (offsets or {}).get(clip.camera, 0) or 0
@@ -537,14 +542,38 @@ BUILTIN_TEMPLATES = {
         ("Lễ nhà hàng", ["Sân khấu", "Nghi lễ", "Phát biểu", "Cô dâu chú rể", "Khách"]),
         ("Chào bàn", ["Cô dâu chú rể", "Khách"]),
     ],
+    "Chỉ tiệc nhà hàng": [
+        ("Đón khách", ["Decor", "Cô dâu chú rể", "Khách", "Gia đình"]),
+        ("Làm lễ · Vows", ["Sân khấu", "Nghi lễ", "Phát biểu", "Cô dâu chú rể", "Khách"]),
+        ("Tiệc", ["Cô dâu chú rể", "Khách", "Gia đình"]),
+    ],
 }
+# Bin mẹ (sự kiện) của từng giai đoạn trong mẫu: {mẫu: {tên giai đoạn: tên bin mẹ}}. Mẫu không có ở đây (mẫu người dựng tự lưu) thì mọi giai đoạn
+# vào một bin mẹ mặc định. Bin mẹ chỉ là NHÓM trong panel (ADR-0032): bin giai đoạn vẫn tạo trong bin nguồn.
+DEFAULT_EVENT = "Sự kiện"
+TEMPLATE_EVENTS = {
+    "Cưới đầy đủ (sáng lễ, tối tiệc)": {"Chuẩn bị nhà gái": "Lễ gia tiên", "Rước dâu": "Lễ gia tiên", "Gia tiên": "Lễ gia tiên",
+                                        "Đón dâu về nhà trai": "Lễ gia tiên", "Đón khách": "Tiệc nhà hàng", "Lễ nhà hàng": "Tiệc nhà hàng",
+                                        "Chào bàn": "Tiệc nhà hàng"},
+    "Lễ gia tiên (một buổi)": {"Chuẩn bị": "Lễ gia tiên", "Rước dâu": "Lễ gia tiên", "Gia tiên": "Lễ gia tiên", "Kết thúc": "Lễ gia tiên"},
+    "Tiệc nhà hàng": {"Đón khách": "Tiệc nhà hàng", "Lễ nhà hàng": "Tiệc nhà hàng", "Chào bàn": "Tiệc nhà hàng"},
+    "Chỉ tiệc nhà hàng": {"Đón khách": "Tiệc nhà hàng", "Làm lễ · Vows": "Tiệc nhà hàng", "Tiệc": "Tiệc nhà hàng"},
+}
+
+
+def event_of(template, stage_name):
+    """Tên bin mẹ của một giai đoạn theo mẫu."""
+    return (TEMPLATE_EVENTS.get(template) or {}).get(stage_name) or DEFAULT_EVENT
 DEFAULT_TEMPLATE = "Cưới đầy đủ (sáng lễ, tối tiệc)"
 
 
-def make_stage(name, start, end, bins, idx):
+def make_stage(name, start, end, bins, idx, event=None):
     bins = [b for b in bins if b and b != OTHER_BIN] + [OTHER_BIN]
-    return {"name": name, "start": float(start), "end": float(end), "color": PALETTE[idx % len(PALETTE)],
-            "bins": bins}
+    st = {"name": name, "start": float(start), "end": float(end), "color": PALETTE[idx % len(PALETTE)],
+          "bins": bins}
+    if event:
+        st["event"] = event
+    return st
 
 
 def templates(data_root):

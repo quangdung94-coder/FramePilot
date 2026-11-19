@@ -74,6 +74,7 @@ Quy trình:
 - app/troly_dur.py + app/troly_web/step5.js: Bước 5 Thời lượng (ADR-0013): chia thời lượng, cắt gọt, timeline mới bằng clip con. Số mặc định là ĐỀ XUẤT; demo design/4_thoi_luong (bản tĩnh design/4_thoi_luong_tinh).
 - app/troly_lut.py (đọc .cube cho WebGL), app/troly_kf.py (keyframe proxy bằng ffprobe, chỉ đọc): khung xem đúng màu LUT + lướt mượt + AI tự xếp theo ngưỡng (ADR-0023).
 - Bước 3 làm lại (ADR-0024): gợi ý In/Out hai mức trong troly_core (speech_span, compute_sug, sug_note) + TrolyApi.inout_suggest_start/inout_accept; giao diện app/troly_web/step3.js; canvas chuẩn bản sao design/3_inout_moi; tools/sug_accuracy.py.
+- app/troly_src.py: Bước 1 lấy nguồn từ timeline đã sync trong DaVinci (ADR-0032): máy = track video, tên máy theo tiền tố tên file, trục từ đầu timeline, hàm đọc timeline nằm ở troly_resolve.do_tl_list/do_tl_read (chỉ ĐỌC; đổi timeline hiện tại để đọc rồi TRẢ LẠI).
 - app/troly_env.py: đọc config.json, kết nối DaVinci, hộp báo lỗi.
 - install.py: cài mục menu "FramePilot" vào Workspace > Scripts (mục tên cũ "VideoAI Trợ lý File Quay" chỉ bị xóa khi chạy `install.py --remove-old`). Sửa code trong app\ không cần cài lại,
   chỉ đóng và mở lại cửa sổ Trợ lý.

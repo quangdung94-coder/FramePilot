@@ -39,6 +39,12 @@ def segs_all(v1, v2):
     return list(v1) + list(v2)
 
 
+def tc_size(res):
+    import re
+    m = re.match(r"^\s*(\d+)\s*[xX]\s*(\d+)\s*$", str(res or ""))
+    return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+
+
 def find_folder(root, path):
     """'Master/01_footage/01_SELECTED' -> Folder (đi theo tên từng cấp). Không thấy -> None."""
     parts = [p for p in (path or "").split("/") if p]
@@ -191,6 +197,88 @@ class TrolyWorker(threading.Thread):
             return v if v > 0 else None
         except Exception:                                     # noqa: BLE001
             return None
+
+    # --- ĐỌC TIMELINE (ADR-0032, chỉ ĐỌC) ---------------------------------------
+    def do_tl_list(self, _):
+        """Tên các timeline của project + timeline đang mở. Chỉ đọc."""
+        names, cur = [], None
+        try:
+            n = int(self.project.GetTimelineCount() or 0)
+            for i in range(1, n + 1):
+                t = self.project.GetTimelineByIndex(i)
+                if t is not None:
+                    names.append(t.GetName())
+            c = self.project.GetCurrentTimeline()
+            cur = c.GetName() if c else None
+        except Exception:                                      # noqa: BLE001  bản giả lập / DaVinci không cho đọc danh sách timeline
+            pass
+        self.post("timelines", (names, cur))
+
+    def do_tl_read(self, name):
+        """Đọc vị trí, độ dài, track của từng clip trên timeline `name` (khung hình của timeline). KHÔNG ghi gì.
+        DaVinci chỉ cho đọc item của timeline đang mở, nên nếu timeline khác đang mở thì mở timeline cần đọc rồi TRẢ LẠI timeline cũ."""
+        prev = self.project.GetCurrentTimeline()
+        tl = None
+        for i in range(1, int(self.project.GetTimelineCount() or 0) + 1):
+            t = self.project.GetTimelineByIndex(i)
+            if t is not None and t.GetName() == name:
+                tl = t
+                break
+        if tl is None:
+            raise RuntimeError("Không thấy timeline %s trong project." % name)
+        switched = not self._same_tl(prev, tl)
+        try:
+            if switched:
+                self.project.SetCurrentTimeline(tl)
+            raw = self._read_timeline(tl, name)
+        finally:
+            if switched and prev is not None:
+                try:
+                    self.project.SetCurrentTimeline(prev)
+                except Exception:                              # noqa: BLE001
+                    pass
+        self.post("tl_data", raw)
+
+    def _read_timeline(self, tl, name):
+        try:
+            fps = float(tl.GetSetting("timelineFrameRate"))
+        except Exception:                                      # noqa: BLE001
+            fps = 25.0
+        start0 = int(tl.GetStartFrame() or 0)
+        cache = {}
+
+        def info(mp):
+            uid = mp.GetUniqueId()
+            if uid not in cache:
+                pr = mp.GetClipProperty() or {}
+                typ = str(pr.get("Type") or "")
+                res = str(pr.get("Resolution") or "")
+                try:
+                    rot = int(float(pr.get("Rotation") or pr.get("Video Rotation") or 0))
+                except (TypeError, ValueError):
+                    rot = 0
+                m = tc_size(res)
+                cache[uid] = {"uid": uid, "name": str(pr.get("File Name") or pr.get("Clip Name") or ""), "w": m[0], "h": m[1], "rot": rot,
+                              "audio_only": typ.lower().startswith("audio") and "video" not in typ.lower()}
+            return cache[uid]
+
+        tracks, n_items = [], 0
+        for kind in ("video", "audio"):
+            for idx in range(1, int(tl.GetTrackCount(kind) or 0) + 1):
+                items = []
+                for it in tl.GetItemListInTrack(kind, idx) or []:
+                    mp = it.GetMediaPoolItem()
+                    if mp is None:                              # chuyển cảnh, tiêu đề, generator: không phải clip nguồn
+                        continue
+                    d = dict(info(mp))
+                    d["start"] = int(it.GetStart()) - start0
+                    d["dur"] = int(it.GetDuration())
+                    items.append(d)
+                    n_items += 1
+                    if n_items % 200 == 0:
+                        self.post("progress", ("Đang đọc timeline", n_items, n_items + 200))
+                tracks.append({"kind": kind, "idx": idx, "name": str(tl.GetTrackName(kind, idx) or ""), "items": items})
+        return {"name": name, "fps": fps, "start": 0, "tracks": tracks}
 
     # --- GHI (ADR-0009) -----------------------------------------------------
     def do_apply(self, arg):

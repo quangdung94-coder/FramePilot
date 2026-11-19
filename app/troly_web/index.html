@@ -7,7 +7,6 @@
 <!-- Giao diện theo demo đã duyệt docs/03-design/troly_demo/*.dc.html (ADR-0010). Chức năng ở src/troly_api.py. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="cam.css">
 </head>
 <body>
 <div id="app">
@@ -29,6 +28,7 @@
     <a href="#" data-page="5" class="step">5 · Thời lượng</a>
   </nav>
   <div class="top-right" id="right1">
+    <select id="tlSel" class="sel" title="Timeline nguồn: lấy vị trí các clip từ timeline đã sync trong DaVinci (chỉ đọc)"><option value="">Timeline: giờ trong file</option></select>
     <select id="binSel" class="sel" title="Bin nguồn trong Media Pool"><option>(đang đọc bin...)</option></select>
     <button class="btn" id="loadBtn">Đọc clip</button>
   </div>
@@ -47,82 +47,61 @@
   </div>
 </header>
 
-<!-- ======================= BƯỚC 1: GIAI ĐOẠN ======================= -->
-<main class="page one" id="page1">
+<!-- ======================= BƯỚC 1: GIAI ĐOẠN (timeline nhiều máy, ADR-0032) ======================= -->
+<main class="page" id="page1">
   <aside class="col-left">
     <div class="row-between baseline">
       <h2>Giai đoạn trong ngày</h2>
       <span class="dim12" id="stageCount">0 giai đoạn</span>
     </div>
-    <div class="stage-list" id="stageList"></div>
-    <button class="btn-dashed" id="addStage">+ Thêm giai đoạn</button>
+    <div id="stageList"></div>
+    <button class="btn-dashed" id="addEvent" title="Thêm một bin mẹ (nhóm giai đoạn) mới. Chỉ là nhóm trong panel.">+ Thêm sự kiện (bin mẹ)</button>
     <div class="inline8">
       <select id="tplSel" class="sel flex1" title="Mẫu sự kiện"></select>
-      <button class="btn" id="suggestBtn" title="Chia lại giai đoạn theo các khoảng nghỉ quay dài nhất">Gợi ý lại</button>
+      <button class="btn" id="suggestBtn" title="Chia lại giai đoạn theo mẫu đã chọn, ở các khoảng nghỉ quay dài nhất">Gợi ý lại</button>
     </div>
     <div class="flex1"></div>
-    <div class="later-box multi" id="syncBox"></div>
-    <div class="note-box multi">Giai đoạn chia theo <b style="color:var(--dim2)">giờ chung</b> (giờ máy đã cộng độ lệch). Một giai đoạn chứa clip của mọi máy.</div>
-    <div class="note-box">Giờ quay lấy từ ngày giờ ghi trong mỗi file. Kéo hai đầu của từng khoảng màu trên thanh thời gian để chỉnh giờ bắt đầu và kết thúc. Bấm vào giai đoạn để sửa tên, giờ, bin con.</div>
+    <div class="note-box" id="axisNote">Trục thời gian tính từ đầu timeline DaVinci. Kéo hai mép thanh trắng để chỉnh giai đoạn. Bấm vào giai đoạn để sửa tên, mốc, bin con.</div>
   </aside>
 
   <section class="col-main">
-    <div class="row-between end">
+    <div class="tl-head">
       <div class="title-block">
-        <h1>Thanh thời gian buổi quay</h1>
-        <span class="dim13" id="tlSub">Mỗi hàng là một máy, mỗi vạch là một file, theo giờ chung</span>
+        <h1>Chia giai đoạn trên timeline</h1>
+        <span class="dim13" id="tlSub">Mỗi máy một hàng, trục thời gian tính từ đầu timeline như DaVinci. Kéo thanh trắng ở hai mép để đổi giai đoạn.</span>
       </div>
-      <div class="inline8">
-        <label for="from" class="lbl">Hiển thị từ</label>
-        <input id="from" class="inp center" value="06:00" style="width:72px">
-        <label for="to" class="lbl">đến</label>
-        <input id="to" class="inp center" value="22:00" style="width:72px">
-      </div>
-    </div>
-
-    <div class="v8" id="camSec">
-      <div class="row-between baseline" style="flex-wrap:wrap"><h2>Máy quay trong project</h2><span class="dim12">Trợ lý đọc dòng máy từ metadata. Bạn đặt tên: không để trống, không trùng.</span></div>
-      <div class="cam-cards" id="camCards"></div>
-      <div class="cam-grp" id="camGroups"></div>
-    </div>
-
-    <div class="tl-card" id="tlCard">
-      <div class="ruler" id="ruler"></div>
-      <div class="dens-wrap" id="density"></div>
-      <div class="bands" id="bands"></div>
-      <div class="tl-foot">
-        <span id="gapText">Chưa đọc clip</span>
-        <span><span id="sumText"></span><button class="btn-link hidden" id="clearManual" title="Các clip này quay về giai đoạn tính theo giờ quay">Bỏ chọn tay</button></span>
+      <div class="tl-tools">
+        <button class="tbtn" id="zOut" title="Thu nhỏ">−</button>
+        <button class="tbtn" id="zIn" title="Phóng to">+</button>
+        <button class="tbtn wide" id="zFit" title="Vừa khít cả timeline">Vừa khít</button>
+        <span class="tsep"></span>
+        <button class="tbtn wide" id="cutStage" title="Chia giai đoạn đang chứa con trỏ làm hai. Chỉ chia giai đoạn, KHÔNG cắt clip.">Cắt giai đoạn tại con trỏ</button>
+        <button class="tbtn pill" id="snapBtn" title="Khi kéo mép giai đoạn hoặc đặt con trỏ, hút vào mép clip gần nhất">Bám vào mép clip: Bật</button>
       </div>
     </div>
 
-    <div class="v12">
-      <h2>Bin sẽ tạo trong Media Pool</h2>
-      <div class="bin-grid" id="binGrid"></div>
-      <span class="dim12 multi">Một bin cho mọi máy. Máy nào có clip trong bin thì hiện chữ cái màu cạnh tên bin.</span>
+    <div class="pills" id="srcPills"></div>
+    <label class="vcam" title="Mặc định TẮT: chỉ nhóm máy theo track (kích thước mã hoá gốc + tiền tố tên file, bỏ qua cờ xoay). Bật thì tách thêm theo hướng sau xoay."><input type="checkbox" id="vertCams"> Có máy quay dọc</label>
+
+    <div class="tl2" id="tlCard">
+      <div class="tl2-labels" id="tlLabels"></div>
+      <div class="tl2-view" id="tlView"></div>
+    </div>
+
+    <div class="v12" id="binBox">
+      <div class="bin-head"><h2>Bin sẽ tạo trong Media Pool</h2><span class="path-pill" id="binPath"></span><span class="dim12" id="binHint"></span></div>
+      <div id="binGrid"></div>
     </div>
 
     <div class="flex1"></div>
-    <div class="row-between center sticky-bot">
-      <span class="inline12"><button class="btn-link multi" id="resetAll">Đặt lại độ lệch</button><button class="btn-link hidden" id="undoBtn1">Hoàn tác lần chuyển gần nhất</button></span>
+    <div class="row-between center">
+      <span class="inline12"><span class="dim12" id="tlFoot">Chỉ để xem và chia giai đoạn. Cắt clip vẫn làm trong DaVinci.</span><button class="btn-link hidden" id="clearManual" title="Các clip này quay về giai đoạn tính theo giờ quay">Bỏ chọn tay</button><button class="btn-link hidden" id="undoBtn1">Hoàn tác lần chuyển gần nhất</button></span>
       <div class="inline12">
-        <button class="btn btn-lg" id="saveTpl">Lưu mẫu giờ cho đám sau</button>
+        <button class="btn btn-lg" id="saveTpl">Lưu mẫu cho đám sau</button>
         <button class="btn-accent btn-lg" id="applyBtn1">Tạo bin và sang bước phân loại</button>
       </div>
     </div>
   </section>
-
-  <!-- Phải: chỉnh đồng hồ máy (nhiều camera, ADR-0031). Một máy: chỉ hiện ô giải thích. -->
-  <aside class="col-right clock" id="clockCol">
-    <div class="multi" style="display:contents" id="clockMulti"></div>
-    <div class="one-only one-box">
-      <b>Project này chỉ có 1 máy</b>
-      <span>Không cần chỉnh đồng hồ, giờ máy chính là giờ chung. Thanh thời gian chỉ có một hàng.</span>
-      <span class="dim12">Khi bạn import thêm source của máy khác, phần chỉnh đồng hồ tự hiện ra ở đây.</span>
-    </div>
-    <div class="flex1"></div>
-    <span class="dim12">Chưa ghi gì vào DaVinci. Độ lệch chỉ lưu trong Trợ lý, file gốc không bị đổi tên hay sửa giờ.</span>
-  </aside>
 </main>
 
 <!-- ======================= BƯỚC 2: PHÂN LOẠI ======================= -->
@@ -426,7 +405,6 @@
 </div>
 </div>
 <script src="app.js"></script>
-<script src="cam.js"></script>
 <script src="player.js"></script>
 <script src="speech.js"></script>
 <script src="step3.js"></script>

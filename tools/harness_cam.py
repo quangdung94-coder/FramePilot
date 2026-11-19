@@ -2,7 +2,7 @@
 
 Không đụng DaVinci, không đụng dữ liệu thật. Cách dùng:
   & $py tools\harness_cam.py --cams 4 --port 8765     rồi mở http://127.0.0.1:8765/
-  --cams 1|3|4: số máy giả (4 = 3 máy có metadata + 1 máy chỉ nhận theo tên file).
+  --cams 1|3|4: số máy giả. --real "<tên project>": nối DaVinci thật (chỉ đọc).
 """
 import argparse
 import json
@@ -12,6 +12,7 @@ import shutil
 import sys
 import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -64,6 +65,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cams", type=int, default=4)
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--real", default="", help="tên project đang mở trong DaVinci THẬT (chỉ ĐỌC; dữ liệu kế hoạch ghi vào thư mục tạm, không đụng dữ liệu thật)")
     a = ap.parse_args()
     tmp = tempfile.mkdtemp()
     events, lock = [], threading.Lock()
@@ -72,9 +74,13 @@ def main():
         with lock:
             events.append([kind, data])
 
-    pool = pool_for(a.cams)
-    name = "2026.10.17.LV_Mau"
-    api = ta.TrolyApi(name, tmp, emit=emit, resolve_factory=lambda: T.FResolve(T.FProject(name, pool)), start_worker=True)
+    if a.real:
+        name = a.real
+        api = ta.TrolyApi(name, tmp, emit=emit, start_worker=True)
+    else:
+        pool = pool_for(a.cams)
+        name = "2026.10.17.LV_Mau"
+        api = ta.TrolyApi(name, tmp, emit=emit, resolve_factory=lambda: T.FResolve(T.FProject(name, pool)), start_worker=True)
 
     class H(BaseHTTPRequestHandler):
         def log_message(self, *x):
@@ -90,6 +96,8 @@ def main():
         def do_GET(self):
             p = self.path.split("?")[0]
             if p == "/events":
+                if a.real:
+                    time.sleep(0.15)                  # DaVinci thật đọc chậm: mỗi lần hỏi sự kiện chờ một chút để chụp ảnh bằng giờ ảo không bỏ lỡ
                 with lock:
                     out = events[:]
                     del events[:]
@@ -103,7 +111,7 @@ def main():
             if p == "/index.html":
                 shim = ("<script>window.pywebview={api:new Proxy({}, {get:(_,m)=>(...a)=>fetch('/rpc',{method:'POST',body:JSON.stringify({m,a})}).then(r=>r.json())})};"
                         "window.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>window.dispatchEvent(new Event('pywebviewready')),50);"
-                        "const H=location.hash;const D=(id,ms)=>setTimeout(()=>{const e=document.getElementById(id);e&&e.click()},ms);if(H.includes('load'))D('loadBtn',3000);if(H.includes('moment')){D('lkR',6000);D('lkX',6200)}if(H.includes('apply'))D('applyBtn',7200);setInterval(()=>fetch('/events').then(r=>r.json()).then(l=>l.forEach(([k,d])=>window.onEvent&&window.onEvent(k,d))),300);});</script>").encode("utf-8")
+                        "const H=location.hash;const D=(id,ms)=>setTimeout(()=>{const e=document.getElementById(id);e&&e.click()},ms);const Q=k=>{const m=decodeURIComponent(H).match(new RegExp(k+'=([^&]*)'));return m?m[1]:null};if(H.includes('load'))setTimeout(()=>{const b=Q('bin'),t=Q('tl');if(b)document.getElementById('binSel').value=b;if(t)document.getElementById('tlSel').value=t;document.getElementById('loadBtn').click()},3000);if(Q('cur')){let d2=0;setInterval(()=>{if(!d2&&typeof S!=='undefined'&&S&&S.n&&S.src&&!S.src.waiting&&S.src.timeline===(Q('tl')||'')&&S.stages.some(x=>x.count>0)){d2=1;cursorM=+Q('cur');fitView();renderPage1()}},500)}if(Q('tpl')){let done=0;setInterval(()=>{if(!done&&typeof S!=='undefined'&&S&&S.n&&S.src&&!S.src.waiting&&S.stages.length===0&&S.src.timeline===(Q('tl')||'')){done=1;document.getElementById('tplSel').value=Q('tpl');document.getElementById('suggestBtn').click()}},500)}if(H.includes('moment')){D('lkR',6000);D('lkX',6200)}if(H.includes('apply'))D('applyBtn',7200);setInterval(()=>fetch('/events').then(r=>r.json()).then(l=>l.forEach(([k,d])=>window.onEvent&&window.onEvent(k,d))),300);});</script>").encode("utf-8")
                 body = body.replace(b"</head>", shim + b"</head>")
             ct = {"html": "text/html", "js": "text/javascript", "css": "text/css"}.get(p.rsplit(".", 1)[-1], "application/octet-stream")
             self._send(200, body, ct + "; charset=utf-8")

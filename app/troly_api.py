@@ -22,7 +22,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import troly_core as tc           # noqa: E402
-import troly_cams as cm           # noqa: E402
+import troly_src as ts            # noqa: E402
 import troly_resolve as tr        # noqa: E402
 import troly_thumbs as tt         # noqa: E402
 import troly_ai as ai             # noqa: E402
@@ -59,7 +59,11 @@ class TrolyApi(object):
         self._autoload = bool(self._plan.get("source_bin"))   # mở lại panel: tự nạp clip của bin nguồn đã dùng
         self._new_n, self._gone_n = 0, 0
         self._dup_keys = set()
-        self._cam_groups = []             # nhóm máy nhận từ clip đã đọc (ADR-0031), tính lại mỗi lần Đọc clip
+        self._tl_names, self._tl_raw, self._tl_synced, self._tl_why = [], None, False, ""    # nguồn timeline DaVinci (ADR-0032)
+        self._tl_want = self._plan.get("tl_source") or ""        # tên timeline người dựng chọn làm nguồn ("" = giờ trong file)
+        self._tl_wait, self._pending_msg = False, None           # đang đợi timeline đọc xong mới báo trạng thái
+        self._mk_letter, self._machines = {}, []                 # {uid: chữ máy}, danh sách máy (hàng của thanh thời gian)
+        self._tl_stats = {"n_clips": 0, "n_missing": 0, "n_extra": 0}
         self._clips, self._by_uid, self._day0 = [], {}, None
         self._assign = {}
         self._bins = []
@@ -115,6 +119,11 @@ class TrolyApi(object):
                 self._emit("progress", {"text": "%s %d/%d..." % (what, i, n), "frac": i / float(max(1, n))})
             elif kind == "tl_fps":
                 self._tl_fps = data
+            elif kind == "timelines":
+                self._tl_names = list(data[0])
+                self._emit("timelines", {"names": self._tl_names, "current": data[1], "pick": self._tl_want})
+            elif kind == "tl_data":
+                self._on_tl_data(data)
             elif kind == "clips":
                 self._on_clips(*data)
             elif kind == "applied":
@@ -155,6 +164,11 @@ class TrolyApi(object):
             elif kind == "error":
                 self._busy = False
                 job, msg = data
+                if job == "tl_read" and self._tl_wait:                    # không đọc được timeline: vẫn hiện clip theo giờ trong file, kèm lý do
+                    self._tl_raw, self._tl_synced, self._tl_why = None, False, "Không đọc được timeline: %s" % msg
+                    self._tl_wait = False
+                    self._apply_source()
+                    self._emit("state", self.state())
                 self._emit("status", {"text": "Lỗi (%s): %s" % (job, msg), "kind": "error"})
 
     def _save_soon(self):
@@ -199,9 +213,11 @@ class TrolyApi(object):
                 for c in in_stage:
                     by_bin[self._label_in_stage(c, i)].append(c.uid)
                 none = by_bin.get(None, [])
+                letters = sorted({self._mk_letter[c.uid] for c in in_stage if self._mk_letter.get(c.uid)})
                 stages.append({"name": s["name"], "start": s["start"], "end": s["end"], "color": s["color"],
                                "count": cnt[i], "bin": "%02d_%s" % (i + 1, s["name"]),
-                               "range": "%s – %s" % (tc.fmt_min(s["start"]), tc.fmt_min(s["end"])),
+                               "event": self._event_of_stage(s), "mach": letters,
+                               "range": "%s – %s" % (self._fmt_axis(s["start"]), self._fmt_axis(s["end"])),
                                "uids": [c.uid for c in in_stage], "none": none,
                                "done": len(in_stage) - len(none),
                                "bins": [{"name": b, "key": str(j + 1) if j < 9 else "",
@@ -209,7 +225,6 @@ class TrolyApi(object):
                                          "count": len(by_bin.get(b, []))}
                                         for j, b in enumerate(s["bins"])]})
             clips = []
-            cam_cfg = self._cams_cfg()
             for c in self._clips:
                 m = tc.clip_minutes(c, self._day0, self._plan["offsets"]) if self._day0 else None
                 si = self._assign.get(c.uid)
@@ -219,20 +234,19 @@ class TrolyApi(object):
                 in_s, out_s, io_src = (round(eff[0], 2), round(eff[1], 2), eff[2]) if eff else (None, None, None)
                 dv = (round(c.mark_in / fps, 2), round(c.mark_out / fps, 2)) if c.mark_in is not None and c.mark_out is not None else None
                 sug = self._sug_view(c, lb)
-                clips.append({"uid": c.uid, "name": c.name, "m0": m[0] if m else None, "m1": m[1] if m else None,
+                clips.append({"uid": c.uid, "name": c.name, "m0": m[0] if m else None, "m1": m[1] if m else None, "mk": self._mk_letter.get(c.uid, ""),
                               "time": c.t_start.strftime("%H:%M:%S") if c.t_start else "--:--:--",
                               "dur": c.dur or 0, "stage": si, "label": lb, "label_by": ((tc.label_of(self._plan, c) or {}).get("by") if lb else None),
                               "manual": bool(tc.manual_of(self._plan, c)), "camera": c.camera, "src": c.t_src, "lut": c.lut or "", "bin_path": c.bin_path,
                               "thumb": c.uid in self._thumb_done and bool(self._thumb_done[c.uid][0]),
                               "in_s": in_s, "out_s": out_s, "io_src": io_src, "dv": dv, "fps": fps, "tc": c.tc or "", "sug": sug,
-                              "star": tc.is_starred(self._plan, c),
-                              "cam_l": cam_cfg["map"].get(c.camera, ""), "raw_s": self._raw_s(c)})
+                              "star": tc.is_starred(self._plan, c)})
             gap = None
             if self._day0 and self._clips:
                 gs = tc.gaps(self._clips, self._day0, self._plan["offsets"])
                 if gs:
                     g = max(gs)
-                    gap = {"a": g[1], "b": g[2], "text": "%s – %s" % (tc.fmt_min(g[1]), tc.fmt_min(g[2]))}
+                    gap = {"a": g[1], "b": g[2], "text": "%s – %s" % (self._fmt_axis(g[1]), self._fmt_axis(g[2]))}
             cams = collections.Counter(c.camera for c in self._clips)
             moves = self._plan.get("moves") or []
             return {"project": self._project, "bin": self._plan.get("source_bin"),
@@ -244,10 +258,11 @@ class TrolyApi(object):
                     "shoot_style": self._plan.get("shoot_style") or "",
                     "rules": self._rules_state(),
                     "stages": stages, "outside": outside, "clips": clips, "gap": gap,
-                    "cams": self._cams_view(cam_cfg, clips),
                     "cameras": [{"cam": k, "n": v, "off": self._plan["offsets"].get(k, 0)} for k, v in
                                 cams.most_common()],
-                    "template": self._plan.get("template") or tc.DEFAULT_TEMPLATE,
+                    "src": self._src_view(), "machines": [{k: m[k] for k in ("key", "letter", "name", "color", "prefix", "n")} for m in self._machines],
+                    "audio": self._audio_view(), "events": self._events_view(),
+                    "template": self._plan.get("template") if self._tl_want else (self._plan.get("template") or tc.DEFAULT_TEMPLATE),
                     "templates": list(tc.templates(self._root)),
                     "moves": [{"at": m.get("at", "")[:16].replace("T", " "), "n": len(m["log"])} for m in moves],
                     "busy": self._busy,
@@ -444,6 +459,7 @@ class TrolyApi(object):
 
     def _on_bins(self, bins, cur_name):
         self._bins = bins
+        self._worker.jobs.put(("tl_list", None))
         self._adopt_by_uid()
         want = self._plan.get("source_bin")
         pick = None
@@ -464,17 +480,26 @@ class TrolyApi(object):
             self._autoload = False                        # chỉ tự nạp MỘT lần khi mở panel (không nạp lại sau Áp dụng/Hoàn tác)
             self._emit("status", {"text": "Đang nạp lại kế hoạch đã lưu của project (%s)..." % want, "kind": "info"})
             self._worker.jobs.put(("load", want))
+            if self._tl_want:
+                self._worker.jobs.put(("tl_read", self._tl_want))
             return
         self._autoload = False
         if not self._clips:                               # đọc lại bin sau Áp dụng/Hoàn tác: không đè kết quả (cảnh báo) lên dòng trạng thái
             self._emit("status", {"text": "Đã kết nối DaVinci. Chọn bin nguồn rồi bấm \"Đọc clip\" (chỉ đọc).",
                                   "kind": "info"})
 
-    def load(self, bin_path):
+    def load(self, bin_path, timeline=None):
+        """Đọc clip của bin nguồn; nếu có timeline nguồn (tên) thì đọc luôn vị trí các clip trên timeline đó (chỉ đọc)."""
         if not bin_path:
             return False
+        with self._lock:
+            if timeline is not None:
+                self._tl_want = str(timeline or "")
+                self._plan["tl_source"] = self._tl_want
         self._emit("status", {"text": "Đang đọc clip của %s..." % bin_path, "kind": "info"})
         self._worker.jobs.put(("load", bin_path))
+        if self._tl_want:
+            self._worker.jobs.put(("tl_read", self._tl_want))
         return True
 
     def _on_clips(self, bin_path, clips):
@@ -500,10 +525,10 @@ class TrolyApi(object):
         else:
             self._day0 = tc.day0_of(self._clips)
             self._plan["day0"] = self._day0.isoformat()
-            self._suggest(self._plan.get("template"))
+            if not self._tl_want:                           # chọn timeline nguồn thì KHÔNG tự áp mẫu: người dựng chọn mẫu rồi bấm Gợi ý lại
+                self._suggest(self._plan.get("template"))
         kc = collections.Counter(tc.clip_key(c) for c in self._clips)
         self._dup_keys = {k for k, v in kc.items() if v > 1}            # hai clip khác nhau cùng khóa (vd. hai thẻ Sony cùng CLIP/C0001.MP4)
-        self._cams_refresh()
         keys = set(kc)
         prev = set(self._plan.get("seen") or [])
         self._new_n = len(keys - prev) if (same and prev) else 0       # clip MỚI kể từ lần đọc trước (chưa phân loại)
@@ -526,9 +551,145 @@ class TrolyApi(object):
             msg += (" CẢNH BÁO: %d clip trùng đường dẫn (vd. %s) nên dùng chung nhãn, sao và In/Out; Trợ lý KHÔNG ghi In/Out cho các clip này. "
                     "Nên đặt thư mục footage theo tên project (năm.tháng.ngày.tên)." % (nd, sorted(self._dup_keys)[0]))
         self._save_soon()
+        self._pump_thumbs()
+        if self._tl_want:                                   # đợi timeline đọc xong rồi mới báo (ADR-0032)
+            self._tl_wait, self._pending_msg, self._tl_raw = True, msg, None
+            return
+        self._apply_source()
         self._emit("state", self.state())
         self._emit("status", {"text": msg, "kind": "ok"})
-        self._pump_thumbs()
+
+    # ------------------------------------------------------------------ nguồn thời gian: timeline DaVinci hoặc giờ trong file (ADR-0032)
+    def _tl_mode(self):
+        return bool(self._tl_raw and self._tl_synced and self._tl_want)
+
+    def _src_key(self):
+        return "tl:" + self._tl_want if self._tl_mode() else "clock"
+
+    def _switch_stage_set(self, key):
+        """Mỗi nguồn thời gian có BỘ GIAI ĐOẠN riêng (trục khác nhau: giây từ đầu timeline hay giờ trong ngày), cất theo khóa nguồn."""
+        old = self._plan.get("stage_src") or "clock"
+        if old == key:
+            self._plan["stage_src"] = key
+            return
+        by = self._plan.setdefault("stages_by_src", {})
+        by[old] = {"stages": copy.deepcopy(self._plan.get("stages") or []), "template": self._plan.get("template"),
+                   "events": list(self._plan.get("events") or [])}
+        back = by.pop(key, None)
+        if back:
+            self._plan["stages"], self._plan["template"], self._plan["events"] = back["stages"], back.get("template") or "", back.get("events") or []
+        else:
+            self._plan["stages"], self._plan["events"] = [], []
+            if key != "clock":
+                self._plan["template"] = ""
+        self._plan["stage_src"] = key
+
+    def _on_tl_data(self, raw):
+        with self._lock:
+            self._tl_raw = raw
+            self._tl_synced, self._tl_why = ts.is_synced(raw)
+            was_wait, self._tl_wait = self._tl_wait, False
+            self._apply_source()
+            self._save_soon()
+            if was_wait or self._clips:
+                self._emit("state", self.state())
+            if self._pending_msg:
+                st = self._tl_stats
+                extra = ""
+                if self._tl_mode():
+                    extra = " Đọc từ timeline DaVinci: %s." % self._tl_want
+                    if st["n_missing"]:
+                        extra += " %d clip chưa nằm trong timeline." % st["n_missing"]
+                else:
+                    extra = " Chưa sync, đang dùng giờ trong file." + (" (%s)" % self._tl_why if self._tl_why else "")
+                self._emit("status", {"text": self._pending_msg + extra, "kind": "ok" if self._tl_mode() else "warn"})
+                self._pending_msg = None
+
+    def set_vertical(self, flag):
+        """Công tắt "Có máy quay dọc" (mặc định TẮT): bật mới tách nhóm máy theo hướng sau xoay. Không xoay hay sửa file."""
+        with self._lock:
+            self._plan["vertical_cams"] = bool(flag)
+            self._apply_source()
+            self._save_soon()
+            return self.state()
+
+    def _apply_source(self):
+        """Gắn vị trí timeline (nếu dùng) vào từng clip, dựng danh sách máy + chữ máy của mỗi clip, đổi bộ giai đoạn theo nguồn."""
+        vertical = bool(self._plan.get("vertical_cams"))
+        self._mk_letter = {}
+        if self._tl_mode():
+            self._switch_stage_set(self._src_key())
+            raw = self._tl_raw
+            self._place = ts.placements(raw, vertical=vertical)
+            self._machines = ts.machines(raw, vertical)
+            letter = {m["key"]: m["letter"] for m in self._machines}
+            by_uid = {c.uid for c in self._clips}
+            for c in self._clips:
+                pl = self._place.get(c.uid)
+                c.tl_mode = True
+                c.tl_pos, c.tl_dur, c.tl_track, c.tl_n = (pl["pos"], pl["dur"], pl["track"], pl["n"]) if pl else (None, None, None, 0)
+                if pl:
+                    self._mk_letter[c.uid] = letter.get(pl["mk"], "")
+            self._tl_stats = {"n_clips": len(self._place), "n_missing": sum(1 for c in self._clips if c.tl_pos is None),
+                              "n_extra": sum(1 for u in self._place if u not in by_uid)}
+        else:
+            self._switch_stage_set("clock")
+            self._place = {}
+            groups = {}
+            for c in self._clips:
+                c.tl_mode, c.tl_pos, c.tl_dur, c.tl_track, c.tl_n = False, None, None, None, 0
+                port = ts.portrait(c.size[0], c.size[1], c.rot, True) if (vertical and c.size) else False
+                groups.setdefault((c.camera, "d" if port else ("n" if vertical else "")), []).append(c)
+            order = sorted(groups.items(), key=lambda kv: min((c.t_start for c in kv[1] if c.t_start), default=datetime.datetime.max))
+            self._machines = []
+            for i, ((cam, sub), cs) in enumerate(order):
+                pref = (cam.split(" ")[0] if cam else "")
+                m = {"key": "k:%s%s" % (cam, sub), "track": None, "prefix": pref, "n": len(cs), "orient": sub, "letter": chr(65 + i) if i < 26 else "?",
+                     "color": ts.COLORS[i % len(ts.COLORS)]}
+                tag = pref + ((" " if pref else "") + ("dọc" if sub == "d" else "ngang") if sub else "")
+                m["name"] = "Máy %s · %s" % (m["letter"], tag) if tag else "Máy %s" % m["letter"]
+                self._machines.append(m)
+                for c in cs:
+                    self._mk_letter[c.uid] = m["letter"]
+            self._tl_stats = {"n_clips": len(self._clips), "n_missing": 0, "n_extra": 0}
+        self._recount()
+
+    def _fmt_axis(self, m):
+        return ts.fmt_hms(m) if self._tl_mode() else tc.fmt_min(m)
+
+    def _event_of_stage(self, s):
+        return s.get("event") or tc.event_of(self._plan.get("template"), s["name"])
+
+    def _events_view(self):
+        names = [e for e in (self._plan.get("events") or []) if isinstance(e, str) and e]
+        for s in self._stages:
+            e = self._event_of_stage(s)
+            if e not in names:
+                names.append(e)
+        return [{"name": n, "idx": [i for i, s in enumerate(self._stages) if self._event_of_stage(s) == n]} for n in names]
+
+    def _audio_view(self):
+        if not self._tl_mode():
+            return []
+        out = []
+        for r in ts.audio_rows(self._tl_raw):
+            fps = self._tl_raw.get("fps") or 25.0
+            out.append({"track": r["track"], "name": r["name"],
+                        "items": [[round(it["start"] / fps / 60.0, 4), round((it["start"] + it["dur"]) / fps / 60.0, 4)] for it in r["items"]]})
+        return out
+
+    def _src_view(self):
+        tl = self._tl_want
+        if tl and self._tl_mode():
+            note = ""
+        elif tl:
+            note = "Chưa sync, đang dùng giờ trong file" + ((": " + self._tl_why) if self._tl_why else "")
+        else:
+            note = ""
+        return {"axis": "timeline" if self._tl_mode() else "clock", "timeline": tl, "synced": self._tl_mode(), "note": note,
+                "timelines": list(self._tl_names), "vertical": bool(self._plan.get("vertical_cams")),
+                "n_machines": len(self._machines), "n_clips": self._tl_stats["n_clips"], "n_missing": self._tl_stats["n_missing"],
+                "n_extra": self._tl_stats["n_extra"], "waiting": self._tl_wait}
 
     # ------------------------------------------------------------------ giai đoạn
     def _suggest(self, name):
@@ -536,11 +697,19 @@ class TrolyApi(object):
         name = name if name in tpls else tc.DEFAULT_TEMPLATE
         self._plan["template"] = name
         self._plan["stages"] = tc.suggest_stages(self._clips, self._day0, tpls[name], self._plan["offsets"])
+        evs = []
+        for s in self._plan["stages"]:
+            s["event"] = tc.event_of(name, s["name"])
+            if s["event"] not in evs:
+                evs.append(s["event"])
+        self._plan["events"] = evs
 
     def suggest(self, template_name):
         with self._lock:
             if not self._clips:
                 return self.state()
+            if not template_name:
+                return {"error": "Hãy chọn một mẫu sự kiện trước khi bấm Gợi ý lại."}
             self._suggest(template_name)
             self._save_soon()
             return self.state()
@@ -552,10 +721,14 @@ class TrolyApi(object):
             s = self._stages[i]
             try:
                 ref = int(s["start"] // 1440)
-                a = tc.parse_hhmm(fields["start_txt"], ref) if "start_txt" in fields else fields.get("start", s["start"])
-                b = tc.parse_hhmm(fields["end_txt"], ref) if "end_txt" in fields else fields.get("end", s["end"])
-                if "end_txt" in fields and b < a:
-                    b += 1440                                     # qua nửa đêm
+                if self._tl_mode():                               # trục timeline: H:MM:SS, không qua nửa đêm
+                    a = ts.parse_hms(fields["start_txt"]) if "start_txt" in fields else fields.get("start", s["start"])
+                    b = ts.parse_hms(fields["end_txt"]) if "end_txt" in fields else fields.get("end", s["end"])
+                else:
+                    a = tc.parse_hhmm(fields["start_txt"], ref) if "start_txt" in fields else fields.get("start", s["start"])
+                    b = tc.parse_hhmm(fields["end_txt"], ref) if "end_txt" in fields else fields.get("end", s["end"])
+                    if "end_txt" in fields and b < a:
+                        b += 1440                                 # qua nửa đêm
             except ValueError as e:
                 return {"error": str(e)}
             s["start"], s["end"] = float(a), float(max(a, b))
@@ -571,13 +744,61 @@ class TrolyApi(object):
             self._save_soon()
             return self.state()
 
-    def add_stage(self):
+    def add_stage(self, event=None):
         with self._lock:
-            last = max([s["end"] for s in self._stages] or [8 * 60.0])
-            self._stages.append(tc.make_stage("Giai đoạn %d" % (len(self._stages) + 1), last, last + 30, [],
-                                              len(self._stages)))
+            last = max([s["end"] for s in self._stages] or [0.0 if self._tl_mode() else 8 * 60.0])
+            ev = event or (self._event_of_stage(self._stages[-1]) if self._stages else None)
+            self._stages.append(tc.make_stage("Giai đoạn %d" % (len(self._stages) + 1), last, last + 30, [], len(self._stages), ev))
             self._save_soon()
             return self.state()
+
+    def add_event(self):
+        """"+ Thêm sự kiện (bin mẹ)": thêm một bin mẹ trống ("Sự kiện 2"...). Giai đoạn thêm vào sau."""
+        with self._lock:
+            names = [e["name"] for e in self._events_view()]
+            n = len(names) + 1
+            while "Sự kiện %d" % n in names:
+                n += 1
+            self._plan["events"] = names + ["Sự kiện %d" % n]
+            self._save_soon()
+            return self.state()
+
+    def rename_event(self, old, new):
+        """Đổi tên bin mẹ (chỉ nhóm trong panel, KHÔNG đổi gì trong DaVinci)."""
+        with self._lock:
+            names = [e["name"] for e in self._events_view()]
+            if old not in names:
+                return {"error": "Không có bin mẹ %s." % old}
+            n, err = tc.check_new_name(new, names, old)
+            if err:
+                return {"error": err}
+            for s in self._stages:
+                if self._event_of_stage(s) == old:
+                    s["event"] = n
+            self._plan["events"] = [n if e == old else e for e in names]
+            self._save_soon()
+            return self.state()
+
+    def cut_stage(self, at):
+        """"Cắt giai đoạn tại con trỏ": chia giai đoạn đang chứa mốc `at` (phút trên trục hiện tại) làm hai. Chỉ chia GIAI ĐOẠN, không cắt clip."""
+        with self._lock:
+            try:
+                at = float(at)
+            except (TypeError, ValueError):
+                return {"error": "Mốc cắt không hợp lệ."}
+            for i, s in enumerate(self._stages):
+                if s["start"] < at < s["end"]:
+                    taken = {x["name"] for x in self._stages}
+                    n = 2
+                    while "%s %d" % (s["name"], n) in taken:
+                        n += 1
+                    b = tc.make_stage("%s %d" % (s["name"], n), at, s["end"], [x for x in s["bins"] if x != tc.OTHER_BIN], len(self._stages),
+                                      self._event_of_stage(s))
+                    s["end"] = at
+                    self._stages.insert(i + 1, b)
+                    self._save_soon()
+                    return self.state()
+            return {"error": "Con trỏ chưa nằm trong giai đoạn nào."}
 
     def del_stage(self, i):
         with self._lock:
@@ -597,186 +818,6 @@ class TrolyApi(object):
                 self._plan["offsets"].pop(cam, None)
             self._save_soon()
             return self.state()
-
-    # ------------------------------------------------------------------ NHIỀU CAMERA, trang 1 (ADR-0031)
-    # Chỉ đổi kế hoạch của Trợ lý (plan["cams"], plan["offsets"]). KHÔNG ghi gì vào DaVinci, không đụng file gốc.
-    def _raw_s(self, c):
-        """Giây kể từ 0:00 của ngày quay theo ĐỒNG HỒ MÁY (chưa cộng độ lệch)."""
-        if not c.t_start or not self._day0:
-            return None
-        return (c.t_start - datetime.datetime.combine(self._day0, datetime.time())).total_seconds()
-
-    def _cams_cfg(self):
-        cfg = cm.clean_cfg(self._plan.get("cams"))
-        self._plan["cams"] = cfg
-        return cfg
-
-    def _cams_refresh(self):
-        """Sau Đọc clip: nhận nhóm máy, gán chữ cho nhóm mới, đồng bộ độ lệch hiệu lực vào plan['offsets']."""
-        with self._lock:
-            self._cam_groups = cm.describe_groups(self._clips, self._raw_s)
-            cfg = self._cams_cfg()
-            cm.ensure_groups(cfg, self._cam_groups)
-            self._cams_sync(cfg)
-
-    def _cams_sync(self, cfg):
-        """Ghi độ lệch hiệu lực (theo khóa nhóm) vào plan['offsets'), chỗ clip_minutes đọc. Chỉ đụng khóa nhóm khi đã có chỉnh đồng hồ
-        (shift) hoặc đã bấm gì ở trang này (managed), nên project 1 máy và lệch giờ cũ chạy y như trước."""
-        if not (cfg["shift"] or cfg.get("managed")):
-            return
-        keys = [g["key"] for g in self._cam_groups]
-        for k in keys:
-            self._plan["offsets"].pop(k, None)
-        self._plan["offsets"].update(cm.effective_offsets(cfg, keys))
-
-    def _cams_view(self, cfg, clips):
-        groups = self._cam_groups
-        if not groups:
-            return {"multi": False, "groups": [], "cards": [], "ref": cfg["ref"], "names": cfg["names"], "unassigned": [], "ambiguous": [], "moment": {}}
-        letters = cm.letters_in_use(cfg, groups)
-        span = {}
-        for c in clips:
-            L = c.get("cam_l")
-            if L and c["m0"] is not None:
-                a, b = span.get(L, (c["m0"], c["m1"]))
-                span[L] = (min(a, c["m0"]), max(b, c["m1"]))
-        cnt = collections.Counter(c.get("cam_l") for c in clips)
-        ref = cfg["ref"] if cfg["ref"] in letters else (letters[0] if letters else cfg["ref"])
-        cards = []
-        for L in letters:
-            gs = [g for g in groups if cfg["map"].get(g["key"]) == L]
-            sh = cfg["shift"].get(L)
-            sp = span.get(L)
-            cards.append({"letter": L, "name": cfg["names"][L], "n": cnt.get(L, 0),
-                          "model": " + ".join(dict.fromkeys(g["model"] for g in gs if g["model"])) or "Chưa rõ model",
-                          "serial": " + ".join(dict.fromkeys(g["serial"] for g in gs if g["serial"])),
-                          "span": "%s – %s" % (tc.fmt_min(sp[0], False), tc.fmt_min(sp[1], False)) if sp else "",
-                          "is_ref": L == ref, "set": sh is not None, "shift": sh or 0.0,
-                          "shift_txt": cm.fmt_offset(sh) if sh is not None else "",
-                          "keys": [g["key"] for g in gs]})
-        unassigned = [g["key"] for g in groups if not cfg["map"].get(g["key"])]
-        return {"multi": len(letters) > 1 or bool(unassigned),
-                "groups": [{"key": g["key"], "n": g["n"], "model": g["model"], "serial": g["serial"], "maker": g["maker"],
-                            "source": g["source"], "ambiguous": g["ambiguous"], "letter": cfg["map"].get(g["key"], "")} for g in groups],
-                "cards": cards, "ref": ref, "names": cfg["names"], "unassigned": unassigned,
-                "ambiguous": [g["key"] for g in groups if g["ambiguous"]],
-                "moment": cfg["moment"]}
-
-    def _cams_done(self, cfg, msg=None, kind="ok"):
-        cfg["managed"] = True
-        self._plan["cams"] = cfg
-        self._cams_sync(cfg)
-        self._recount()
-        self._save_soon()
-        st = self.state()
-        if msg:
-            st["cam_msg"] = {"kind": kind, "text": msg}
-        return st
-
-    def cams_assign(self, key, letter):
-        """Gán tay một nhóm máy vào chữ A-D (hoặc "" = chưa gán). Nhiều nhóm cùng một chữ = gộp thành một máy."""
-        with self._lock:
-            cfg = self._cams_cfg()
-            if not any(g["key"] == key for g in self._cam_groups) or letter not in tuple(cm.LETTERS) + ("",):
-                return {"error": "Không có nhóm máy hoặc chữ cái này."}
-            cfg["map"][key] = letter
-            return self._cams_done(cfg)
-
-    def cams_rename(self, letter, name):
-        with self._lock:
-            cfg = self._cams_cfg()
-            ok, v = cm.check_name(cfg, letter, name)
-            if not ok:
-                return {"error": v}
-            cfg["names"][letter] = v
-            return self._cams_done(cfg)
-
-    def cams_set_ref(self, letter):
-        with self._lock:
-            cfg = self._cams_cfg()
-            if letter not in cm.letters_in_use(cfg, self._cam_groups):
-                return {"error": "Máy %s chưa có clip nào." % letter}
-            cm.set_ref(cfg, letter)
-            return self._cams_done(cfg, "Giờ chung nay là giờ %s. Độ lệch của các máy đã chỉnh được tính lại." % cfg["names"][letter])
-
-    def _cams_put(self, cfg, letter, val, warn, moment=None, overlap=None):
-        if letter == cfg["ref"]:
-            return {"error": "Máy chuẩn không cần chỉnh: giờ chung chính là giờ máy này."}
-        if letter not in cm.letters_in_use(cfg, self._cam_groups):
-            return {"error": "Máy %s chưa có clip nào." % letter}
-        name = cfg["names"][letter]
-        if cfg["shift"].get(letter) == val:
-            return self._cams_done(cfg, "Độ lệch này đã được áp dụng cho %s rồi." % name, "warn")
-        if val:
-            cfg["shift"][letter] = float(val)
-        else:
-            cfg["shift"].pop(letter, None)
-        if moment:
-            cfg["moment"][letter] = moment
-        else:
-            cfg["moment"].pop(letter, None)
-        text = "Đã áp dụng %s cho %s." % (cm.fmt_offset(val), name)
-        kind = "ok"
-        if overlap is not None and overlap <= 0:
-            text, kind = "Đã áp dụng %s, nhưng sau khi chỉnh clip hai máy không chồng nhau. Có thể chọn nhầm khoảnh khắc." % cm.fmt_offset(val), "warn"
-        elif warn:
-            text, kind = "Đã áp dụng. " + warn, "warn"
-        return self._cams_done(cfg, text, kind)
-
-    def cams_apply(self, letter, text):
-        """Áp độ lệch gõ tay ±giờ:phút:giây cho máy letter (so với máy chuẩn)."""
-        with self._lock:
-            cfg = self._cams_cfg()
-            ok, v, warn = cm.parse_offset(text)
-            if not ok:
-                return {"error": v}
-            return self._cams_put(cfg, letter, v, warn)
-
-    def cams_moment(self, letter, uid_ref, pos_ref, uid_cam, pos_cam):
-        """Tính độ lệch từ MỘT KHOẢNH KHẮC CHUNG: clip của máy chuẩn ở giây pos_ref và clip của máy letter ở giây pos_cam là cùng một cảnh.
-        Chỉ trả số để giao diện hiện, chưa áp (áp bằng cams_apply_moment)."""
-        with self._lock:
-            cfg = self._cams_cfg()
-            r, x = self._by_uid.get(uid_ref), self._by_uid.get(uid_cam)
-            if r is None or x is None or self._raw_s(r) is None or self._raw_s(x) is None:
-                return {"error": "Chưa chọn đủ hai clip có giờ quay."}
-            if cfg["map"].get(r.camera) != cfg["ref"]:
-                return {"error": "Khung bên trái phải là clip của máy chuẩn (%s)." % cfg["names"][cfg["ref"]]}
-            if cfg["map"].get(x.camera) != letter:
-                return {"error": "Khung bên phải phải là clip của %s." % cfg["names"].get(letter, letter)}
-            try:
-                pr, px = float(pos_ref), float(pos_cam)
-            except (TypeError, ValueError):
-                return {"error": "Vị trí khung phải là số giây."}
-            v = cm.offset_from_moment(self._raw_s(r), pr, self._raw_s(x), px)
-            ov = cm.overlap_after(self._raw_s(r), r.dur or 0, self._raw_s(x), x.dur or 0, v)
-            return {"offset": v, "text": cm.fmt_offset(v), "overlap": ov,
-                    "ref_time": self._raw_s(r) + pr, "cam_time": self._raw_s(x) + px}
-
-    def cams_apply_moment(self, letter, uid_ref, pos_ref, uid_cam, pos_cam):
-        with self._lock:
-            m = self.cams_moment(letter, uid_ref, pos_ref, uid_cam, pos_cam)
-            if "error" in m:
-                return m
-            ok, v, warn = cm.parse_offset(m["text"])
-            if not ok:
-                return {"error": v}
-            cfg = self._cams_cfg()
-            r, x = self._by_uid[uid_ref], self._by_uid[uid_cam]
-            return self._cams_put(cfg, letter, v, warn, {"ref": [r.rel or r.name, float(pos_ref)], "cam": [x.rel or x.name, float(pos_cam)]}, m["overlap"])
-
-    def cams_reset(self, letter=None):
-        """Đặt lại độ lệch của một máy (hoặc mọi máy) về 0 (chưa chỉnh)."""
-        with self._lock:
-            cfg = self._cams_cfg()
-            if letter:
-                cfg["shift"].pop(letter, None)
-                cfg["moment"].pop(letter, None)
-                text = "Đã đặt lại độ lệch của %s về 0." % cfg["names"].get(letter, letter)
-            else:
-                cfg["shift"], cfg["moment"] = {}, {}
-                text = "Đã đặt lại độ lệch của mọi máy về 0."
-            return self._cams_done(cfg, text, "warn")
 
     def save_template(self, name):
         name = (name or "").strip()
