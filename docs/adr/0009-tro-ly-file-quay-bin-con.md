@@ -50,6 +50,8 @@ Xếp clip vào bin con là quyền GHI mới, nên cần ADR riêng.
   timeline): mọi clip trên timeline giữ nguyên vị trí, độ dài và media pool item. Hoàn tác cần "Đọc clip" lại trong cùng phiên panel (worker cần MediaPoolItem).
 - Chưa làm: thẻ 3 In/Out, thẻ 4 Thời lượng; gợi ý nhãn tự động.
 
+> Từ 19/11/2026 phím chọn giai đoạn là F1–F12 thay cho Shift+số: xem ADR-0030. Các đoạn Shift+số dưới đây là lịch sử.
+
 ## Bổ sung 15/11/2026 (chiều): chọn tay giai đoạn, phím Shift+số, kéo thả (người dựng duyệt)
 - Người dựng thử trên project 25/10: thiếu cách đưa một clip sang giai đoạn khác khi giờ quay không khớp. Thêm "CHỌN TAY":
   `plan["manual"][đường dẫn tương đối] = {stage: tên giai đoạn, ...}`. Giai đoạn chọn tay THẮNG giai đoạn tính theo giờ

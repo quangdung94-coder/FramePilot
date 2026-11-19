@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 2026-11-19 – Bước 2: phím giai đoạn đổi sang F1–F12 (nhánh doi-phim-giai-doan-f, CHƯA gộp main, tag sao lưu truoc-doi-phim-f)
+- F1–F12 chọn giai đoạn rồi chờ số bin con; Shift+số hết là phím giai đoạn. Đọc event.code, chặn mặc định F1/F5/F11/F12, cảnh báo trên giao diện khi quá 12 giai đoạn. ADR-0030.
+- Cập nhật nhãn (Media Pool, dòng nhắc phím, menu chuột phải), TRANG_THAI, ADR-0009. 533 bài test đạt (thêm 7). Chưa thử trên panel thật.
+
 ## 2026-11-19 – Sửa lỗi đồng bộ đệm p3Pad và giữ DOM preview trong showImg (nhánh sua-loi-p3pad-showimg)
 - Sửa lỗi Bước 3: `p3Pad` đồng bộ giá trị đệm đã lưu từ kế hoạch lên ô nhập trên giao diện (`tests/test_sua_loi_p3pad.py`).
 - Sửa lỗi preview: `showImg` không còn gán `preview.innerHTML = ...` làm tháo thẻ video và xóa mất `canvas.pv-frame` (kho khung RAM), mà cập nhật thẻ `img` tại chỗ (`tests/test_sua_loi_showimg.py`).

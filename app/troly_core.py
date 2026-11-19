@@ -652,7 +652,7 @@ def clip_key(clip):
 
 
 def set_manual(plan, clip, stage_name, by="nguoi"):
-    """Người dựng CHỌN TAY giai đoạn cho clip (Shift+số, kéo thả). stage_name None = bỏ chọn tay (tính lại theo giờ)."""
+    """Người dựng CHỌN TAY giai đoạn cho clip (phím F1–F12, kéo thả). stage_name None = bỏ chọn tay (tính lại theo giờ)."""
     man = plan.setdefault("manual", {})
     if stage_name is None:
         man.pop(clip_key(clip), None)
