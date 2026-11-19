@@ -4,7 +4,7 @@
 - main giờ chứa tổng duyệt 19/11 (11 lỗi sửa) và S1-S6 theo quyết định của người dùng (bỏ bản xem nhẹ, tên bin dùng chung một hàm không chặn &, mở lần hai đưa cửa sổ cũ lên trước, 3 lỗi nhẹ). 21 commit, không xung đột. 520 bài test đạt trên main.
 
 ## 2026-11-19 (sau tổng duyệt) – Quyết định của người dùng 09:03/09:05 (nhánh ra-soat-19-11) - CHỜ ANH THỬ
-- S1: BỎ HẲN "bản xem nhẹ" (mp4 720p trong cache). Xóa mã tạo bản đó, nhánh giao diện và 2 test cũ (TranscodeCmd, PlayerFallback). Proxy không phát được thì chỉ báo rõ (clip nào, vì sao, nên tạo lại proxy H.264 trong DaVinci), không tạo file. Thư mục cache cũ cache	roly_play không bị xóa. ADR-0029.
+- S1: BỎ HẲN "bản xem nhẹ" (mp4 720p trong cache). Xóa mã tạo bản đó, nhánh giao diện và 2 test cũ (TranscodeCmd, PlayerFallback). Proxy không phát được thì chỉ báo rõ (clip nào, vì sao, nên tạo lại proxy H.264 trong DaVinci), không tạo file. Thư mục cache cũ cache\troly_play không bị xóa. ADR-0029.
 - S2: "+ Bin mới" và Đổi tên bin dùng chung một hàm kiểm tên. BỎ `&` khỏi bộ ký tự chặn của cả hai chỗ (trước đây Đổi tên bin chặn `&`). Chặn `: / \ * ? " < > |`, ký tự điều khiển, tên kết thúc bằng dấu chấm.
 - S3: mở FramePilot lần hai cho cùng project thì đưa cửa sổ cũ lên trước (khôi phục nếu thu nhỏ). CHƯA CHẠY THẬT qua menu DaVinci.
 - S4: hai lần kế hoạch hỏng cùng giây không ghi đè .corrupt; trình phát không mượn độ dài clip trước ("chưa rõ độ dài"); Hoàn tác lỗi một phần cập nhật vị trí bin ngay.
