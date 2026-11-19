@@ -171,6 +171,7 @@ button, input, select { font-family: inherit; }
   padding: 2px 6px; cursor: pointer; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .ks b { color: var(--link); }
 .ks:hover { border-color: var(--accent); }
+.ks-warn { margin-top: 6px; font-size: 11px; color: var(--warn, #E0A030); line-height: 1.4; }
 .ctx { position: fixed; z-index: 20; min-width: 240px; max-height: calc(100vh - 16px); overflow-y: auto;
   background: var(--bar); border: 1px solid var(--btn-line); border-radius: 10px; padding: 6px;
   box-shadow: 0 8px 24px #00000080; font-size: 13px; }

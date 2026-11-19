@@ -2,6 +2,13 @@
 
 Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
 
+## Sửa lỗi Bước 3 và Khung xem trước (nhánh sua-loi-p3pad-showimg, 19/11/2026) - 526 test đạt
+- Đã sửa 2 lỗi phát hiện qua review:
+  1. `p3Pad` (app/troly_web/step3.js): đồng bộ giá trị đệm đã lưu từ kế hoạch lên ô nhập giao diện Bước 3 (`g.pad != null`). Trước đó mở lại panel luôn hiện 0.3 dù kế hoạch lưu số khác. Test: `tests/test_sua_loi_p3pad.py`.
+  2. `showImg` (app/troly_web/app.js): cập nhật hình xem trước bằng cách cập nhật/thêm thẻ `img` thay vì gán `preview.innerHTML` (trước đó việc gán innerHTML làm tháo thẻ video khỏi DOM gây khựng/reset và xóa mất `canvas.pv-frame` của kho khung RAM). Test: `tests/test_sua_loi_showimg.py`.
+- 526 bài test đạt (thêm 2 bài test mới).
+
+
 ## Kiểm tài nguyên git + dọn rác 19/11 (nhánh kiem-git-19-11, ĐÃ GỘP main: commit gộp 26d0fa9, tag truoc-gop-kiem-git-19-11)
 - Đã thêm config.example.json, requirements_speech.txt, bảng tài nguyên ở docs/BAN_GIAO.md mục 2b; clone sạch chạy được test, install thử và panel với DaVinci giả. 524 bài test. Chi tiết: CHANGELOG.md.
 
@@ -29,7 +36,7 @@ Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
   Media Pool (đã áp dụng thật trên project 17/10: 533 clip, 0,8 giây, 0 lỗi, timeline không đổi).
 - Bước 2: lưới thumbnail (proxy + LUT), xếp clip vào bin con:
   - Phím 1-9 = bin con của giai đoạn đang xem; 0 = bỏ nhãn.
-  - Shift+số = chuyển clip sang giai đoạn đó rồi CHỜ bấm số bin con (không giới hạn thời gian; Esc hoặc bấm chỗ khác để thôi).
+  - F1–F12 (từ 19/11, ADR-0030; trước đây Shift+số) = chuyển clip sang giai đoạn đó rồi CHỜ bấm số bin con (không giới hạn thời gian; Esc hoặc bấm chỗ khác để thôi).
   - Kéo thả thumbnail vào bin, menu chuột phải, Ctrl+A, Shift/Ctrl + bấm chọn nhiều, mũi tên di chuyển, Enter mở trong DaVinci.
   - Bấm bin trong cây Media Pool chỉ để XEM (như mở thư mục con), không đổi nhãn clip.
   - Giai đoạn chọn tay cho từng clip thắng giai đoạn tính theo giờ.

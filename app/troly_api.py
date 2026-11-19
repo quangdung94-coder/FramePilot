@@ -617,7 +617,7 @@ class TrolyApi(object):
             return self.state()
 
     def move(self, uids, stage_i, bin_name=None):
-        """CHỌN TAY giai đoạn cho các clip (Shift+số, kéo thả, chuột phải): chuyển sang giai đoạn stage_i và, nếu có
+        """CHỌN TAY giai đoạn cho các clip (phím F1–F12, kéo thả, chuột phải): chuyển sang giai đoạn stage_i và, nếu có
         bin_name, gắn luôn nhãn bin con đó. Chọn tay thắng giai đoạn tính theo giờ (ADR-0009, bổ sung 15/11)."""
         with self._lock:
             if stage_i is None or not (0 <= stage_i < len(self._stages)):

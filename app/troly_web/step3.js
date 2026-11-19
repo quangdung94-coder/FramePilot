@@ -102,6 +102,7 @@ $("p3Star").onclick = () => toggleStar();
 /* ---- nút "Gợi ý In/Out cho clip sao" (chạy nền, hai mức, không tự ghi vào DaVinci) ---- */
 function p3SugPaint() {
   const g = S && S.inout_sug, b = $("p3Sug"); if (!g || !b) return;
+  if (g.pad != null && document.activeElement !== $("p3Pad")) $("p3Pad").value = g.pad;
   const run = g.running, n = g.starred;
   b.disabled = !!run;                                           // chỉ khoá khi đang chạy; không có clip sao thì bấm vẫn báo lý do (không im lặng)
   b.classList.toggle("run", !!run);

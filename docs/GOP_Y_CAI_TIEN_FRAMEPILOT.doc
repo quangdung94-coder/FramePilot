@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>Bản Góp Ý & Đề Xuất Cải Tiến FramePilot</title>
+<!--[if gte mso 9]>
+<xml>
+ <w:WordDocument>
+  <w:View>Print</w:View>
+  <w:Zoom>100</w:Zoom>
+  <w:DoNotOptimizeForBrowser/>
+ </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 20mm 20mm 20mm;
+  }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #262626;
+    line-height: 1.6;
+    font-size: 11pt;
+    background-color: #FFFFFF;
+  }
+  h1 {
+    color: #1A365D;
+    font-size: 20pt;
+    border-bottom: 2px solid #2B6CB0;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .sub-title {
+    font-size: 11pt;
+    color: #718096;
+    margin-bottom: 24px;
+  }
+  h2 {
+    color: #2B6CB0;
+    font-size: 14pt;
+    border-left: 4px solid #3182CE;
+    padding-left: 10px;
+    margin-top: 24px;
+    margin-bottom: 12px;
+  }
+  h3 {
+    color: #2D3748;
+    font-size: 12pt;
+    margin-top: 14px;
+    margin-bottom: 6px;
+  }
+  p {
+    margin-top: 0;
+    margin-bottom: 10px;
+  }
+  .highlight-box {
+    background-color: #EBF8FF;
+    border: 1px solid #BEE3F8;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 12px 0 16px 0;
+  }
+  .problem-box {
+    background-color: #FFF5F5;
+    border-left: 4px solid #E53E3E;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-style: italic;
+    color: #742A2A;
+  }
+  .solution-box {
+    background-color: #F0FFF4;
+    border-left: 4px solid #38A169;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    color: #22543D;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+  }
+  th, td {
+    border: 1px solid #CBD5E0;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 10.5pt;
+  }
+  th {
+    background-color: #EDF2F7;
+    color: #2D3748;
+    font-weight: 600;
+  }
+  tr:nth-child(even) {
+    background-color: #F7FAFC;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 9pt;
+    font-weight: bold;
+  }
+  .badge-p1 {
+    background-color: #FED7D7;
+    color: #9B2C2C;
+  }
+  .badge-p2 {
+    background-color: #FEEBC8;
+    color: #7B341E;
+  }
+  .badge-p3 {
+    background-color: #E2E8F0;
+    color: #4A5568;
+  }
+  ul {
+    margin-top: 4px;
+    margin-bottom: 10px;
+    padding-left: 24px;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+  .footer {
+    margin-top: 36px;
+    padding-top: 12px;
+    border-top: 1px solid #E2E8F0;
+    font-size: 9.5pt;
+    color: #A0AEC0;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+
+<h1>BẢN ĐỀ XUẤT CẢI TIẾN PANEL FRAMEPILOT</h1>
+<div class="sub-title">Tối ưu hóa quy trình dựng phim cưới thực tế trên DaVinci Resolve Studio &bull; Ngày 19/11/2026</div>
+
+<div class="highlight-box">
+  <b>Mục tiêu:</b> Giúp người dựng (editor) giảm từ <b>30% &ndash; 50% thời gian chuẩn bị và phân loại</b> footage cho mỗi đám cưới (500 &ndash; 1.000 clip), thao tác trực quan, chính xác và không gây mỏi mắt.
+</div>
+
+<h2>1. Bước 2: Phân loại Bin & Lưới Thumbnail</h2>
+<div class="problem-box">
+  <b>Vấn đề thực tế:</b> Khi một đám cưới có hàng trăm clip, editor hiện phải click chuột chọn từng clip thì khung xem bên phải mới tải proxy. Việc click chọn liên tục rất mỏi tay và tốn thời gian.
+</div>
+
+<div class="solution-box">
+  <b>Giải pháp đề xuất:</b>
+  <ul>
+    <li><b>Rê chuột xem nhanh trên Thumbnail (Hover Scrubbing):</b> Khi rê chuột ngang qua ô thumbnail trong lưới (trái sang phải), hình thumbnail đổi liên tục từ đầu đến cuối clip (giống trang Cut của DaVinci Resolve). Editor lướt qua 1&ndash;2 giây là biết nội dung để bấm phím 1&ndash;9 phân loại ngay.</li>
+    <li><b>Lọc nhanh theo Máy quay (Camera Quick Filters):</b> Thêm hàng nút lọc trên lưới: <code>[Tất cả]</code> <code>[Cam A]</code> <code>[Cam B]</code> <code>[Drone]</code>. Ví dụ: Bấm "Drone", lưới lọc riêng toàn bộ clip Flycam để editor gán bin "Decor / Ngoại cảnh" hàng loạt trong 5 giây.</li>
+    <li><b>Trạng thái Loại bỏ / Out nét (Reject Clip):</b> Bổ sung phím tắt (như <code>X</code> hoặc <code>Delete</code>) để đánh dấu mờ các clip hỏng, rung lắc, out nét. Chỉ lưu cờ trong kế hoạch, tuyệt đối không xóa file thật trên ổ đĩa.</li>
+  </ul>
+</div>
+
+<h2>2. Bước 3: In / Out & Đồ thị Sóng âm</h2>
+<div class="problem-box">
+  <b>Vấn đề thực tế:</b> Với các clip quay dài 10 &ndash; 25 phút (toàn bộ Lễ gia tiên, Nghi lễ nhà hàng, Lời thề Vows, Phỏng vấn), thanh sóng âm bị nén trên chiều ngang cố định. Kéo chuột 1 pixel có thể nhảy mất 3 &ndash; 5 giây, rất khó căn chính xác từng câu nói.
+</div>
+
+<div class="solution-box">
+  <b>Giải pháp đề xuất:</b>
+  <ul>
+    <li><b>Phóng to / Thu nhỏ sóng âm bằng con lăn chuột (Waveform Zoom):</b> Cho phép giữ <code>Ctrl + Cuộn chuột giữa</code> trên khung sóng âm để phóng to đoạn cần xem. Editor nhìn rõ từng nhịp ngắt câu và đặt điểm In/Out chuẩn xác đến từng frame.</li>
+    <li><b>Tự động "hút" vào khoảng lặng (Snap to Silence):</b> Tận dụng dữ liệu VAD/Whisper, khi kéo mép In hoặc Out gần đến khoảng nghỉ giữa 2 câu nói (khoảng 0.2s), mép tự động "hút" nhẹ vào điểm nghỉ, không sợ bị cắt cụt đuôi chữ của nhân vật.</li>
+  </ul>
+</div>
+
+<h2>3. Bước 4: Lời nói & Chép tiếng Whisper</h2>
+<div class="problem-box">
+  <b>Vấn đề thực tế:</b> Lệnh "Chép lời cả bin" hiện quét qua toàn bộ 300 &ndash; 500 clip trong project. Các bin như Decor, Beauty, B-roll, Tiệc bàn hầu như không có tiếng nói nhưng Whisper vẫn trích xuất âm thanh, làm mất từ 1 đến 2 tiếng của máy.
+</div>
+
+<div class="solution-box">
+  <b>Giải pháp đề xuất:</b>
+  <ul>
+    <li><b>Tùy chọn "Chỉ chép lời các Bin được chọn":</b> Cho phép tick chọn các bin cần chép lời (mặc định chọn: Phỏng vấn, Nghi lễ, Gia tiên, Trao nhẫn). Bỏ qua các cảnh quay B-roll/Decor. Thời gian phân tích sẽ rút ngắn từ 1 &ndash; 2 tiếng xuống chỉ còn <b>10 &ndash; 15 phút</b>.</li>
+    <li><b>Thống kê câu "Đắt giá" (Golden Quotes / Vows):</b> Tự động tổng hợp các câu có từ khóa ý nghĩa (yêu thương, cảm ơn cha mẹ, lời hứa tương lai) lên bảng tóm tắt riêng để editor nghe thử và chọn làm câu dẫn intro cho clip Highlight.</li>
+  </ul>
+</div>
+
+<h2>4. Bước 5: Thời lượng & Bố cục Timeline</h2>
+<div class="problem-box">
+  <b>Vấn đề thực tế:</b> Phim cưới thương mại luôn có các gói sản phẩm với thời lượng chuẩn xác theo hợp đồng hoặc nền tảng phát hành, editor thường phải tự tính nhẩm số phút:giây.
+</div>
+
+<div class="solution-box">
+  <b>Giải pháp đề xuất:</b>
+  <ul>
+    <li><b>Nút bấm mẫu độ dài phổ biến (Duration Presets):</b> Cạnh ô gõ mục tiêu, đặt sẵn các nút bấm nhanh:
+      <br>&bull; <code>[Teaser Reels/TikTok: 1:00]</code>
+      <br>&bull; <code>[Highlight cưới: 3:30 &ndash; 4:30]</code> (Độ dài chuẩn 1 bài hát)
+      <br>&bull; <code>[Phóng sự ngắn: 8:00 &ndash; 10:00]</code>
+      <br>&bull; <code>[Phim truyền thống: 15:00 &ndash; 20:00]</code>
+    </li>
+    <li><b>Khớp theo độ dài bài hát (Audio Track Sync):</b> Nhập thời lượng bài hát nền, panel tự động cân đối độ dài các khối hình V1 khớp chuẩn với bản nhạc.</li>
+  </ul>
+</div>
+
+<h2>5. Quản lý Dung lượng Ổ đĩa (Cache Manager)</h2>
+<div class="problem-box">
+  <b>Vấn đề thực tế:</b> Mỗi project tạo ra hàng trăm MB đến vài GB cache thumbnail và cache sóng âm trong <code>D:\VideoAI\data\cache</code>. Qua một mùa cưới 15 &ndash; 20 đám, ổ SSD bị chiếm dụng đáng kể.
+</div>
+
+<div class="solution-box">
+  <b>Giải pháp đề xuất:</b>
+  <ul>
+    <li>Bổ sung cửa sổ <b>Quản lý dung lượng Cache</b>: Liệt kê danh sách các project cũ kèm dung lượng cache. Cho phép bấm "Xóa cache" các project đã giao khách để giải phóng ổ cứng. File kế hoạch JSON vẫn giữ nguyên, khi nào mở lại project thì thumbnail tự sinh lại nếu cần.</li>
+  </ul>
+</div>
+
+<h2>6. Bảng Phím Tắt Nhanh (Cheat-Sheet Pop-up)</h2>
+<div class="solution-box">
+  <b>Giải pháp đề xuất:</b>
+  <ul>
+    <li>Bấm phím <code>?</code> trên bàn phím: Hiện ngay một bảng pop-up mờ tóm tắt toàn bộ phím tắt trong 1 giây (1&ndash;9, Shift+số, J, I, O, Space, A, mũi tên...). Giúp người mới dùng hoặc khi quên có thể liếc nhanh mà không cần mở tài liệu.</li>
+  </ul>
+</div>
+
+<h2>7. Bảng Xếp Hạng Ưu Tiên Triển Khai</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 15%;">Mức ưu tiên</th>
+      <th style="width: 35%;">Tính năng đề xuất</th>
+      <th style="width: 50%;">Giá trị thực tế mang lại</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge badge-p1">Ưu tiên 1</span></td>
+      <td><b>Lọc nhanh theo Máy quay</b> (Bước 2)</td>
+      <td>Phân loại toàn bộ clip Flycam / Máy phụ cực nhanh theo lô, không bị lẫn.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-p1">Ưu tiên 1</span></td>
+      <td><b>Chỉ chép lời các Bin chọn lọc</b> (Bước 4)</td>
+      <td>Rút ngắn thời gian chạy máy từ 1&ndash;2 tiếng xuống chỉ còn 10&ndash;15 phút.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-p2">Ưu tiên 2</span></td>
+      <td><b>Phóng to sóng âm (Waveform Zoom)</b> (Bước 3)</td>
+      <td>Căn điểm In/Out chính xác từng frame cho các clip dài 10&ndash;20 phút.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-p2">Ưu tiên 2</span></td>
+      <td><b>Nút mẫu độ dài Preset</b> (Bước 5)</td>
+      <td>Bấm 1 nút chọn ngay độ dài chuẩn (Highlight 4p, Teaser 1p) không cần gõ số.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-p3">Ưu tiên 3</span></td>
+      <td><b>Quản lý & Dọn dẹp Cache</b></td>
+      <td>Giải phóng hàng chục GB dung lượng ổ SSD sau mỗi mùa cưới.</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-p3">Ưu tiên 3</span></td>
+      <td><b>Bảng phím tắt nhanh (Phím ?)</b></td>
+      <td>Hỗ trợ thao tác mượt mà, không cần tra cứu tài liệu khi quên phím.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="footer">
+  FramePilot &bull; Trợ lý File Quay cho DaVinci Resolve Studio 21 &bull; Lưu hành nội bộ
+</div>
+
+</body>
+</html>

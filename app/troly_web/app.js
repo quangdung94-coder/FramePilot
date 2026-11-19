@@ -432,25 +432,26 @@ function renderPage2(rebuild) {
   const nk = s ? s.bins.filter((b) => b.key).length : 0;
   renderPage2b(s, nk, rebuild);
 }
-/* cột MEDIA POOL: bin giai đoạn (⇧số) và bin con (số) */
+/* cột MEDIA POOL: bin giai đoạn (F1–F12) và bin con (số) */
 function renderPool() {
   let h = S.stages.map((s, i) => {
     // khi kéo tới: mở THÊM bin con của bin đang trỏ, không gập bin đang mở (cây không dịch dưới con trỏ)
     const open = i === gStage || i === poolOpen;
-    return `<div class="pool-stage"><div class="pool-row${i === gStage && gSub === null ? " on" : ""}${i === gStage && gSub !== null ? " parent" : ""}" data-stage="${i}" title="Bấm để xem cả giai đoạn (chỉ xem). Bấm đúp tên để đổi tên.">${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span>${i < 9 ? `<span class="k" title="Shift+${i + 1}: chuyển clip đang chọn sang giai đoạn này">⇧${i + 1}</span>` : ""}</div>` +
-      (open ? `<div class="pool-subs"><div class="sub-none${i === gStage && gSub === NONE ? " on" : ""}" data-stage="${i}" title="Bấm để xem clip chưa có nhãn (chỉ xem)"><span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span><span class="dim12">${s.none.length}</span></div>${s.bins.map((b) => `<div class="sub${i === gStage && gSub === b.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(b.name)}" title="Bấm để xem clip của bin này (chỉ xem). Bấm đúp tên để đổi tên. Muốn chuyển clip vào: phím ${b.key || "số"} hoặc kéo thả"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span><span class="dim12">${b.count}</span>${b.key ? `<span class="k" title="${i === gStage ? "Phím " + b.key : "Shift+" + (i + 1) + " rồi " + b.key}">${b.key}</span>` : ""}</div>`).join("")}
+    return `<div class="pool-stage"><div class="pool-row${i === gStage && gSub === null ? " on" : ""}${i === gStage && gSub !== null ? " parent" : ""}" data-stage="${i}" title="Bấm để xem cả giai đoạn (chỉ xem). Bấm đúp tên để đổi tên.">${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span>${i < MAX_F ? `<span class="k" title="F${i + 1}: chuyển clip đang chọn sang giai đoạn này">F${i + 1}</span>` : ""}</div>` +
+      (open ? `<div class="pool-subs"><div class="sub-none${i === gStage && gSub === NONE ? " on" : ""}" data-stage="${i}" title="Bấm để xem clip chưa có nhãn (chỉ xem)"><span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span><span class="dim12">${s.none.length}</span></div>${s.bins.map((b) => `<div class="sub${i === gStage && gSub === b.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(b.name)}" title="Bấm để xem clip của bin này (chỉ xem). Bấm đúp tên để đổi tên. Muốn chuyển clip vào: phím ${b.key || "số"} hoặc kéo thả"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span><span class="dim12">${b.count}</span>${b.key ? `<span class="k" title="${i === gStage ? "Phím " + b.key : "F" + (i + 1) + " rồi " + b.key}">${b.key}</span>` : ""}</div>`).join("")}
         ${i === gStage ? `<button class="sub-add" id="subAdd">+ Bin mới</button>` : ""}</div>` : "") + `</div>`;
   }).join("");
   if (S.outside) h += `<div class="pool-stage"><div class="pool-row${gStage === -1 ? " on" : ""}" data-stage="-1">${folder("#6A6A72", 18)}<span class="t" style="color:var(--dim)">Ngoài giai đoạn</span><span class="dim12">${S.outside}</span></div></div>`;
   $("pool").innerHTML = h;
 }
 function renderPage2b(s, nk, rebuild) {
-  $("gridHint").textContent = s ? `Bấm bin bên trái để XEM. Muốn xếp clip: kéo thumbnail vào bin, hoặc phím số 1–${nk}; Shift+số chuyển sang giai đoạn khác. Mỗi lần bạn xếp, AI ghi lại để học.`
-    : "Clip ngoài giai đoạn: Shift+số hoặc kéo thả vào bin giai đoạn bên trái để chuyển.";
+  $("gridHint").textContent = s ? `Bấm bin bên trái để XEM. Muốn xếp clip: kéo thumbnail vào bin, hoặc phím số 1–${nk}; F1–F12 chuyển sang giai đoạn khác. Mỗi lần bạn xếp, AI ghi lại để học.`
+    : "Clip ngoài giai đoạn: phím F1–F12 hoặc kéo thả vào bin giai đoạn bên trái để chuyển.";
   $("starCount").textContent = S.n_starred || 0;
   $("doneText").textContent = s ? `${s.done} / ${s.count} đã xếp` : "";
   $("keyList").innerHTML = (s ? s.bins.filter((b) => b.key).map((b) => `<div class="key-row" data-bin="${esc(b.name)}"><span class="l"><i style="background:${b.color}"></i>${esc(b.name)}</span><span class="r">phím ${b.key} · ${b.count} clip</span></div>`).join("") : "") +
-    `<div class="key-stages">${S.stages.slice(0, 9).map((x, i) => `<span class="ks" data-stage="${i}" title="Chuyển clip đang chọn sang ${esc(x.bin)}"><b>⇧${i + 1}</b> ${esc(x.name)}</span>`).join("")}</div>`;
+    `<div class="key-stages">${S.stages.slice(0, MAX_F).map((x, i) => `<span class="ks" data-stage="${i}" title="Chuyển clip đang chọn sang ${esc(x.bin)}"><b>F${i + 1}</b> ${esc(x.name)}</span>`).join("")}</div>` +
+    (S.stages.length > MAX_F ? `<div class="ks-warn" id="ksWarn">Có ${S.stages.length} giai đoạn nhưng bàn phím chỉ có F1–F12. Giai đoạn thứ ${MAX_F + 1} trở đi (${S.stages.slice(MAX_F).map((x) => esc(x.name)).join(", ")}) không có phím: dùng kéo thả vào bin bên trái hoặc bấm chuột phải thumbnail.</div>` : "");
   if (rebuild || !sameItems()) { buildItems(); renderGrid(); } else patchGrid();
   showCur();
 }
@@ -658,7 +659,7 @@ $("grid").addEventListener("contextmenu", (e) => {
   cur = i; patchGrid(); showCur();
   const s = stageObj(), m = $("ctx");
   m.innerHTML = `<div class="ctx-h">Chuyển ${sel.size} clip sang giai đoạn</div>` +
-    S.stages.map((x, k) => `<div class="ctx-i${k === gStage ? " off" : ""}" data-stage="${k}"><i style="background:${x.color}"></i>${esc(x.bin)}<span>${k < 9 ? "Shift+" + (k + 1) : ""}</span></div>`).join("") +
+    S.stages.map((x, k) => `<div class="ctx-i${k === gStage ? " off" : ""}" data-stage="${k}"><i style="background:${x.color}"></i>${esc(x.bin)}<span>${k < MAX_F ? "F" + (k + 1) : ""}</span></div>`).join("") +
     (s ? `<div class="ctx-h">Xếp vào bin con của ${esc(s.name)}</div>` +
       s.bins.map((b) => `<div class="ctx-i" data-bin="${esc(b.name)}"><i style="background:${b.color}"></i>${esc(b.name)}<span>${b.key}</span></div>`).join("") +
       `<div class="ctx-i" data-bin=""><i></i>Bỏ nhãn<span>0</span></div>` : "");
@@ -708,11 +709,14 @@ $("appendStarBtn").onclick = () => appendStarred();
 $("revealBtn").onclick = () => reveal();
 function reveal() { if (items[cur]) api().reveal(items[cur].uid).then((n) => status("Đã mở " + n + " trong Media Pool của DaVinci.", "info")); }
 
-/* Bàn phím bước 2: đọc event.code (Digit1..9, Numpad1..9), KHÔNG dùng event.key: Shift+3 ra "#",
-   và Unikey kiểu VNI dùng phím số. Bỏ qua phím khi đang gõ trong ô nhập chữ. */
-let pending = null;                                   // Shift+số đang chờ số bin con: KHÔNG hết hạn theo giờ
+/* Bàn phím bước 2: đọc event.code (Digit1..9, Numpad1..9, F1..F12), KHÔNG dùng event.key: Unikey kiểu VNI dùng phím số.
+   Bỏ qua phím khi đang gõ trong ô nhập chữ. Giai đoạn chọn bằng F1–F12 (ADR-0030), bin con bằng số 1–9. */
+const MAX_F = 12;
+function fKeyOf(e) { const m = /^F([1-9]|1[0-2])$/.exec(e.code || ""); return m ? +m[1] : null; }
+const F_BLOCK = new Set(["F1", "F5", "F11", "F12"]);   // trợ giúp, tải lại, toàn màn hình, công cụ dev: chặn mặc định trong pywebview
+let pending = null;                                   // F1–F12 đang chờ số bin con: KHÔNG hết hạn theo giờ
 function digitOf(e) { const m = /^(Digit|Numpad)([0-9])$/.exec(e.code || ""); return m ? +m[2] : null; }
-/* Shift+số: chuyển clip đang chọn sang giai đoạn đó NGAY, rồi chờ số bin con. Chỉ kết thúc khi: bấm số bin con (xếp xong),
+/* F1–F12: chuyển clip đang chọn sang giai đoạn đó NGAY, rồi chờ số bin con. Chỉ kết thúc khi: bấm số bin con (xếp xong),
    0 (bỏ nhãn), Esc, bấm chuột chọn ô khác, phím mũi tên, hoặc đổi bước. Phân loại source không gấp nên không có đếm ngược. */
 async function startPending(si) {
   cancelPending();
@@ -744,6 +748,7 @@ async function finishPending(binName) {
 }
 
 document.addEventListener("keydown", (e) => {
+  if (F_BLOCK.has(e.code) && !e.ctrlKey && !e.altKey && !e.metaKey) e.preventDefault();   // không để F1/F5/F11/F12 làm việc của trình duyệt
   if (!$("modal").classList.contains("hidden")) {
     if (e.key === "Escape") $("mNo").click(); else if (e.key === "Enter") $("mYes").click();
     return;
@@ -760,18 +765,21 @@ document.addEventListener("keydown", (e) => {
   if (page !== 2 || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
   if (e.code === "KeyJ" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { cancelPending(); e.preventDefault(); toggleStar(); return; }
   const d = digitOf(e);
-  if (pending && d !== null && !e.ctrlKey && !e.altKey) {          // số thứ hai sau Shift+số: vào bin con
+  if (pending && d !== null && !e.ctrlKey && !e.altKey) {          // số sau phím F: vào bin con
     e.preventDefault();
     if (d === 0) return finishPending(null);
     const b = S.stages[pending.si].bins.find((x) => x.key === String(d));
     if (b) finishPending(b.name);
     return;
   }
-  if (d !== null && e.shiftKey && !e.ctrlKey && !e.altKey) {       // Shift+số: sang giai đoạn số đó rồi chờ bin con
+  const f = fKeyOf(e);
+  if (f !== null && !e.ctrlKey && !e.altKey && !e.metaKey) {       // F1–F12: sang giai đoạn số đó rồi chờ bin con
     e.preventDefault();
-    if (d >= 1 && d <= S.stages.length && items.length) startPending(d - 1);
+    if (f > S.stages.length) status(`Chưa có giai đoạn thứ ${f}: kế hoạch này có ${S.stages.length} giai đoạn.`, "warn");
+    else if (items.length) startPending(f - 1);
     return;
   }
+  if (d !== null && e.shiftKey) { e.preventDefault(); status("Đã đổi phím: giai đoạn chọn bằng F1–F12, rồi bấm số bin con.", "info"); return; }
   const dir = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols(), ArrowDown: cols() }[e.key];
   if (dir) { cancelPending(); e.preventDefault(); moveCur(cur + dir, e.shiftKey); return; }
   if (e.ctrlKey && e.code === "KeyA") { cancelPending(); e.preventDefault(); sel = new Set(items.map((_, i) => i)); patchGrid(); showCur(); return; }
@@ -809,7 +817,14 @@ async function showCur() {
 
   const uid = c.uid;
   if (PL.uid !== uid) { plStop(); PL.uid = uid; plOpen(c); }          // trình phát proxy (player.js); thumbnail là nền
-  const showImg = (src) => { const v = $("preview").querySelector("video"), lc = $("preview").querySelector("canvas.pv-lut"); $("preview").innerHTML = `<img src="${src}">`; if (v) $("preview").appendChild(v); if (lc) $("preview").appendChild(lc); };
+  const showImg = (src) => {
+    const host = $("preview");
+    const sp = host.querySelector("span"); if (sp) sp.remove();
+    let img = host.querySelector("img");
+    if (!img) { img = document.createElement("img"); img.draggable = false; host.prepend(img); }
+    img.src = src;
+    // giữ nguyên video, canvas.pv-lut và canvas.pv-frame không tháo khỏi DOM
+  };
   if (bigs[uid]) { showImg(bigs[uid]); return; }
   if (thumbs[uid]) showImg(thumbs[uid]); else if (!$("preview").querySelector("video")) $("preview").innerHTML = "<span>Đang làm hình xem trước...</span>";
   const r = await api().big(uid);
