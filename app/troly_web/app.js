@@ -809,7 +809,14 @@ async function showCur() {
 
   const uid = c.uid;
   if (PL.uid !== uid) { plStop(); PL.uid = uid; plOpen(c); }          // trình phát proxy (player.js); thumbnail là nền
-  const showImg = (src) => { const v = $("preview").querySelector("video"), lc = $("preview").querySelector("canvas.pv-lut"); $("preview").innerHTML = `<img src="${src}">`; if (v) $("preview").appendChild(v); if (lc) $("preview").appendChild(lc); };
+  const showImg = (src) => {
+    const host = $("preview");
+    const sp = host.querySelector("span"); if (sp) sp.remove();
+    let img = host.querySelector("img");
+    if (!img) { img = document.createElement("img"); img.draggable = false; host.prepend(img); }
+    img.src = src;
+    // giữ nguyên video, canvas.pv-lut và canvas.pv-frame không tháo khỏi DOM
+  };
   if (bigs[uid]) { showImg(bigs[uid]); return; }
   if (thumbs[uid]) showImg(thumbs[uid]); else if (!$("preview").querySelector("video")) $("preview").innerHTML = "<span>Đang làm hình xem trước...</span>";
   const r = await api().big(uid);
