@@ -19,6 +19,8 @@ import wave
 HERE = os.path.dirname(os.path.abspath(__file__))
 RATE = 16000
 NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+EXTRACT_TIMEOUT_S = 900        # trích âm một file (clip dài hàng chục phút vẫn chỉ vài chục giây); quá thì coi file hỏng
+WHISPER_TIMEOUT_S = 1800       # Whisper một WAV (lô nhiều file: nhân số file)
 
 VAD_PAD_S = 0.3           # chừa quanh mỗi đoạn có tiếng người
 VAD_JOIN_S = 0.6          # hai đoạn tiếng cách nhau dưới 0,6 giây thì gộp
@@ -77,7 +79,11 @@ def extract_wav(src, out_wav, ffmpeg="ffmpeg"):
     """Trích âm thanh từ file gốc (chỉ đọc) ra WAV 16 kHz mono. Lỗi thì ném RuntimeError."""
     cmd = [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-vn", "-ac", "1",
            "-ar", str(RATE), "-c:a", "pcm_s16le", out_wav]
-    r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
+    try:
+        r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW,
+                               timeout=EXTRACT_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("ffmpeg trích âm quá %d giây (file hỏng?), bỏ qua clip này." % EXTRACT_TIMEOUT_S)
     if r.returncode != 0 or not os.path.isfile(out_wav):
         raise RuntimeError("ffmpeg lỗi: " + (r.stderr or "")[-200:])
     return out_wav
@@ -222,8 +228,11 @@ def whisper_cmd(cfg, wav, lang="vi", prompt=None):
 def whisper_run(cfg, wav, lang="vi", prompt=None):
     """Chép một WAV, trả về ([(giây đầu, giây cuối, chữ)], giây chạy). SRT do Const-me ghi cạnh WAV được xóa ngay."""
     t = time.time()
-    r = troly_proc.chay_an(whisper_cmd(cfg, wav, lang, prompt), capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", creationflags=NO_WINDOW)
+    try:
+        r = troly_proc.chay_an(whisper_cmd(cfg, wav, lang, prompt), capture_output=True, text=True, encoding="utf-8",
+                               errors="replace", creationflags=NO_WINDOW, timeout=WHISPER_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Whisper chạy quá %d giây, đã dừng." % WHISPER_TIMEOUT_S)
     took = time.time() - t
     srt = os.path.splitext(wav)[0] + ".srt"
     try:
@@ -320,7 +329,11 @@ def whisper_batch(cfg, wavs, lang="vi", prompt=None):
         cmd += ["--prompt", prompt]
     cmd += list(wavs)
     t = time.time()
-    r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
+    lim = WHISPER_TIMEOUT_S * max(1, len(wavs))
+    try:
+        r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW, timeout=lim)
+    except subprocess.TimeoutExpired:
+        r = None                                      # vẫn đọc các SRT đã xong (và xóa hết SRT) ở dưới
     took = time.time() - t
     out = {}
     for w in wavs:
@@ -332,7 +345,9 @@ def whisper_batch(cfg, wavs, lang="vi", prompt=None):
         finally:
             if os.path.isfile(srt):
                 os.remove(srt)
-    if r.returncode != 0 and not out:
+    if r is None and not out:
+        raise RuntimeError("Whisper chạy quá %d giây, đã dừng." % lim)
+    if r is not None and r.returncode != 0 and not out:
         raise RuntimeError("Whisper lỗi (mã %s): %s" % (r.returncode, (r.stderr or r.stdout or "")[-200:]))
     return out, took
 

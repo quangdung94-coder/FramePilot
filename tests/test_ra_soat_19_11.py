@@ -303,6 +303,38 @@ class StoreThreads(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+class SpeechTimeouts(unittest.TestCase):
+    def test_ffmpeg_va_whisper_luon_co_gioi_han_thoi_gian(self):
+        """Lỗi (Trung bình, kẹt): trích âm (ffmpeg) và Whisper chạy không có timeout: một file hỏng làm treo mãi 'Chép lời cả bin' và
+        'Phân tích cả project' (không bao giờ tới bước tắt máy/đối chiếu)."""
+        import troly_proc
+        import troly_speech as sp
+        seen = []
+
+        class R(object):
+            returncode, stdout, stderr = 1, "", "x"
+
+        def fake(cmd, **kw):
+            seen.append(kw.get("timeout"))
+            return R()
+        old = troly_proc.chay_an
+        troly_proc.chay_an = fake
+        tmp = tempfile.mkdtemp()
+        try:
+            cfg = {"exe": "w.exe", "model": "m.bin"}
+            for f in (lambda: sp.extract_wav("a.mp4", os.path.join(tmp, "a.wav")), lambda: sp.whisper_run(cfg, os.path.join(tmp, "a.wav")),
+                      lambda: sp.whisper_batch(cfg, [os.path.join(tmp, "a.wav")])):
+                try:
+                    f()
+                except RuntimeError:
+                    pass
+        finally:
+            troly_proc.chay_an = old
+            shutil.rmtree(tmp, ignore_errors=True)
+        self.assertEqual(len(seen), 3)
+        self.assertTrue(all(isinstance(t, (int, float)) and t > 0 for t in seen), seen)
+
+
 # --------------------------------------------------------------------------- hai cửa sổ FramePilot cùng một project
 class SingleInstance(unittest.TestCase):
     def test_cua_so_thu_hai_cung_project_bi_chan(self):
