@@ -107,6 +107,35 @@ class Api(unittest.TestCase):
         self.assertEqual(self.last("state")["moves"], [])
         self.assertFalse(self.api.undo())                   # hết nhật ký
 
+    def test_hoan_tac_mot_phan_cap_nhat_vi_tri_bin_ngay(self):
+        """S4c (19/11/2026): Hoàn tác lỗi MỘT PHẦN cập nhật vị trí bin của clip đã về chỗ cũ ngay, không đợi lần Đọc clip kế."""
+        self.load()
+        self.api.label(["a"], 0, "Decor")
+        self.api.label(["c"], 1, "Sân khấu")
+        self.assertTrue(self.api.apply())
+        self.run_jobs()
+        a_cu, c_cu = self.api._by_uid["a"].bin_path, self.api._by_uid["c"].bin_path
+        self.assertTrue(a_cu.endswith("/Decor") and c_cu.endswith("/Sân khấu"), (a_cu, c_cu))
+        self.api.move(["a", "c"], 2, None)                    # lần chuyển thứ hai: a và c sang bin giai đoạn 3 -> nhật ký có hai bin cũ khác nhau
+        self.assertTrue(self.api.apply())
+        self.run_jobs()
+        moi = self.api._by_uid["a"].bin_path
+        self.assertNotEqual(moi, a_cu)
+        real = self.pool.MoveClips
+
+        def hong_mot_nua(items, dst):                          # MoveClips về bin "Sân khấu" thất bại, về "Decor" vẫn chạy
+            return False if dst.name == "Sân khấu" else real(items, dst)
+        self.pool.MoveClips = hong_mot_nua
+        try:
+            self.assertTrue(self.api.undo())
+            self.run_jobs()
+        finally:
+            self.pool.MoveClips = real
+        self.assertEqual(self.api._by_uid["a"].bin_path, a_cu)      # a ĐÃ về Decor: vị trí cập nhật ngay
+        self.assertEqual(self.api._by_uid["c"].bin_path, moi)       # c chưa về được: giữ vị trí hiện tại
+        self.assertEqual(len(self.api._plan["moves"]), 2)           # nhật ký vẫn giữ để thử lại
+        self.assertEqual(self.last("status")["kind"], "warn")
+
     def test_view_lists_per_bin_match_counts_and_viewing_changes_nothing(self):
         st = self.load()                                      # Đón khách: a,b · Lễ nhà hàng: c,d · Chào bàn: e
         self.api.label(["a"], 0, "Decor")

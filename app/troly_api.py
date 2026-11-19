@@ -743,10 +743,12 @@ class TrolyApi(object):
     def _on_undone(self, back, failed):
         self._busy = False
         moves = self._plan.get("moves") or []
-        if moves and not failed:
-            last = moves.pop()
-            for uid, old, _new in last["log"]:
-                if uid in self._by_uid:
+        if moves:
+            last = moves[-1]
+            if not failed:
+                moves.pop()
+            for uid, old, _new in last["log"]:            # lỗi một phần: clip ĐÃ về chỗ cũ (có trong back) cập nhật vị trí ngay, nhật ký vẫn giữ để thử lại
+                if uid in self._by_uid and (not failed or uid in back):
                     self._by_uid[uid].bin_path = old
         self._save_now()
         msg = "Đã đưa %d clip về bin cũ." % len(back)
