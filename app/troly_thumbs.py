@@ -17,6 +17,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+import troly_proc
 
 FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 LUT_EXTS = ("", ".cube", ".3dl", ".dat", ".csp", ".m3d")
@@ -137,14 +138,14 @@ class ThumbMaker(object):
         tmp = key + ".tmp.jpg"
         cmd = ffmpeg_cmd(self.ffmpeg, src, t, tmp, lut_local, width)
         try:
-            r = subprocess.run(cmd, cwd=self.cache_dir, capture_output=True, timeout=60, creationflags=FLAGS)
+            r = troly_proc.chay_an(cmd, cwd=self.cache_dir, capture_output=True, timeout=60, creationflags=FLAGS)
         except (OSError, subprocess.TimeoutExpired) as e:
             return uid, None, "ffmpeg lỗi: %s" % e
         tmp_full = os.path.join(self.cache_dir, tmp)
         if r.returncode != 0 or not os.path.isfile(tmp_full):
             if t > 0:                                 # clip quá ngắn / tua quá đà: thử khung đầu
                 cmd = ffmpeg_cmd(self.ffmpeg, src, 0, tmp, lut_local, width)
-                r = subprocess.run(cmd, cwd=self.cache_dir, capture_output=True, timeout=60, creationflags=FLAGS)
+                r = troly_proc.chay_an(cmd, cwd=self.cache_dir, capture_output=True, timeout=60, creationflags=FLAGS)
             if r.returncode != 0 or not os.path.isfile(tmp_full):
                 err = (r.stderr or b"").decode("utf-8", "replace").strip().splitlines()
                 return uid, None, "ffmpeg lỗi: " + (err[-1] if err else "không rõ")

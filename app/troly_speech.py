@@ -11,6 +11,7 @@ import json
 import os
 import re
 import subprocess
+import troly_proc
 import tempfile
 import time
 import wave
@@ -76,7 +77,7 @@ def extract_wav(src, out_wav, ffmpeg="ffmpeg"):
     """Trích âm thanh từ file gốc (chỉ đọc) ra WAV 16 kHz mono. Lỗi thì ném RuntimeError."""
     cmd = [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-vn", "-ac", "1",
            "-ar", str(RATE), "-c:a", "pcm_s16le", out_wav]
-    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
+    r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
     if r.returncode != 0 or not os.path.isfile(out_wav):
         raise RuntimeError("ffmpeg lỗi: " + (r.stderr or "")[-200:])
     return out_wav
@@ -221,7 +222,7 @@ def whisper_cmd(cfg, wav, lang="vi", prompt=None):
 def whisper_run(cfg, wav, lang="vi", prompt=None):
     """Chép một WAV, trả về ([(giây đầu, giây cuối, chữ)], giây chạy). SRT do Const-me ghi cạnh WAV được xóa ngay."""
     t = time.time()
-    r = subprocess.run(whisper_cmd(cfg, wav, lang, prompt), capture_output=True, text=True, encoding="utf-8",
+    r = troly_proc.chay_an(whisper_cmd(cfg, wav, lang, prompt), capture_output=True, text=True, encoding="utf-8",
                        errors="replace", creationflags=NO_WINDOW)
     took = time.time() - t
     srt = os.path.splitext(wav)[0] + ".srt"
@@ -319,7 +320,7 @@ def whisper_batch(cfg, wavs, lang="vi", prompt=None):
         cmd += ["--prompt", prompt]
     cmd += list(wavs)
     t = time.time()
-    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
+    r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
     took = time.time() - t
     out = {}
     for w in wavs:

@@ -1,0 +1,154 @@
+{
+ "mode": "no_ram,preoff",
+ "gpu": {
+  "cores": 12,
+  "ua": "Edg/157.0.0.0",
+  "webgl": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 (0x00002504) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "h264": {
+   "supported": true,
+   "smooth": true,
+   "powerEfficient": true
+  }
+ },
+ "clip": "DG00.MP4",
+ "dur": 83.52,
+ "kf": 18,
+ "mo_clip_ms": 155,
+ "lut": true,
+ "kq": [
+  {
+   "name": "bar",
+   "su_kien": 183,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.16,
+    "p95": 0.3,
+    "max": 0.8
+   },
+   "goi_python": {},
+   "goi_fetch": 0,
+   "longtask_ms": [
+    84
+   ],
+   "hinh_hien": 18,
+   "hinh_moi_giay": 5.8,
+   "tre_den_hinh_ms": {
+    "tb": 981.6,
+    "p50": 916.4,
+    "p95": 2283.2,
+    "max": 2436.4
+   },
+   "dung_hinh_ms": {
+    "tb": 182.3,
+    "max": 2449.9
+   },
+   "khung_rot": 0,
+   "cho_hinh_chinh_xac_ms": 66
+  },
+  {
+   "name": "wave",
+   "su_kien": 181,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.25,
+    "p95": 0.4,
+    "max": 1
+   },
+   "goi_python": {},
+   "goi_fetch": 0,
+   "longtask_ms": [],
+   "hinh_hien": 17,
+   "hinh_moi_giay": 5.6,
+   "tre_den_hinh_ms": {
+    "tb": 1150.7,
+    "p50": 1133.1,
+    "p95": 2489.8,
+    "max": 2642.6
+   },
+   "dung_hinh_ms": {
+    "tb": 37.5,
+    "max": 50
+   },
+   "khung_rot": 0,
+   "cho_hinh_chinh_xac_ms": 0
+  },
+  {
+   "name": "iobar",
+   "su_kien": 183,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.55,
+    "p95": 0.8,
+    "max": 3
+   },
+   "goi_python": {
+    "set_inout": 1
+   },
+   "goi_fetch": 0,
+   "longtask_ms": [],
+   "hinh_hien": 144,
+   "hinh_moi_giay": 45.7,
+   "tre_den_hinh_ms": {
+    "tb": 13.4,
+    "p50": 11.8,
+    "p95": 31.3,
+    "max": 54.5
+   },
+   "dung_hinh_ms": {
+    "tb": 21.8,
+    "max": 50.1
+   },
+   "khung_rot": 0,
+   "cho_hinh_chinh_xac_ms": 33
+  },
+  {
+   "name": "cu_gan_thang",
+   "su_kien": 181,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.03,
+    "p95": 0.1,
+    "max": 0.2
+   },
+   "goi_python": {},
+   "goi_fetch": 0,
+   "longtask_ms": [],
+   "hinh_hien": 4,
+   "hinh_moi_giay": 1.3,
+   "tre_den_hinh_ms": {
+    "tb": 1192.5,
+    "p50": 1152.2,
+    "p95": 2549.9,
+    "max": 2706.9
+   },
+   "dung_hinh_ms": {
+    "tb": 1044.4,
+    "max": 2716.5
+   },
+   "khung_rot": 0,
+   "cho_hinh_chinh_xac_ms": 54
+  }
+ ],
+ "ram": {
+  "kho": {
+   "n": 444,
+   "total": 2088,
+   "done": true,
+   "err": "tắt khi đo",
+   "load_s": 1.8,
+   "ram_python_MB": 10.9,
+   "bitmap_trong_js": 0
+  },
+  "python": {
+   "clips": 2,
+   "bytes": 11386723,
+   "max_clips": 8,
+   "max_bytes": 314572800,
+   "running": null
+  },
+  "js_heap_MB": 4.7
+ },
+ "mau": {
+  "error": "chưa có kho khung"
+ },
+ "_cua_so": "pywebview (WebView2)",
+ "_app": "app",
+ "_flags": "",
+ "_proxy": "DG7366.mov"
+}

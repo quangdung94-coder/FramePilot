@@ -1,5 +1,37 @@
 # Nhật ký thay đổi
 
+## 2026-11-19 – K3: hết cửa sổ cmd chớp khi mở clip (ADR-0016 bản 2)
+- Thủ phạm theo mã: nạp sóng âm (ffmpeg thiếu cờ ẩn console); bản xem nhẹ ffmpeg cũng thiếu. Thêm app/troly_proc.py (chay_an / mo_an: CREATE_NO_WINDOW + SW_HIDE), mọi lời gọi tiến trình con đi qua đó; test quét không còn lời gọi subprocess ngoài file này. 493 bài đạt. Chưa kiểm bằng mắt.
+
+## 2026-11-19 – Rê chuột xem trước: đo trong pywebview thật + kho khung nhỏ trong RAM (ADR-0016 bản 2) - CHỜ NGƯỜI DỰNG THỬ bằng chuột thật
+- Đo TRONG cửa sổ pywebview thật (tools/panel_do_luot.py, DaVinci giả + proxy thật): cách cũ chỉ 5,8 hình/giây khi kéo thanh lướt, trễ p50 0,9 giây; JS/Python xử lý mỗi sự kiện chưa tới 1 ms, nghẽn là Video Decode của GPU lên 99% (số Chromium đêm 18/11 không phản ánh panel thật).
+- Thử từng nghi phạm: tắt WebGL LUT, tắt tải trước, 3 nhóm cờ WebView2 (kể cả giải mã CPU): không đổi gì. Hẹn giờ "dừng tay nhảy chính xác" làm sóng âm tệ hơn (p50 20 ms lên 1133 ms). Gỡ tải trước clip kế (bộ giải mã thứ hai).
+- Thêm kho khung nhỏ trong RAM (troly_frames.py): ffmpeg ưu tiên thấp giải mã sẵn khung 640 px, 25 khung/giây, JPEG, giữ trong RAM (8 clip, 300 MB, LRU), không ghi đĩa, không tạo proxy. Rê chuột/kéo thanh/rê trên sóng âm vẽ từ RAM; thả hoặc dừng 0,25 s thì video nhảy chính xác.
+- Sau: 58-60 hình/giây, trễ p50 0,1-0,5 ms, p95 dưới 8 ms, không đứng hình quá 31 ms. CHƯA ĐẠT hoàn toàn mục tiêu dưới 30 ms ở trường hợp xấu nhất (1-2 sự kiện đầu mỗi lần rê trễ 50-112 ms, chưa rõ nguyên nhân).
+- Test: +26 (tests/test_troly_frames.py), 489 bài đạt.
+
+## 2026-11-18 (đêm) – Đêm #4: chữ hiển thị gọi người dùng là "bạn" (ADR-0028) - CHỜ NGƯỜI DỰNG ĐỌC LẠI
+- Đổi "anh/Anh" thành "bạn/Bạn" ở 39 chỗ hiển thị trong 10 file (nút, tooltip, hộp xác nhận, thông báo, trang báo cáo AI...), đọc lại từng câu. Giữ "tiếng Anh" (English).
+- Test quét chuỗi hiển thị: "anh" đứng một mình = 0 chỗ (+3 test); 463 bài đạt. Xem 5 trang ở 1440x900: không còn sót, không tràn ngang; thu nút "Tự phân loại" cho vừa chữ.
+
+## 2026-11-18 (đêm) – Đêm #3: đổi tên hiển thị thành FramePilot và icon (ADR-0027) - CHỜ NGƯỜI DỰNG XEM
+- Tên hiển thị FramePilot: tiêu đề cửa sổ, trang web, hộp lỗi, menu DaVinci (`FramePilot.py`; mục cũ chỉ xóa khi `install.py --remove-old`). KHÔNG đổi tên thư mục/repo/khóa lưu/tên timeline.
+- Icon framepilot.ico gắn lên cửa sổ (WM_SETICON) và AppUserModelID "FramePilot" cho taskbar. Đã mở panel thật ở 4K 150%: taskbar và titlebar đúng icon, nét rõ. Chưa chụp ở 100%.
+- Test: +8 (tests/test_troly_framepilot.py); 460 bài đạt.
+
+## 2026-11-18 (đêm) – Đêm #2: sửa lag khi lướt xem trước (ADR-0016) - CHỜ NGƯỜI DỰNG THỬ trong panel thật
+- Đọc mã thấy hàng đợi một lệnh nhảy, nhảy keyframe khi kéo, dùng lại một thẻ video, màu Log WebGL đã có từ ADR-0023: không làm lại, đem đo.
+- Thêm nút **Đo lướt** (chỉ khi `--debug`): kéo giả đầu tới cuối clip, so cách cũ / keyframe / chính xác. Đo trên proxy thật: cách cũ 2-3 hình/giây, đứng hình tới 1,2 giây; hiện tại 27 hình/giây, đứng tối đa 55 ms (Chromium, chưa đo trong pywebview).
+- Kéo mà dừng tay ~0,22 giây thì nhảy chính xác tới hình đó; tải trước phần đầu clip kế (thẻ video ẩn, chỉ đọc). Ghi nhận GPU (RTX 3060, giải mã H.264 phần cứng).
+- Test: +8 (tests/test_troly_luot.py), sửa 1 test cũ (hai thẻ video); 452 bài đạt.
+
+## 2026-11-18 (đêm) – Đêm #1: Tự phân loại chạy luôn ở Bước 2 và 3 (ADR-0026) - CHỜ NGƯỜI DỰNG THỬ
+- Bỏ cặp nút "Tự phân loại | AI gợi ý" ở thanh trên. Bước 2: nút "Tự phân loại · N clip nhóm X" (khung cam, tiến độ a / b) gộp "Chạy lại AI" + "Gợi ý cho cả nhóm"; chỉ gán nhãn, không chuyển clip trong DaVinci.
+- Ngưỡng tự xếp áp ngay khi kéo/gõ, không gọi AI lại; biểu đồ 10 cột độ chắc + vạch ngưỡng + hai số "tự xếp" / "chờ bạn duyệt"; clip dưới ngưỡng viền cam đứt.
+- Bước 3: nút "Tự phân loại In/Out · N clip sao" dời xuống ngay dưới bảng quy tắc từng bin, có ô "Giữ nguyên clip bạn đã đặt tay" (mặc định bật). Cột trái chỉ còn cây clip sao.
+- Sửa lỗi nặng bắt được khi làm: `$("segMode")` còn trong app.js sau khi bỏ nút làm panel đứng; thêm test quét mọi id JS.
+- Test: +11 (API ai_auto_apply/ai_group_scores, keep_manual, giao diện, quét id); 444 bài đạt.
+
 ## 2026-11-18 (khuya) – Bước 5 bản 3: TIMELINE KÉO THẢ (ADR-0013) - CHỜ NGƯỜI DỰNG THỬ
 - Trang Bước 5 thành timeline: thước 0:00 → mục tiêu, V2/V1, khung cụm mẹ + khối con, A1/A2 (vạch chéo = tắt tiếng), bảng thứ tự cụm đang chọn, cột phải + gợi ý. Kéo thả (pointer events): dời cả cụm, đổi thứ tự khối con / sang cụm khác / lên V2, mép phải đổi thời lượng (không vượt Có), kéo dòng bảng; "Xếp lại theo giờ quay" (hỏi xác nhận nếu đã xếp tay). Ổ khóa chỉ khóa thời lượng.
 - Mọi khối (mẹ lẫn con) có Tốc độ (100% / Slow mượt tự tính = fps timeline ÷ fps source từng clip / gõ số; con thắng mẹ) và Tiếng (bật/tắt; con thắng mẹ). Số liệu tính theo RA TIMELINE (= In/Out gốc ÷ tốc độ); khối V2 không cộng vào Hiện Tại. Mục tiêu chỉ là con số nhắm tới: dư/thiếu; nút Đưa lên Timeline mới luôn bấm được, hộp xác nhận ghi dư/thiếu, Slow, tắt tiếng. Gợi ý mới: Đưa khối Slow về 100%, Bỏ clip ít ưu tiên cho vừa (chỉ khi anh bấm).

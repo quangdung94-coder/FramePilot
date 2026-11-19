@@ -110,8 +110,8 @@ class Api(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
         shutil.rmtree(self.kho, ignore_errors=True)
 
-    def run_sug(self):
-        r = self.api.inout_suggest_start()
+    def run_sug(self, keep_manual=False):
+        r = self.api.inout_suggest_start(keep_manual)
         self.assertTrue(r.get("ok"), r)
         for _ in range(200):
             time.sleep(0.02)
@@ -187,6 +187,31 @@ class Api(unittest.TestCase):
         self.assertEqual((a["sug"]["src"], a["sug"]["in_s"]), ("speech", 9.7))                              # gợi ý vẫn có, chỉ để so
         r = self.api.inout_accept(self.uid["DGa.MP4"])                                                      # nhận lại thì thay bằng gợi ý do anh chủ động bấm
         self.assertEqual(r["in_s"], 9.7)
+
+    def test_giu_nguyen_clip_dat_tay_khi_o_tick_bat_va_tinh_lai_khi_tat(self):
+        a = self.uid["DGa.MP4"]
+        self.api.set_inout(a, 2.0, 6.0)                                                                     # đặt tay (viền cam)
+        r = self.api.inout_suggest_start(True)
+        self.assertEqual(r["kept"], 1)
+        self.assertEqual(r["total"], 3)                                                                     # 3 clip sao còn lại, bỏ clip đặt tay
+        for _ in range(200):
+            time.sleep(0.02)
+            if not self.api._sug_run:
+                break
+        self.assertNotIn(self.k["a"], self.api._plan.get("inout_sug", {}))
+        self.assertEqual(self.clip("DGa.MP4")["sug"]["src"], "live")                                        # không có gợi ý đã lưu cho clip đặt tay
+        self.assertEqual(self.clip("DGa.MP4")["in_s"], 2.0)                                                 # In/Out đặt tay nguyên vẹn
+        self.run_sug(False)                                                                                 # ô tick tắt: chạy lại cho cả clip đặt tay
+        self.assertEqual(self.clip("DGa.MP4")["sug"]["src"], "speech")
+        self.assertEqual(self.clip("DGa.MP4")["in_s"], 2.0)                                                 # vẫn không ghi đè đặt tay
+
+    def test_giu_nguyen_ma_moi_clip_sao_deu_dat_tay_thi_bao_ro_ly_do(self):
+        for n in self.uid:
+            self.api.set_inout(self.uid[n], 2.0, 6.0)
+        r = self.api.inout_suggest_start(True)
+        self.assertIn("error", r)
+        self.assertIn("đặt tay", r["error"])
+        self.assertFalse(getattr(self.api, "_sug_run", None))
 
     def test_keo_chinh_sau_khi_nhan_tinh_la_da_chinh_va_xoa_thi_bo_ghi_nhan(self):
         self.run_sug()

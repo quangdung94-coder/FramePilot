@@ -29,7 +29,7 @@ class AiWeb(unittest.TestCase):
         self.assertIn('e.code !== "KeyA" && e.code !== "KeyX"', self.js)                      # A nhận, X bỏ qua
         for fn in ("ai_info", "ai_for", "ai_accept", "ai_skip", "ai_run", "ai_stop"):
             self.assertIn("api()." + fn, self.js, fn)
-        self.assertIn("AI gợi ý, chờ anh duyệt</span>", self.html)                            # chú thích lưới không còn "sắp có"
+        self.assertIn("AI gợi ý, chờ bạn duyệt</span>", self.html)                            # chú thích lưới không còn "sắp có"
         self.assertIn('class="tag ai"', self.app)                                             # thẻ gợi ý viền đứt trên lưới
 
     def test_phim_doc_bang_event_code_va_bo_qua_o_go_chu(self):
@@ -40,7 +40,7 @@ class AiWeb(unittest.TestCase):
     def test_khong_goi_davinci_tu_gio_dien_ai(self):
         for bad in ("api().apply", "api().move(", "api().append", "inout_write", "SetMarkInOut", "MoveClips", "api().label(", "api().undo"):
             self.assertNotIn(bad, self.js, bad)
-        self.assertIn("await ask(", self.js[self.js.index('t.id === "aiTakeAll"'):])           # nhận cả nhóm phải qua hộp xác nhận
+        self.assertNotIn("aiTakeAll", self.js)                                                  # Đêm #1: gộp vào nút Tự phân loại (chỉ gán nhãn, có Hoàn tác)
 
 
 if __name__ == "__main__":

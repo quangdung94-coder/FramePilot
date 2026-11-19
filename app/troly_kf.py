@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+import troly_proc
 
 TIMEOUT_S = 40
 VERSION = 1
@@ -39,7 +40,7 @@ def parse_packets(text):
     return sorted(set(out))
 
 
-def probe(src, ffprobe="ffprobe", timeout=TIMEOUT_S, runner=subprocess.run):
+def probe(src, ffprobe="ffprobe", timeout=TIMEOUT_S, runner=troly_proc.chay_an):
     """Keyframe của luồng hình đầu tiên, hoặc None nếu ffprobe lỗi / quá giờ. Chỉ đọc."""
     cmd = [ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts_time,flags", "-of", "csv=p=0", src]
     try:
@@ -56,7 +57,7 @@ def cache_file(cache_dir, src):
     return os.path.join(cache_dir, hashlib.sha1(src.encode("utf-8")).hexdigest()[:20] + ".json")
 
 
-def get(src, cache_dir, ffprobe="ffprobe", runner=subprocess.run):
+def get(src, cache_dir, ffprobe="ffprobe", runner=troly_proc.chay_an):
     """Keyframe (có cache theo cỡ + giờ sửa của proxy). Trả list hoặc None."""
     try:
         st = os.stat(src)

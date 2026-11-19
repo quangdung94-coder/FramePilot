@@ -11,6 +11,7 @@ Thuộc tính và hàm bắt đầu bằng "_" KHÔNG lộ ra JavaScript (quy ư
 import base64
 import collections
 import datetime
+import json
 import os
 import queue
 import sys
@@ -71,6 +72,7 @@ class TrolyApi(object):
         self._speech_st, self._speech_run, self._speech_last = None, None, None
         self._analyze = None
         self._ai_cache, self._ai_job = {}, None            # Bước 6 AI (ADR-0022)
+        self.debug = False                                 # panel chạy với --debug: bật nút "Đo lướt" (chỉ đọc, ghi số đo ra file nhỏ)
         self._tl_fps = None                                # fps timeline của project (worker đọc khi Đọc clip); None -> 25
         import troly_batch as _tb
         self._shutdown_fn = _tb.system_shutdown     # kiểm thử thay bằng bản giả
@@ -880,6 +882,77 @@ class TrolyApi(object):
             st["ai_auto"] = {"n": len(items), "below": below, "skipped": skipped, "threshold": thr}
             return st
 
+    def _auto_scope(self, uids):
+        """Điểm hạng 1 của các clip trong nhóm mà AI được phép đụng: clip CHƯA xếp hoặc đang mang nhãn by="ai_auto" (nhãn tay / ai_duyet không bao giờ).
+        Chỉ đọc vector và mô tả đã lưu, KHÔNG gọi AI chạy lại. Trả {uid: (điểm, bin, đang_có_nhãn_ai_auto)}; clip bỏ qua gợi ý thì không có."""
+        sug = self.ai_for(list(uids), include_labeled=True)
+        labels = self._plan.get("labels") or {}
+        out = {}
+        for u, r in sug.items():
+            c = self._by_uid.get(u)
+            if c is None or r.get("skipped") or not r.get("top"):
+                continue
+            si = self._assign.get(u)
+            lab = labels.get(c.rel or c.name)
+            mine = isinstance(lab, dict) and lab.get("by") == AI_AUTO_BY and self._label_in_stage(c, si) == lab.get("bin")
+            if self._label_in_stage(c, si) and not mine:
+                continue
+            out[u] = (r["top"][0]["score"], r["top"][0]["bin"], bool(mine))
+        return out
+
+    def ai_group_scores(self, uids):
+        """Cho biểu đồ độ chắc ở Bước 2: {uid: {"score","bin","auto"}} của các clip trong nhóm (xem _auto_scope). Chỉ đọc."""
+        with self._lock:
+            return {u: {"score": s, "bin": b, "auto": a} for u, (s, b, a) in self._auto_scope(uids).items()}
+
+    def ai_auto_apply(self, threshold=None, uids=None):
+        """Nút "Tự phân loại" và thanh ngưỡng ở Bước 2: áp ngưỡng NGAY cho các clip trong nhóm (uids), không chạy lại AI.
+        Clip chưa xếp có hạng 1 >= ngưỡng -> gán nhãn by="ai_auto"; nhãn ai_auto đang có mà điểm < ngưỡng mới -> bỏ nhãn (về "chờ bạn duyệt").
+        Chỉ nhãn trong kế hoạch panel, KHÔNG chuyển clip trong DaVinci. Lần gán mới ghi một batch để Hoàn tác."""
+        with self._lock:
+            if not self._clips:
+                return {"error": "Chưa có clip. Hãy bấm 'Đọc clip' trước."}
+            cfg = self._auto_cfg()
+            try:
+                thr = float(threshold) / 100.0 if threshold is not None else float(cfg.get("threshold", AI_AUTO_DEFAULT))
+            except (TypeError, ValueError):
+                return {"error": "Ngưỡng phải là số phần trăm."}
+            if not 0.0 < thr <= 1.0:
+                return {"error": "Ngưỡng từ 1 đến 100 phần trăm."}
+            vec, desc = self._ai_data()
+            if not vec and not desc:
+                return {"error": "Chưa chạy AI cho project này (hộp Gợi ý AI > Chạy AI)."}
+            pool = list(uids) if uids is not None else [c.uid for c in self._clips]
+            scope = self._auto_scope(pool)
+            labels = self._plan.get("labels") or {}
+            items, below, released = [], 0, 0
+            for c in self._clips:
+                if c.uid not in scope:
+                    continue
+                score, bn, mine = scope[c.uid]
+                if score + 1e-9 >= thr:
+                    if mine:
+                        continue
+                    stage = self._stages[self._assign.get(c.uid)]
+                    tc.set_label(self._plan, c, stage["name"], bn, by=AI_AUTO_BY)
+                    items.append({"uid": c.uid, "rel": c.rel or c.name, "stage": stage["name"], "bin": bn, "score": score})
+                else:
+                    below += 1
+                    if mine:
+                        labels.pop(c.rel or c.name, None)
+                        released += 1
+            cfg = dict(self._auto_cfg())
+            cfg["threshold"] = round(thr, 4)
+            if items:
+                batches = list(cfg.get("batches") or [])
+                batches.append({"at": datetime.datetime.now().isoformat(timespec="seconds"), "threshold": thr, "items": items})
+                cfg["batches"] = batches[-AI_AUTO_KEEP:]
+            self._plan["ai_auto"] = cfg
+            self._save_soon()
+            st = self.state()
+            st["ai_auto"] = {"n": len(items), "below": below, "released": released, "skipped": 0, "threshold": thr}
+            return st
+
     def ai_auto_undo(self):
         """Hoàn tác lần AI tự xếp gần nhất: bỏ nhãn các clip đó NẾU nhãn vẫn là của AI tự xếp và chưa bị anh đổi; clip anh đã đổi thì để nguyên."""
         with self._lock:
@@ -995,9 +1068,9 @@ class TrolyApi(object):
             return False, []
         return True, st.lines_of(c.rel)
 
-    def inout_suggest_start(self):
-        """Nút "Gợi ý In/Out cho clip sao": chạy NỀN một lượt cho mọi clip sao, lưu vào kế hoạch (plan["inout_sug"]). Không ghi DaVinci,
-        không đụng In/Out đặt tay."""
+    def inout_suggest_start(self, keep_manual=False):
+        """Nút "Tự phân loại In/Out" (Bước 3): chạy NỀN một lượt cho mọi clip sao, lưu vào kế hoạch (plan["inout_sug"]). Không ghi DaVinci,
+        không đụng In/Out đặt tay. keep_manual=True (giao diện luôn gửi theo ô tick, mặc định bật): bỏ qua clip bạn đã đặt tay In/Out (viền cam), không tính lại gợi ý cho chúng."""
         with self._lock:
             if getattr(self, "_sug_run", None):
                 return {"error": "Đang chạy gợi ý rồi."}
@@ -1006,6 +1079,13 @@ class TrolyApi(object):
             todo = [(c, self._label_in_stage(c, self._assign.get(c.uid))) for c in self._clips if tc.is_starred(self._plan, c)]
             if not todo:
                 return {"error": "Chưa có clip nào gắn sao ★. Gắn sao (phím J) ở Bước 2 trước."}
+            kept = 0
+            if keep_manual:
+                rest = [(c, lb) for c, lb in todo if not tc.manual_inout(self._plan, c)]
+                kept = len(todo) - len(rest)
+                if not rest:
+                    return {"error": "Cả %d clip sao đều đã được bạn đặt tay In/Out (viền cam). Bỏ tick \"Giữ nguyên clip bạn đã đặt tay\" nếu muốn chạy lại gợi ý cho chúng." % kept}
+                todo = rest
             self._sug_run = {"n": 0, "total": len(todo)}
 
         def go():
@@ -1033,7 +1113,7 @@ class TrolyApi(object):
                     self._sug_run = None
                 self._emit("inout_sug_done", {"total": len(todo), "speech": n_speech, "rule": len(res) - n_speech})
         threading.Thread(target=go, daemon=True).start()
-        return {"ok": True, "total": len(todo)}
+        return {"ok": True, "total": len(todo), "kept": kept}
 
     def inout_sug_pad(self, pad):
         """Chỉnh đệm hai đầu của gợi ý theo lời nói (giây, 0-3). Sai thì báo lỗi, không ghi gì."""
@@ -1208,6 +1288,52 @@ class TrolyApi(object):
         if not url:
             return {"error": "Không phát được file này."}
         return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "transcoded": bool(transcode)}
+
+    def _frame_store(self):
+        import troly_frames as tf
+        if getattr(self, "_frames", None) is None:
+            self._frames = tf.FrameStore(os.path.join(self._root, "cache", "troly_frames", tc._safe(self._project)), self._thumbs.ffmpeg, lut_copy=tt.local_lut)
+            self._play_server().frames = self._frames
+        return self._frames
+
+    def frames_open(self, uid, prefetch=False):
+        """Kho khung nhỏ trong RAM của clip (ADR-0016 bản 2): ffmpeg ưu tiên thấp đọc proxy (chỉ ĐỌC) ra khung JPEG nhỏ giữ TRONG RAM, không ghi đĩa.
+        Trả {url, n, total, fps, done, ...}; giao diện lấy khung ở <url>/<chỉ số> và hỏi tiến độ ở <url>/info. prefetch=True: nạp trước khi rảnh."""
+        c = self._by_uid.get(uid)
+        if c is None:
+            return {"error": "Không thấy clip."}
+        if not self._proxy_root or not c.proxy or not os.path.isfile(c.proxy):
+            return {"error": "Chưa có proxy"}
+        import troly_play as tp
+        if not tp.inside(c.proxy, [self._proxy_root]):
+            return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
+        st = self._frame_store()
+        lut_path = self._thumbs.lut_for(c.lut) if c.lut else None
+        r = st.open(c.rel or c.name, c.proxy, c.fps or 25.0, c.dur or 0, lut_path, bool(prefetch))
+        if r.get("token"):
+            r["url"] = "http://127.0.0.1:%d/f/%s" % (self._play_server().port, r["token"])
+        return r
+
+    def frames_stats(self):
+        st = getattr(self, "_frames", None)
+        return st.stats() if st else {"clips": 0, "bytes": 0}
+
+    def debug_on(self):
+        return bool(self.debug)
+
+    def debug_save(self, name, data):
+        """Ghi số đo từ nút "Đo lướt" (chỉ khi --debug) vào <data_root>\troly\debug\<tên>.json để chép vào ADR. Tên chỉ chữ/số/_-."""
+        if not self.debug:
+            return {"error": "Chỉ có khi chạy với --debug."}
+        import re as _re
+        if not _re.fullmatch(r"[A-Za-z0-9_-]{1,60}", str(name or "")):
+            return {"error": "Tên file không hợp lệ."}
+        d = os.path.join(self._root, "troly", "debug")
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, "%s.json" % name)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=1)
+        return {"ok": True, "path": path}
 
     def keyframes(self, uid):
         """Keyframe của proxy (giây) để lướt mượt; chỉ đọc proxy trong proxy_root. {'kf': [...]} hoặc {'error': ...}."""
@@ -1991,6 +2117,8 @@ class TrolyApi(object):
     def close(self):
         if self._play is not None:
             self._play.close()
+        if getattr(self, "_frames", None) is not None:
+            self._frames.close()
         self._closed = True
         if self._analyze is not None:                    # đóng cửa sổ giữa chừng: dừng và KHÔNG tắt máy
             self._analyze.stop = True

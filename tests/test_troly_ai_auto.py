@@ -160,6 +160,60 @@ class Auto(unittest.TestCase):
         self.assertEqual(st["ai_auto"]["n"], 0)
         self.assertEqual(self.api.ai_auto_info()["batches"], 0)                              # 0 clip thì không ghi lần Hoàn tác rỗng
 
+    # ---- Đêm #1: nút Tự phân loại + kéo ngưỡng áp ngay (ai_auto_apply, ai_group_scores) ----
+    def test_diem_nhom_cho_bieu_do_chi_doc_va_chi_clip_chua_xep_hoac_ai_xep(self):
+        sc = self.api.ai_group_scores([c.uid for c in self.api._clips])
+        self.assertEqual({round(v["score"], 2) for v in sc.values()}, {0.9, 0.5, 0.55, 0.4})
+        self.api.label([self.uid("DGa.MP4")], 0, "Khác")                                    # xếp tay: không còn trong biểu đồ
+        sc = self.api.ai_group_scores([c.uid for c in self.api._clips])
+        self.assertNotIn(self.uid("DGa.MP4"), sc)
+        self.assertEqual(len(sc), 3)
+
+    def test_doi_nguong_so_tu_xep_va_cho_duyet_doi_dung_khong_goi_ai_lai(self):
+        uids = [c.uid for c in self.api._clips]
+        st = self.api.ai_auto_apply(50, uids)
+        self.assertEqual((st["ai_auto"]["n"], st["ai_auto"]["below"]), (3, 1))
+        st = self.api.ai_auto_apply(80, uids)                                                # kéo lên: b, c trả về chờ duyệt, không chạy lại AI
+        self.assertEqual((st["ai_auto"]["n"], st["ai_auto"]["released"], st["ai_auto"]["below"]), (0, 2, 3))
+        self.assertEqual(list(self.labels()), ["DGa.MP4"])
+        st = self.api.ai_auto_apply(40, uids)                                                # kéo xuống: tự xếp thêm cả d
+        self.assertEqual((st["ai_auto"]["n"], st["ai_auto"]["released"], st["ai_auto"]["below"]), (3, 0, 0))
+        self.assertEqual(len(self.labels()), 4)
+        self.assertEqual(self.api.ai_auto_info()["threshold"], 0.4)                          # ngưỡng được nhớ
+        self.assertIsNone(self.api._ai_job)                                                  # chưa hề tạo/chạy tiến trình AI
+        self.assertTrue(self.api._worker.jobs.empty())
+
+    def test_tu_phan_loai_chi_gan_nhan_khong_chuyen_clip_trong_davinci(self):
+        self.api.ai_auto_apply(50, [c.uid for c in self.api._clips])
+        self.assertTrue(self.api._worker.jobs.empty())                                       # không có việc nào gửi sang luồng DaVinci
+        self.assertEqual(self.api._plan.get("moves", []), [])
+        self.assertTrue(all(v == "ai_auto" for _b, v in self.labels().values()))
+
+    def test_chi_dung_clip_trong_nhom_va_khong_dung_nhan_tay(self):
+        a, b = self.uid("DGa.MP4"), self.uid("DGb.MP4")
+        self.api.label([self.uid("DGc.MP4")], 0, "Decor")                                    # nhãn tay của người dựng
+        self.api.ai_auto_apply(50, [a, b])                                                   # chỉ nhóm a, b
+        self.assertEqual(sorted(self.labels()), ["DGa.MP4", "DGb.MP4", "DGc.MP4"])
+        self.assertEqual(self.labels()["DGc.MP4"], ("Decor", "nguoi"))
+        self.api.ai_auto_apply(99, [a, b, self.uid("DGc.MP4")])                              # ngưỡng cao: chỉ gỡ nhãn AI, nhãn tay còn nguyên
+        self.assertEqual(list(self.labels()), ["DGc.MP4"])
+        self.assertEqual(self.labels()["DGc.MP4"], ("Decor", "nguoi"))
+
+    def test_ap_dung_sai_ngưỡng_hoac_chua_chay_ai_thi_bao_loi_khong_ghi(self):
+        for bad in (0, 101, "abc"):
+            self.assertIn("error", self.api.ai_auto_apply(bad, [c.uid for c in self.api._clips]), bad)
+        self.assertEqual(self.labels(), {})
+        os.remove(os.path.join(self.tmp, "troly", "ai_suggest", tc._safe(self.name) + ".json"))
+        self.assertIn("error", self.api.ai_auto_apply(50, [c.uid for c in self.api._clips]))
+
+    def test_ap_dung_tung_lan_hoan_tac_duoc(self):
+        uids = [c.uid for c in self.api._clips]
+        self.api.ai_auto_apply(80, uids)
+        self.api.ai_auto_apply(50, uids)
+        self.assertEqual(self.api.ai_auto_info()["batches"], 2)
+        self.api.ai_auto_undo()
+        self.assertEqual(list(self.labels()), ["DGa.MP4"])
+
     def test_nhan_ai_xep_vao_duoc_ke_hoach_ap_dung_nhu_nhan_thuong(self):
         self.api.ai_auto_run()
         tgt = {c.uid: tc.target_folder(self.api._assign.get(c.uid), tc.label_of(self.api._plan, c), self.api._stages, None) for c in self.api._clips}
@@ -174,14 +228,37 @@ class Web(unittest.TestCase):
         self.html = open(os.path.join(web, "index.html"), encoding="utf-8").read()
 
     def test_phan_tu_dau_rieng_va_chu_dung_chuc_nang(self):
-        for i in ("aiThr", "aiAutoRun", "aiAutoUndo", "aiAutoAfter", "aiAuto"):
+        for i in ("aiThr", "aiThrR", "aiRun", "aiAutoUndo", "aiAutoAfter", "aiAuto", "aiHist", "aiCntOk", "aiCntWait"):
             self.assertEqual(self.html.count('id="%s"' % i), 1, i)
         self.assertIn("AI xếp · ", self.app)                                                   # dấu riêng trên thẻ
         self.assertIn('c.label_by === "ai_auto"', self.app)
-        for fn in ("ai_auto_run", "ai_auto_undo", "ai_auto_set", "ai_auto_info"):
+        for fn in ("ai_auto_run", "ai_auto_undo", "ai_auto_set", "ai_auto_info", "ai_auto_apply", "ai_group_scores"):
             self.assertIn("api()." + fn, self.js, fn)
         self.assertIn('value="50"', self.html)                                                 # ngưỡng mặc định 50
         self.assertIn("Tự xếp luôn sau khi AI chạy xong", self.html)
+
+    def test_giao_dien_khong_con_hai_nut_cu_va_khong_co_nhan_demo(self):
+        h, js = self.html, self.js
+        for bad in ("Chạy lại AI", "Gợi ý cho cả nhóm", 'id="aiAutoRun"', "MỚI ·"):
+            self.assertNotIn(bad, h + js, bad)
+        self.assertIn("Tự phân loại · ", js)
+        self.assertIn("api().ai_auto_apply(", js)
+        thr = js[js.index("function aiThrSet"):js.index('$("aiAutoUndo").addEventListener')]
+        self.assertNotIn("ai_run", thr)                                                      # kéo ngưỡng không gọi AI chạy lại
+        self.assertIn("aiHistPaint()", thr)
+
+    def test_moi_id_js_goi_bang_dollar_deu_co_trong_html_hoac_duoc_dung_dong(self):
+        """Lỗi thật đã gặp khi bỏ cặp nút trên cùng: app.js còn gọi $("segMode") đã bị xóa khỏi HTML -> cả panel đứng. Test này bắt cả họ lỗi đó."""
+        import glob
+        import re
+        web = os.path.join(HERE, "..", "app", "troly_web")
+        ids = set(re.findall(r'id="([^"]+)"', self.html))
+        dyn = {"aiSkip", "tplName", "ioHead", "lnLang", "lnLangBtn", "lnPick"}                 # sinh động trong JS (innerHTML), không nằm sẵn trong HTML
+        for f in sorted(glob.glob(os.path.join(web, "*.js"))):
+            with open(f, encoding="utf-8") as fh:
+                src = fh.read()
+            miss = {m for m in re.findall(r'\$\("([A-Za-z0-9_]+)"\)', src) if m not in ids and m not in dyn}
+            self.assertEqual(miss, set(), os.path.basename(f))
 
     def test_khong_goi_davinci_va_hop_ap_dung_nhac_so_clip_ai_xep(self):
         seg = self.js[self.js.index("Việc 3 (ADR-0023)"):]

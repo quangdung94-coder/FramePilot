@@ -365,9 +365,9 @@ def build_review(project, data_root):
     ev = s.get("eval") or {}
     rows = []
     if "top1" in ev:
-        rows.append("<p>Đã có nhãn của anh: <b>%d</b> clip. Gợi ý hạng 1 trùng nhãn: <b>%.0f%%</b>; nhãn nằm trong 3 gợi ý đầu: <b>%.0f%%</b>.</p>"
+        rows.append("<p>Đã có nhãn của bạn: <b>%d</b> clip. Gợi ý hạng 1 trùng nhãn: <b>%.0f%%</b>; nhãn nằm trong 3 gợi ý đầu: <b>%.0f%%</b>.</p>"
                     % (ev["labeled"], ev["top1"] * 100, ev["top3"] * 100))
-        rows.append("<table><tr><th>Bin</th><th>Clip anh xếp</th><th>Gợi ý trúng (recall)</th><th>Số gợi ý hạng 1</th><th>Đúng trong số đó (precision)</th></tr>")
+        rows.append("<table><tr><th>Bin</th><th>Clip bạn xếp</th><th>Gợi ý trúng (recall)</th><th>Số gợi ý hạng 1</th><th>Đúng trong số đó (precision)</th></tr>")
         for b, v in ev["per_bin"].items():
             pc = lambda x: "—" if x is None else "%.0f%%" % (x * 100)      # noqa: E731
             rows.append("<tr><td>%s</td><td>%d</td><td>%s</td><td>%d</td><td>%s</td></tr>"
@@ -390,7 +390,7 @@ def build_review(project, data_root):
         for it in its:
             tops = " · ".join("%s %.0f%%" % (html.escape(t["bin"]), t["score"] * 100) for t in it["top"])
             lab = it.get("label")
-            mark = "" if not lab else (" <span class='ok'>(anh xếp: %s ✓)</span>" if lab == it["top"][0]["bin"] else " <span class='bad'>(anh xếp: %s)</span>") % html.escape(lab)
+            mark = "" if not lab else (" <span class='ok'>(bạn xếp: %s ✓)</span>" if lab == it["top"][0]["bin"] else " <span class='bad'>(bạn xếp: %s)</span>") % html.escape(lab)
             parts.append("<div class='c'><img loading='lazy' src='%s' alt=''><div>%s%s</div><div>%s</div></div>" % (src(it), html.escape(it["name"]), mark, tops))
         parts.append("</div>")
     parts.append("</body></html>")
@@ -502,13 +502,14 @@ class AiJob(object):
         if not self.available():
             return False
         import subprocess
+        import troly_proc
         d = embed_dir(self.root, self.project)
         os.makedirs(d, exist_ok=True)
         stop = os.path.join(d, "STOP")
         if os.path.isfile(stop):
             os.remove(stop)
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        self._proc = subprocess.Popen([self.python, "-X", "utf8", os.path.join(APP, "troly_ai.py"), "run", "--project", self.project],
+        self._proc = troly_proc.mo_an([self.python, "-X", "utf8", os.path.join(APP, "troly_ai.py"), "run", "--project", self.project],
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
         return True
 

@@ -432,7 +432,7 @@ document.addEventListener("keydown", (e) => { const el = e.target; if (page === 
 $("d5Reset").addEventListener("click", async () => {
   if (!D5.v) return;
   if (D5.v.tl_manual) {
-    const ok = await ask("Xếp lại theo giờ quay?", "Anh đã xếp tay (dời cụm, đổi thứ tự, chuyển V2). Bấm đồng ý sẽ đưa thứ tự và V1/V2 về mặc định theo giờ quay thật. <b>Tốc độ và tiếng giữ nguyên.</b> Chỉ đổi trong panel, chưa chạm DaVinci.", "Xếp lại");
+    const ok = await ask("Xếp lại theo giờ quay?", "Bạn đã xếp tay (dời cụm, đổi thứ tự, chuyển V2). Bấm đồng ý sẽ đưa thứ tự và V1/V2 về mặc định theo giờ quay thật. <b>Tốc độ và tiếng giữ nguyên.</b> Chỉ đổi trong panel, chưa chạm DaVinci.", "Xếp lại");
     if (!ok) return;
   }
   D5.hl = null;
@@ -441,7 +441,7 @@ $("d5Reset").addEventListener("click", async () => {
 $("d5SugA").addEventListener("click", () => d5Run(() => api().dur_rebalance(), "Đã tự kéo thêm cho đủ mục tiêu. Chưa tạo gì trong DaVinci."));
 $("d5SugB").addEventListener("click", () => d5Run(() => api().dur_lower_target(), "Đã hạ mục tiêu xuống số Hiện Tại."));
 $("d5SugC").addEventListener("click", () => d5Run(() => api().dur_tl_unslow(), "Đã đưa khối Slow về 100%."));
-$("d5SugD").addEventListener("click", () => d5Run(() => api().dur_fit_over(), "Đã thả số đã kéo để bỏ clip ít ưu tiên cho vừa mục tiêu (anh xem danh sách bỏ trong dòng cụm)."));
+$("d5SugD").addEventListener("click", () => d5Run(() => api().dur_fit_over(), "Đã thả số đã kéo để bỏ clip ít ưu tiên cho vừa mục tiêu (bạn xem danh sách bỏ trong dòng cụm)."));
 $("d5SugE").addEventListener("click", () => {
   const a = D5.v && D5.v.advice.step3; if (!a) return;
   P3.onlyStar = false;                                           // cần thấy cả clip CHƯA sao để chọn thêm
@@ -455,12 +455,12 @@ $("d5Create").addEventListener("click", async () => {
   const v = D5.v; if (!v || !v.items.length) return status("Chưa có clip sao ★ nào để đưa lên.", "warn");
   const sm = v.tl_summary, short = v.short_s || 0;
   const gap = v.state === "short" ? `<div class="tl-warn"><b>Đang thiếu ${d5mm(short)}</b> so với mục tiêu ${d5mm(v.target_s)}: chưa đủ clip sao. Vẫn tạo được; Trợ lý không tự thêm clip.</div>`
-    : v.state === "over" ? `<div class="tl-warn"><b>Đang dư ${d5mm(v.delta_s)}</b> so với mục tiêu ${d5mm(v.target_s)}. Vẫn tạo được; Trợ lý không tự bỏ clip của anh.</div>` : `<div>Khớp mục tiêu ${d5mm(v.target_s)}.</div>`;
+    : v.state === "over" ? `<div class="tl-warn"><b>Đang dư ${d5mm(v.delta_s)}</b> so với mục tiêu ${d5mm(v.target_s)}. Vẫn tạo được; Trợ lý không tự bỏ clip của bạn.</div>` : `<div>Khớp mục tiêu ${d5mm(v.target_s)}.</div>`;
   const ok = await ask("Tạo timeline mới?",
     `<div>Tên: <b>Rough Cut sao ${esc(v.project || "")} &lt;ngày giờ lúc bấm&gt;</b></div><div>Độ dài V1: <b>${d5mm(v.total_s)}</b> · mục tiêu ${d5mm(v.target_s)}</div>` +
     `<div>Số clip: <b>${sm.n_v1 + sm.n_v2}</b> (V1 ${sm.n_v1}${sm.n_v2 ? `, V2 chồng ${sm.n_v2}` : ""}) / ${v.n_starred} clip sao</div>` + gap +
     `<div>Khối Slow: <b>${sm.slow.length ? esc(sm.slow.join(", ")) : "không có"}</b></div><div>Khối tắt tiếng: <b>${sm.muted.length ? esc(sm.muted.join(", ")) : "không có"}</b></div>` +
-    `<div>Thứ tự: theo cách anh xếp trên màn hình (V1 rồi V2 chồng)</div><br>Chỉ tạo <b>MỘT timeline MỚI</b> có 2 track hình V1, V2. Không sửa hay xóa timeline đang có, không ghi In/Out lên clip gốc. Slow giữ nguyên In/Out nên clip dài hơn và các clip sau V1 bị đẩy ra sau. Tắt tiếng chỉ tắt clip tiếng của khối (A1 cho V1, A2 cho V2), không đụng A3 trở lên. Trợ lý ghi nhật ký trước khi tạo và đọc lại vị trí để kiểm.`,
+    `<div>Thứ tự: theo cách bạn xếp trên màn hình (V1 rồi V2 chồng)</div><br>Chỉ tạo <b>MỘT timeline MỚI</b> có 2 track hình V1, V2. Không sửa hay xóa timeline đang có, không ghi In/Out lên clip gốc. Slow giữ nguyên In/Out nên clip dài hơn và các clip sau V1 bị đẩy ra sau. Tắt tiếng chỉ tắt clip tiếng của khối (A1 cho V1, A2 cho V2), không đụng A3 trở lên. Trợ lý ghi nhật ký trước khi tạo và đọc lại vị trí để kiểm.`,
     "Tạo timeline mới");
   if (!ok) return status("Đã hủy, chưa tạo gì trong DaVinci.", "info");
   const r = await api().dur_create_timeline();

@@ -106,11 +106,13 @@ function p3SugPaint() {
   b.disabled = !!run;                                           // chỉ khoá khi đang chạy; không có clip sao thì bấm vẫn báo lý do (không im lặng)
   b.classList.toggle("run", !!run);
   b.classList.toggle("again", !run && g.done > 0);
-  if (run && g.total) b.style.setProperty("--pg", Math.round(g.n / g.total * 100) + "%"); else b.style.removeProperty("--pg");
-  $("p3SugT").textContent = run ? `Đang gợi ý… ${g.n}/${g.total}` : (g.done > 0 ? `Chạy lại gợi ý (${n} clip sao)` : `Chạy gợi ý cho ${n} clip sao`);
-  $("p3SugN").textContent = run ? "" : (n ? `đã chạy ${g.done}/${n}` : "chưa có clip sao");
+  const pct = run && g.total ? g.n / g.total * 100 : (n ? Math.min(100, g.done / n * 100) : 0);
+  $("p3SugBar").style.width = pct + "%";
+  b.style.removeProperty("--pg");
+  $("p3SugT").textContent = run ? `Đang chạy… ${g.n}/${g.total}` : `Tự phân loại In/Out · ${n} clip sao`;
+  $("p3SugN").textContent = run ? `đã chạy ${g.n} / ${g.total}` : (n ? `đã chạy ${g.done} / ${n}` : "chưa có clip sao");
   b.querySelector(".gi").textContent = run ? "…" : (g.done > 0 ? "↻" : "▶");
-  b.title = n ? "Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4), không thì theo quy tắc bin. Màu xanh, không tự ghi vào DaVinci."
+  b.title = n ? "Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4), không thì theo quy tắc bin bên trên. Màu xanh, không tự ghi vào DaVinci."
     : "Chưa có clip sao. Gắn sao (J) ở Bước 2 trước.";
 }
 function p3SugMsg(text, kind) { const m = $("p3SugMsg"); m.textContent = text || ""; m.className = "p3-gymsg" + (kind ? " " + kind : ""); }
@@ -128,11 +130,11 @@ function p3SumPaint() {
 async function p3SugStart() {
   p3SugMsg("Đang bắt đầu…", "");
   let r;
-  try { r = await api().inout_suggest_start(); } catch (e) { r = { error: "Không gọi được Trợ lý: " + (e && e.message ? e.message : e) }; }
+  try { r = await api().inout_suggest_start($("p3KeepManual").checked); } catch (e) { r = { error: "Không gọi được Trợ lý: " + (e && e.message ? e.message : e) }; }
   if (!r || r.error) { const m = (r && r.error) || "Không chạy được gợi ý."; p3SugMsg("Không chạy: " + m, "err"); return status(m, "warn"); }
   P3.sugRun = true;
   if (S.inout_sug) { S.inout_sug.running = true; S.inout_sug.n = 0; S.inout_sug.total = r.total; }
-  p3SugPaint(); p3SugMsg(`Đang chạy nền cho ${r.total} clip sao…`, ""); p3SugPoll();
+  p3SugPaint(); p3SugMsg(`Đang chạy nền cho ${r.total} clip sao` + (r.kept ? `, giữ nguyên ${r.kept} clip bạn đã đặt tay` : "") + "…", ""); p3SugPoll();
 }
 async function p3SugFinish() {                                  // lần chạy vừa xong (sự kiện nền hoặc hỏi tiến độ): nạp lại trạng thái, báo kết quả
   if (!P3.sugRun) return;
@@ -270,11 +272,11 @@ function renderPage3Cur(c) {
   let h = "";
   h += `<div class="kv"><span>Gợi ý${sug ? " (" + (P3_SRC[sug.src] || "") + ")" : ""}</span><span class="sg">${sug ? rg(sug.in_s, sug.out_s) : "không gợi ý"}</span></div>`;
   const sameDv = c.in_s != null && c.dv && Math.abs(c.dv[0] - c.in_s) < 0.02 && Math.abs(c.dv[1] - c.out_s) < 0.02;
-  if (c.in_s != null) h += `<div class="kv"><span>${c.io_src === "manual" && !sameDv ? "Anh đặt tay" : "Đã có trong DaVinci"}</span><span>${rg(c.in_s, c.out_s)}</span></div>`;
-  else h += `<div class="kv"><span>Anh đặt tay</span><span>chưa</span></div>`;
+  if (c.in_s != null) h += `<div class="kv"><span>${c.io_src === "manual" && !sameDv ? "Bạn đặt tay" : "Đã có trong DaVinci"}</span><span>${rg(c.in_s, c.out_s)}</span></div>`;
+  else h += `<div class="kv"><span>Bạn đặt tay</span><span>chưa</span></div>`;
   const keep = p3Keep(c); h += `<div class="kv"><span>Giữ lại</span><span>${keep == null ? "--" : fmtF(keep, f)}</span></div>`;
   h += `<div style="margin-top:6px">${c.io_src === "manual" && !sameDv ? "Đặt tay luôn thắng gợi ý. Chưa ghi vào DaVinci." : (sug ? "Bấm A để nhận gợi ý thành In/Out đặt tay." : "Clip quá ngắn nên không gợi ý.")}` +
-    (sug && sug.stale ? `<br><span style="color:var(--link)">Quy tắc hoặc đệm đã đổi từ lần gợi ý: chạy lại "Gợi ý In/Out cho clip sao".</span>` : "") + `</div>`;
+    (sug && sug.stale ? `<br><span style="color:var(--link)">Quy tắc hoặc đệm đã đổi từ lần gợi ý: chạy lại "Tự phân loại In/Out".</span>` : "") + `</div>`;
   $("p3Cur").innerHTML = h;
   document.querySelectorAll("#p3List .p3-clip").forEach((el) => el.classList.toggle("cur", +el.dataset.i === cur));
   const el = document.querySelector(`#p3List .p3-clip[data-i="${cur}"]`); if (el) el.scrollIntoView({ block: "nearest" });
@@ -284,7 +286,7 @@ $("p3Pad").addEventListener("change", async () => {
   const r = await api().inout_sug_pad($("p3Pad").value);
   if (r.error) { status(r.error, "warn"); $("p3Pad").value = (S && S.inout_sug ? S.inout_sug.pad : 0.3); return; }
   if (S && S.inout_sug) S.inout_sug.pad = r.pad;
-  status(`Đệm gợi ý theo lời nói: ${r.pad} giây. Bấm "Gợi ý In/Out cho clip sao" để chạy lại.`, "ok");
+  status(`Đệm gợi ý theo lời nói: ${r.pad} giây. Bấm "Tự phân loại In/Out" để chạy lại.`, "ok");
 });
 
 /* ---- sóng âm (api.wave làm nền từ proxy, chỉ đọc) ---- */
@@ -363,7 +365,7 @@ function renderRules() {
   $("tradHead").classList.toggle("ed", Math.abs(R.trad_head - R.trad_default) > 1e-9);
   $("tradTail").classList.toggle("ed", Math.abs(R.trad_tail - (R.trad_default_tail == null ? R.trad_default : R.trad_default_tail)) > 1e-9);
   const anyEd = trad ? Object.values(R.trad_bins || {}).some((b) => b.edited) || $("tradHead").classList.contains("ed") || $("tradTail").classList.contains("ed") : R.bins.some((b) => b.edited);
-  $("rulesNote").textContent = anyEd ? "Ô viền cam = anh đã sửa." : "Chưa sửa gì: đang dùng số mặc định.";
+  $("rulesNote").textContent = anyEd ? "Ô viền cam = bạn đã sửa." : "Chưa sửa gì: đang dùng số mặc định.";
 }
 async function rulesChanged(e) {
   const tr = e.target.closest("tr[data-bin]"); if (!tr) return;
@@ -403,7 +405,7 @@ $("tradHead").onchange = tradDefaultChanged;
 $("tradTail").onchange = tradDefaultChanged;
 for (const id of ["tradHead", "tradTail"]) $(id).addEventListener("keydown", (e) => { if (e.code === "Enter") e.target.blur(); });
 $("rulesReset").onclick = async () => {
-  const ok = await ask("Về mặc định?", "<p>Xóa mọi chỗ anh đã sửa trong bảng quy tắc và số giây cắt đầu / đuôi của Truyền thống (chung và từng bin). In/Out anh đã đặt tay không bị đụng.</p>", "Về mặc định");
+  const ok = await ask("Về mặc định?", "<p>Xóa mọi chỗ bạn đã sửa trong bảng quy tắc và số giây cắt đầu / đuôi của Truyền thống (chung và từng bin). In/Out bạn đã đặt tay không bị đụng.</p>", "Về mặc định");
   if (!ok) return;
   const st = await api().reset_bin_rule();
   P3.rulesSig = "";

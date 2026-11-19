@@ -368,12 +368,12 @@ def build(plan, clips, assign, stages, tl_fps=None):
                               "dur": round((out - cut["in_s"]) / pp, 2), "t": c.t_start, "fixed": cut["fixed"]})
             if b["edited"] and b["n_starred"] and b["natural_s"] > b["max"] + 1e-9:
                 warnings.append({"kind": "bin_over", "stage": r["name"], "bin": b["name"],
-                                 "text": "Bin “%s” (%s): clip sao dài %d giây, vượt Max %d giây anh đặt; đã cắt gọt%s." % (
+                                 "text": "Bin “%s” (%s): clip sao dài %d giây, vượt Max %d giây bạn đặt; đã cắt gọt%s." % (
                                      b["name"], r["name"], round(b["natural_s"]), round(b["max"]),
                                      (", bỏ %d clip ít ưu tiên" % len(dropped)) if dropped else "")})
             if b["edited"] and b["min"] > 0 and btotal + 1e-9 < b["min"] and b["n_starred"]:
                 warnings.append({"kind": "bin_short", "stage": r["name"], "bin": b["name"],
-                                 "text": "Bin “%s” (%s) lấy %d giây, ít hơn Min %d giây anh đặt (có %d clip sao). Không tự thêm clip chưa sao." % (
+                                 "text": "Bin “%s” (%s) lấy %d giây, ít hơn Min %d giây bạn đặt (có %d clip sao). Không tự thêm clip chưa sao." % (
                                      b["name"], r["name"], round(btotal), round(b["min"]), b["n_starred"])})
         dropped_clips.sort(key=lambda c: c["_k"])                    # ít ưu tiên nhất đứng đầu
         for c in dropped_clips:
@@ -586,14 +586,14 @@ def advise(plan, clips, assign, stages, r):
         if fit:
             r2 = fit[1]
             out["fit"] = {"title": "Bỏ clip ít ưu tiên cho vừa %s" % mmss(r["target_s"]),
-                          "text": "Thả số đã kéo của cụm chưa khóa, Trợ lý rút/bỏ %d clip ít ưu tiên (anh xem danh sách bỏ trong dòng cụm). Hiện Tại còn %s." % (
+                          "text": "Thả số đã kéo của cụm chưa khóa, Trợ lý rút/bỏ %d clip ít ưu tiên (bạn xem danh sách bỏ trong dòng cụm). Hiện Tại còn %s." % (
                               max(0, r["n_used"] - r2["n_used"]), mmss(r2["total_s"]))}
         fixed = [x for x in r["stages"] if x["pinned"]]
         if fixed and sum(x["total_s"] for x in fixed) >= r["target_s"] - TOL_S:
-            out["reasons"].append("Giai đoạn anh kéo/gõ/khóa (%s) đã lấy %s, bằng hoặc hơn mục tiêu %s nên các giai đoạn khác chỉ còn lấy ít hoặc không lấy. "
+            out["reasons"].append("Giai đoạn bạn kéo/gõ/khóa (%s) đã lấy %s, bằng hoặc hơn mục tiêu %s nên các giai đoạn khác chỉ còn lấy ít hoặc không lấy. "
                                   "Kéo bớt số đó, mở khóa hoặc nâng mục tiêu." % (", ".join(x["name"] for x in fixed), mmss(sum(x["total_s"] for x in fixed)), mmss(r["target_s"])))
         else:
-            out["reasons"].append("Hiện Tại %s, dài hơn mục tiêu %s. Thường do Min anh đặt trong “Giới hạn nâng cao” lớn hơn phần còn lại; hạ Min hoặc mở khóa giai đoạn."
+            out["reasons"].append("Hiện Tại %s, dài hơn mục tiêu %s. Thường do Min bạn đặt trong “Giới hạn nâng cao” lớn hơn phần còn lại; hạ Min hoặc mở khóa giai đoạn."
                                   % (mmss(r["total_s"]), mmss(r["target_s"])))
         return out
     with_star = [s for s in r["stages"] if s["n_starred"]]
@@ -614,7 +614,7 @@ def advise(plan, clips, assign, stages, r):
         txt = ", ".join(moves) + "."
         lk = [a["name"] for a in r["stages"] if a["locked"]]
         if lk:
-            txt += " Giai đoạn anh khóa (%s) giữ nguyên %s." % (", ".join(lk), ", ".join(mmss(a["total_s"]) for a in r["stages"] if a["locked"]))
+            txt += " Giai đoạn bạn khóa (%s) giữ nguyên %s." % (", ".join(lk), ", ".join(mmss(a["total_s"]) for a in r["stages"] if a["locked"]))
         if r2["state"] == "short":
             txt += " Vẫn còn thiếu %s." % mmss(r2["short_s"])
         out["rebalance"] = {"title": "Tự kéo thêm cho đủ %s" % mmss(r["target_s"]), "text": txt.strip(), "total_s": r2["total_s"]}

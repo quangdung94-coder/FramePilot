@@ -238,9 +238,9 @@ def rule_for(label, rules=None):
         ok, v = check_bin_rule(r.get("min"), r.get("max"), r.get("whole"))
         if ok:
             if v["whole"]:
-                txt = "Quy tắc của anh: trọn câu, từ %gs" % v["min"]
+                txt = "Quy tắc của bạn: trọn câu, từ %gs" % v["min"]
             else:
-                txt = "Quy tắc của anh: giữ %g–%gs" % (v["min"], v["max"]) if v["min"] != v["max"] else "Quy tắc của anh: giữ %gs" % v["min"]
+                txt = "Quy tắc của bạn: giữ %g–%gs" % (v["min"], v["max"]) if v["min"] != v["max"] else "Quy tắc của bạn: giữ %gs" % v["min"]
             return txt, v["min"], v["max"], v["whole"], True
     t, mn, mx, whole = builtin_rule(label)
     return t, mn, mx, whole, False

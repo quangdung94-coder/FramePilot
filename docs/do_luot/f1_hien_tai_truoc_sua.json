@@ -1,0 +1,128 @@
+{
+ "mode": "",
+ "gpu": {
+  "cores": 12,
+  "ua": "Edg/157.0.0.0",
+  "webgl": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 (0x00002504) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "h264": {
+   "supported": true,
+   "smooth": true,
+   "powerEfficient": true
+  }
+ },
+ "clip": "DG00.MP4",
+ "dur": 83.52,
+ "kf": 18,
+ "mo_clip_ms": 126,
+ "lut": false,
+ "kq": [
+  {
+   "name": "bar",
+   "su_kien": 183,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.14,
+    "p95": 0.3,
+    "max": 1.2
+   },
+   "goi_python": {},
+   "goi_fetch": 0,
+   "longtask_ms": [
+    81
+   ],
+   "hinh_hien": 18,
+   "hinh_moi_giay": 5.8,
+   "tre_den_hinh_ms": {
+    "tb": 982.2,
+    "p50": 916.5,
+    "p95": 2286,
+    "max": 2443
+   },
+   "dung_hinh_ms": {
+    "tb": 182.4,
+    "max": 2450
+   },
+   "khung_rot": 0
+  },
+  {
+   "name": "wave",
+   "su_kien": 181,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.14,
+    "p95": 0.3,
+    "max": 0.4
+   },
+   "goi_python": {},
+   "goi_fetch": 0,
+   "longtask_ms": [],
+   "hinh_hien": 12,
+   "hinh_moi_giay": 3.9,
+   "tre_den_hinh_ms": {
+    "tb": 39.1,
+    "p50": 37,
+    "p95": 82.1,
+    "max": 99.2
+   },
+   "dung_hinh_ms": {
+    "tb": 68.2,
+    "max": 100.1
+   },
+   "khung_rot": 0
+  },
+  {
+   "name": "iobar",
+   "su_kien": 183,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.79,
+    "p95": 1.3,
+    "max": 1.6
+   },
+   "goi_python": {
+    "set_inout": 1
+   },
+   "goi_fetch": 0,
+   "longtask_ms": [],
+   "hinh_hien": 5,
+   "hinh_moi_giay": 1.6,
+   "tre_den_hinh_ms": {
+    "tb": 1408.7,
+    "p50": 1400.4,
+    "p95": 2842.9,
+    "max": 2998.1
+   },
+   "dung_hinh_ms": {
+    "tb": 787.5,
+    "max": 3000
+   },
+   "khung_rot": 0
+  },
+  {
+   "name": "cu_gan_thang",
+   "su_kien": 181,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.02,
+    "p95": 0.1,
+    "max": 0.2
+   },
+   "goi_python": {},
+   "goi_fetch": 0,
+   "longtask_ms": [],
+   "hinh_hien": 1,
+   "hinh_moi_giay": 0.3,
+   "tre_den_hinh_ms": {
+    "tb": 1602.2,
+    "p50": 1602.5,
+    "p95": 2999.1,
+    "max": 3153.4
+   },
+   "dung_hinh_ms": {
+    "tb": null,
+    "max": null
+   },
+   "khung_rot": 0
+  }
+ ],
+ "_cua_so": "pywebview (WebView2)",
+ "_app": "app",
+ "_flags": "",
+ "_proxy": "DG7366.mov"
+}

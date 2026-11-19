@@ -136,7 +136,7 @@ class Web(unittest.TestCase):
         self.assertIn("api().keyframes(uid)", self.js)
 
     def test_dung_lai_mot_the_video(self):
-        self.assertEqual(self.js.count('document.createElement("video")'), 1)
+        self.assertEqual(self.js.count('document.createElement("video")'), 1)       # MỘT thẻ video cho mọi clip (không có thẻ thứ hai tranh bộ giải mã: ADR-0016 bản 2)
         opn = self.js[self.js.index("async function plOpen"):self.js.index('$("plPlay").onclick')]
         self.assertNotIn("old.remove()", opn)
         self.assertNotIn("createElement", opn)

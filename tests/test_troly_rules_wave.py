@@ -72,7 +72,7 @@ class Rules(unittest.TestCase):
         rules = {"Decor": {"min": 2, "max": 5, "whole": False}}
         r = tc.suggest_inout(30.0, "Decor", "", rules)
         self.assertEqual(r["dur"], 5.0)                                                              # clip dài: chặn ở tối đa 5s
-        self.assertIn("Quy tắc của anh", r["rule"])
+        self.assertIn("Quy tắc của bạn", r["rule"])
         self.assertEqual(tc.suggest_inout(3.0, "Decor", "", rules)["dur"], 2.0)                      # clip 3s: dur-1 = 2s, bằng tối thiểu
         self.assertEqual(pack(tc.suggest_inout(30.0, "Chú rể", "", rules)), pack(tc.suggest_inout(30.0, "Chú rể")))   # bin khác không đổi
         w = tc.suggest_inout(30.0, "Phỏng vấn", "", {"Phỏng vấn": {"min": 5, "max": None, "whole": True}})
@@ -151,7 +151,7 @@ class RulesApi(unittest.TestCase):
         self.assertNotIn("error", r)
         s = self.sug()
         self.assertEqual((s["in_s"], s["out_s"], s["dur"]), (1.2, 11.2, 10.0))                       # clip 20 giây, quy tắc 8-10s
-        self.assertIn("Quy tắc của anh", s["rule"])
+        self.assertIn("Quy tắc của bạn", s["rule"])
         self.assertTrue(next(b for b in r["rules"]["bins"] if b["name"] == tc.OTHER_KEY)["edited"])
         api2 = self._api()
         try:

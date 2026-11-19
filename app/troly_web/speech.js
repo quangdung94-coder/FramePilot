@@ -133,7 +133,7 @@ function renderRight() {
   }
   const fps = (d && d.fps) || r.fps || 25;
   $("lnName").textContent = r.name;
-  $("lnMeta").innerHTML = `${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · <button class="btn-link ln-lang" id="lnLangBtn" title="Bấm để đổi ngôn ngữ của clip này (vi ⇄ en); lần chép lại sẽ giữ lựa chọn của anh">${esc(r.silent ? "–" : (r.lang || "–"))}</button>`;
+  $("lnMeta").innerHTML = `${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · <button class="btn-link ln-lang" id="lnLangBtn" title="Bấm để đổi ngôn ngữ của clip này (vi ⇄ en); lần chép lại sẽ giữ lựa chọn của bạn">${esc(r.silent ? "–" : (r.lang || "–"))}</button>`;
   $("lnLangBtn").onclick = async () => { if (r.silent) return; await api().speech_set_lang(r.key, r.lang === "en" ? "vi" : "en"); lnRefresh(); };
   $("lnDurEnd").textContent = mmss(r.dur);
   const e = editSpan(), dur = r.dur || 1;
@@ -150,8 +150,8 @@ function renderRight() {
     const tc = (d && d.tc) || r.tc;
     $("lnIn").textContent = "In " + addTc(tc, e.in_s, fps); $("lnOut").textContent = "Out " + addTc(tc, e.out_s, fps);
     $("lnHold").textContent = "Giữ " + Math.round(e.out_s - e.in_s) + " giây";
-    $("lnSuggTitle").textContent = { manual: "Đoạn anh đã đặt (lưu trong panel, chưa ghi vào DaVinci)", davinci: "Đoạn đã đặt In / Out trong DaVinci, giờ theo timecode của file gốc" }[e.src] || "Đoạn gợi ý, giờ theo timecode của file gốc";
-    $("lnSuggNote").textContent = e.dirty ? "Đã kéo mép khung. Bấm “Đặt In / Out” để lưu vào kế hoạch của panel." : "Kéo mép khung trắng để chỉnh. Anh đặt tay thì lấy theo anh.";
+    $("lnSuggTitle").textContent = { manual: "Đoạn bạn đã đặt (lưu trong panel, chưa ghi vào DaVinci)", davinci: "Đoạn đã đặt In / Out trong DaVinci, giờ theo timecode của file gốc" }[e.src] || "Đoạn gợi ý, giờ theo timecode của file gốc";
+    $("lnSuggNote").textContent = e.dirty ? "Đã kéo mép khung. Bấm “Đặt In / Out” để lưu vào kế hoạch của panel." : "Kéo mép khung trắng để chỉnh. Bạn đặt tay thì lấy theo bạn.";
   }
   const lines = (d && d.lines) || [];
   $("lnLines").innerHTML = !d ? '<span class="dim13" style="padding:8px">Đang tải...</span>'
