@@ -10,6 +10,7 @@ Thuộc tính và hàm bắt đầu bằng "_" KHÔNG lộ ra JavaScript (quy ư
 """
 import base64
 import collections
+import copy
 import datetime
 import json
 import os
@@ -470,12 +471,24 @@ class TrolyApi(object):
         return True
 
     def _on_clips(self, bin_path, clips):
-        same = self._plan.get("source_bin") == bin_path
+        prev_bin = self._plan.get("source_bin")
+        same = prev_bin == bin_path
+        stash = self._plan.setdefault("stages_by_bin", {})   # giai đoạn đã kéo/đổi tên của từng bin nguồn (đổi bin không làm mất, quay lại lấy lại)
+        if not same and prev_bin and self._stages:
+            stash[prev_bin] = {"stages": copy.deepcopy(self._stages), "day0": self._plan.get("day0"), "template": self._plan.get("template")}
         self._plan["source_bin"] = bin_path
         self._clips = sorted(clips, key=lambda c: (c.t_start or datetime.datetime.max, c.name))
         self._by_uid = {c.uid: c for c in self._clips}
+        if not same and isinstance(stash.get(bin_path), dict) and stash[bin_path].get("stages") and stash[bin_path].get("day0"):
+            back = stash.pop(bin_path)
+            self._plan["stages"], self._plan["day0"] = back["stages"], back["day0"]
+            if back.get("template"):
+                self._plan["template"] = back["template"]
+            same_saved = True
+        else:
+            same_saved = False
         d0 = self._plan.get("day0")
-        if same and d0 and self._stages:
+        if (same or same_saved) and d0 and self._stages:
             self._day0 = datetime.date.fromisoformat(d0)
         else:
             self._day0 = tc.day0_of(self._clips)
