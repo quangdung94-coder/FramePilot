@@ -86,3 +86,11 @@ Bảng 1 sau đợt này: **đã sửa 11 + 5 (13, 16, 17, 18, 19) = 16; không 
 - S1: cảnh báo "Không phát được proxy của clip …" khi gặp proxy HEVC thật trong WebView2 (đo ngày 18/11 cho thấy WebView2 không báo lỗi mà `videoWidth = 0`; mã bắt đúng điều kiện đó nhưng đoạn mã JS mới chưa chạy trong cửa sổ thật).
 - S2: nhập tên trong ô "+ Bin mới" bằng bàn phím thật (mới kiểm hàm Python và mã JS).
 - S4b, S4c: chưa chạy trong panel thật / DaVinci thật.
+
+## 7. Đã chạy thật ngày 19/11 (cửa sổ pywebview/WebView2 thật, DaVinci GIẢ, dữ liệu tạm; không đụng project/footage thật)
+
+- S3: cửa sổ cũ thu nhỏ, chạy `panel_troly_web.py` lần hai cho cùng project (tiến trình thật) → thoát mã 0, cửa sổ cũ được khôi phục và lên foreground. **Chưa bấm qua menu Workspace > Scripts của DaVinci** (menu chạy đúng file này nên rủi ro thấp).
+- S1: proxy HEVC thật (ffmpeg libx265, hvc1) trong WebView2: videoWidth = 0, panel hiện đúng thông báo "Không phát được proxy của clip ... nên tạo lại proxy H.264 trong DaVinci", ẩn thanh phát, KHÔNG tạo file nào (thư mục proxy chỉ còn 2 file gốc, không có cache troly_play). Proxy H.264 phát bình thường.
+- S2: gõ bằng bàn phím thật (SendInput) vào ô "+ Bin mới": `Flycam&Drone` + Enter được thêm vào danh sách bin; `a:b` + Enter bị chặn với thông báo "Tên không được chứa các ký tự: :".
+- S4b: clip thiếu độ dài vẫn hiện độ dài từ video sau khi tải xong (đúng); chữ "chưa rõ độ dài" lúc chờ chưa quan sát được (hai clip thử cùng một file nên chưa phân biệt được với độ dài mượn). S4c chỉ chạy trên DaVinci giả.
+- **Vẫn CHƯA CHẠY THẬT**: mọi thao tác ghi vào DaVinci/project thật (S4c Hoàn tác một phần, Áp dụng, timeline); bấm menu Workspace > Scripts; DPI 100%, ổ mạng, K3 bằng mắt.
