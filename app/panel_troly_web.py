@@ -74,6 +74,9 @@ def main():
         fail("Hãy mở Trợ lý từ menu Workspace > Scripts của DaVinci (hoặc chạy với --project).")
     lock = troly_env.instance_lock(data_root, a.project)        # giữ đến khi đóng cửa sổ (biến cục bộ sống tới hết main)
     if lock is None:
+        if troly_env.bring_to_front(troly_env.window_title(a.project)):      # S3 (19/11/2026): đưa cửa sổ cũ lên trước, thoát êm
+            print("FramePilot đã mở cho project \"%s\": đã đưa cửa sổ cũ lên trước." % a.project)
+            sys.exit(0)
         fail("FramePilot đang mở cho project \"%s\" ở một cửa sổ khác. Hãy dùng cửa sổ đó (hai cửa sổ cùng project sẽ ghi đè nhãn của nhau)."
              % a.project)
 
@@ -86,7 +89,7 @@ def main():
 
     api = ta.TrolyApi(a.project, data_root, emit=emit, proxy_root=troly_env.config().get("proxy_root"))
     # maximized: luôn vừa màn hình ở mọi tỉ lệ DPI (không lẹm mép); min_size đủ cho bố cục 3 cột
-    win = webview.create_window("FramePilot - " + a.project, url=INDEX, js_api=api,
+    win = webview.create_window(troly_env.window_title(a.project), url=INDEX, js_api=api,
                                 width=1440, height=880, min_size=(1100, 680), background_color="#18181B",
                                 maximized=True, text_select=False)
     holder["win"] = win
