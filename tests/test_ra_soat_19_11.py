@@ -263,6 +263,46 @@ class AppendGoesToCurrent(unittest.TestCase):
         self.assertEqual(proj.old.appended, [])
 
 
+# --------------------------------------------------------------------------- kho lời nói dùng chung giữa luồng chép lời và giao diện
+class StoreThreads(unittest.TestCase):
+    def test_chep_loi_nen_va_giao_dien_doc_ghi_cung_luc_khong_loi(self):
+        """Lỗi (Trung bình): một kết nối SQLite dùng chung cho luồng chép lời nền và giao diện, không khóa: đổi ngôn ngữ (set_lang) lúc
+        đang lưu kết quả -> 'cannot commit - no transaction is active' (hoặc commit nửa chừng giao dịch của luồng kia)."""
+        import threading
+        import troly_speech_store as ss
+        tmp = tempfile.mkdtemp()
+        st = ss.Store(os.path.join(tmp, "k.sqlite"))
+        errs = []
+        lines = [{"t0": i, "t1": i + 1, "text": "câu %d" % i, "keys": [], "why": []} for i in range(200)]
+        res = {"dur": 10, "gain_db": 0, "speech": [[0, 1]], "lines": lines}
+
+        def writer():
+            try:
+                for i in range(200):
+                    st.put_result("k%d" % (i % 5), "u", "n", (1, 2), "00:00:00:00", res, "vi")
+            except Exception as e:                    # noqa: BLE001
+                errs.append(repr(e))
+
+        def ui():
+            try:
+                for i in range(2000):
+                    st.clip_rows()
+                    st.lines_of("k1")
+                    if i % 5 == 0:
+                        st.set_lang("k2", "en")
+            except Exception as e:                    # noqa: BLE001
+                errs.append(repr(e))
+        ts = [threading.Thread(target=writer), threading.Thread(target=ui), threading.Thread(target=ui)]
+        try:
+            [t.start() for t in ts]
+            [t.join() for t in ts]
+            self.assertEqual(errs, [])
+            self.assertTrue(st.reconcile(["k%d" % i for i in range(5)])[0])
+        finally:
+            st.close()
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 # --------------------------------------------------------------------------- hai cửa sổ FramePilot cùng một project
 class SingleInstance(unittest.TestCase):
     def test_cua_so_thu_hai_cung_project_bi_chan(self):
