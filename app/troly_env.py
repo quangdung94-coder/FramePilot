@@ -26,6 +26,36 @@ def data_root():
     return config().get("data_root")
 
 
+def window_title(project):
+    """Tiêu đề cửa sổ FramePilot của một project (dùng để tạo cửa sổ và để cửa sổ thứ hai tìm lại cửa sổ cũ)."""
+    return "FramePilot - " + project
+
+
+def bring_to_front(title, user32=None):
+    """Đưa cửa sổ có tiêu đề `title` lên trước, khôi phục nếu đang thu nhỏ. Trả True nếu tìm thấy và cửa sổ không còn thu nhỏ;
+    False nếu không thấy / không phải Windows / lỗi (khi đó gọi lại giữ thông báo cũ). Chỉ thao tác cửa sổ, không đụng gì khác."""
+    try:
+        if user32 is None:
+            import ctypes
+            user32 = ctypes.windll.user32
+            user32.FindWindowW.restype = ctypes.c_void_p
+            user32.FindWindowW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p]
+            for fn in ("IsIconic", "ShowWindow", "SetForegroundWindow", "BringWindowToTop"):
+                getattr(user32, fn).argtypes = [ctypes.c_void_p] + ([ctypes.c_int] if fn == "ShowWindow" else [])
+        h = user32.FindWindowW(None, title)
+        if not h:
+            return False
+        if user32.IsIconic(h):
+            user32.ShowWindow(h, 9)                       # SW_RESTORE
+        user32.keybd_event(0x12, 0, 0, 0)                 # bấm-nhả Alt: Windows mới cho tiến trình mới giành foreground
+        user32.keybd_event(0x12, 0, 2, 0)
+        user32.BringWindowToTop(h)
+        user32.SetForegroundWindow(h)
+        return not user32.IsIconic(h)
+    except Exception:                                     # noqa: BLE001
+        return False
+
+
 def fail(msg):
     """Báo lỗi bằng hộp thoại Windows (panel chạy bằng pythonw nên không có cửa sổ chữ), rồi thoát."""
     print("[LỖI] " + msg)
@@ -62,6 +92,35 @@ def connect_resolve():
         raise RuntimeError("Không kết nối được DaVinci. Hãy mở DaVinci và bật Preferences > System > General > "
                            "External scripting using = Local.")
     return resolve
+
+
+def instance_lock(data_root, project):
+    """Mỗi project chỉ MỘT cửa sổ FramePilot: hai cửa sổ cùng project giữ hai bản kế hoạch trong bộ nhớ và ghi đè nhau (mất nhãn/sao).
+    Khóa một byte của <data_root>\\troly\\locks\\<project>.lock (msvcrt.locking). Trả file đang giữ khóa (giữ đến hết đời tiến trình,
+    tiến trình chết thì Windows tự nhả), hoặc None nếu cửa sổ khác đang giữ. Không khóa được vì lý do khác (ổ chỉ đọc...) thì cho chạy."""
+    import troly_core as tc
+    d = os.path.join(data_root, "troly", "locks")
+    try:
+        os.makedirs(d, exist_ok=True)
+        f = open(os.path.join(d, tc._safe(project) + ".lock"), "a+b")
+    except OSError:
+        return _NoLock()
+    try:
+        import msvcrt
+    except ImportError:                                                       # không phải Windows
+        return f
+    try:
+        f.seek(0)
+        msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        return f
+    except OSError:
+        f.close()
+        return None
+
+
+class _NoLock(object):
+    def close(self):
+        pass
 
 
 _JOB = None

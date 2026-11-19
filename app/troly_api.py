@@ -10,6 +10,7 @@ Thuộc tính và hàm bắt đầu bằng "_" KHÔNG lộ ra JavaScript (quy ư
 """
 import base64
 import collections
+import copy
 import datetime
 import json
 import os
@@ -56,6 +57,7 @@ class TrolyApi(object):
         self._note = self._plan.pop("_note", None)      # ghi chú khi phải khôi phục file kế hoạch (hiện lúc kết nối)
         self._autoload = bool(self._plan.get("source_bin"))   # mở lại panel: tự nạp clip của bin nguồn đã dùng
         self._new_n, self._gone_n = 0, 0
+        self._dup_keys = set()
         self._clips, self._by_uid, self._day0 = [], {}, None
         self._assign = {}
         self._bins = []
@@ -459,8 +461,9 @@ class TrolyApi(object):
             self._worker.jobs.put(("load", want))
             return
         self._autoload = False
-        self._emit("status", {"text": "Đã kết nối DaVinci. Chọn bin nguồn rồi bấm \"Đọc clip\" (chỉ đọc).",
-                              "kind": "info"})
+        if not self._clips:                               # đọc lại bin sau Áp dụng/Hoàn tác: không đè kết quả (cảnh báo) lên dòng trạng thái
+            self._emit("status", {"text": "Đã kết nối DaVinci. Chọn bin nguồn rồi bấm \"Đọc clip\" (chỉ đọc).",
+                                  "kind": "info"})
 
     def load(self, bin_path):
         if not bin_path:
@@ -470,18 +473,32 @@ class TrolyApi(object):
         return True
 
     def _on_clips(self, bin_path, clips):
-        same = self._plan.get("source_bin") == bin_path
+        prev_bin = self._plan.get("source_bin")
+        same = prev_bin == bin_path
+        stash = self._plan.setdefault("stages_by_bin", {})   # giai đoạn đã kéo/đổi tên của từng bin nguồn (đổi bin không làm mất, quay lại lấy lại)
+        if not same and prev_bin and self._stages:
+            stash[prev_bin] = {"stages": copy.deepcopy(self._stages), "day0": self._plan.get("day0"), "template": self._plan.get("template")}
         self._plan["source_bin"] = bin_path
         self._clips = sorted(clips, key=lambda c: (c.t_start or datetime.datetime.max, c.name))
         self._by_uid = {c.uid: c for c in self._clips}
+        if not same and isinstance(stash.get(bin_path), dict) and stash[bin_path].get("stages") and stash[bin_path].get("day0"):
+            back = stash.pop(bin_path)
+            self._plan["stages"], self._plan["day0"] = back["stages"], back["day0"]
+            if back.get("template"):
+                self._plan["template"] = back["template"]
+            same_saved = True
+        else:
+            same_saved = False
         d0 = self._plan.get("day0")
-        if same and d0 and self._stages:
+        if (same or same_saved) and d0 and self._stages:
             self._day0 = datetime.date.fromisoformat(d0)
         else:
             self._day0 = tc.day0_of(self._clips)
             self._plan["day0"] = self._day0.isoformat()
             self._suggest(self._plan.get("template"))
-        keys = {tc.clip_key(c) for c in self._clips}
+        kc = collections.Counter(tc.clip_key(c) for c in self._clips)
+        self._dup_keys = {k for k, v in kc.items() if v > 1}            # hai clip khác nhau cùng khóa (vd. hai thẻ Sony cùng CLIP/C0001.MP4)
+        keys = set(kc)
         prev = set(self._plan.get("seen") or [])
         self._new_n = len(keys - prev) if (same and prev) else 0       # clip MỚI kể từ lần đọc trước (chưa phân loại)
         known = set(self._plan["labels"]) | set(self._plan.get("manual") or {})
@@ -498,6 +515,10 @@ class TrolyApi(object):
             msg += " %d clip lấy giờ theo Date Modified (file đã chép lại)." % moved
         if no_time:
             msg += " %d clip không có giờ quay." % no_time
+        if self._dup_keys:
+            nd = sum(kc[k] for k in self._dup_keys)
+            msg += (" CẢNH BÁO: %d clip trùng đường dẫn (vd. %s) nên dùng chung nhãn, sao và In/Out; Trợ lý KHÔNG ghi In/Out cho các clip này. "
+                    "Nên đặt thư mục footage theo tên project (năm.tháng.ngày.tên)." % (nd, sorted(self._dup_keys)[0]))
         self._save_soon()
         self._emit("state", self.state())
         self._emit("status", {"text": msg, "kind": "ok"})
@@ -626,11 +647,14 @@ class TrolyApi(object):
             return self.state()
 
     def add_bin(self, stage_i, name):
+        """"+ Bin mới": kiểm tên bằng CÙNG hàm với Đổi tên (tc.check_new_name). Lỗi: {"error": ...}, không thêm gì."""
         with self._lock:
-            name = (name or "").strip().replace("/", "-")
+            if not (0 <= stage_i < len(self._stages)):
+                return {"error": "Không thấy giai đoạn."}
             s = self._stages[stage_i]
-            if not name or name in s["bins"]:
-                return self.state()
+            name, err = tc.check_new_name(name, list(s["bins"]))
+            if err:
+                return {"error": err}
             pos = len(s["bins"]) - 1 if s["bins"][-1:] == [tc.OTHER_BIN] else len(s["bins"])
             s["bins"].insert(pos, name)
             self._save_soon()
@@ -706,6 +730,11 @@ class TrolyApi(object):
             moves = self._plan.get("moves") or []
             if self._busy or not moves or not self._clips:
                 return False
+            mb = moves[-1].get("bin")
+            if mb and mb != self._plan.get("source_bin"):      # clip của lần chuyển đó chưa được đọc: worker không chuyển được clip nào
+                self._emit("status", {"text": "Lần chuyển gần nhất thuộc bin %s. Hãy chọn bin đó, bấm \"Đọc clip\" rồi mới Hoàn tác "
+                                              "(nhật ký vẫn giữ)." % mb, "kind": "warn"})
+                return False
             self._busy = True
             self._worker.jobs.put(("undo", [tuple(x) for x in moves[-1]["log"]]))
         self._emit("status", {"text": "Đang hoàn tác...", "kind": "info"})
@@ -714,10 +743,12 @@ class TrolyApi(object):
     def _on_undone(self, back, failed):
         self._busy = False
         moves = self._plan.get("moves") or []
-        if moves and not failed:
-            last = moves.pop()
-            for uid, old, _new in last["log"]:
-                if uid in self._by_uid:
+        if moves:
+            last = moves[-1]
+            if not failed:
+                moves.pop()
+            for uid, old, _new in last["log"]:            # lỗi một phần: clip ĐÃ về chỗ cũ (có trong back) cập nhật vị trí ngay, nhật ký vẫn giữ để thử lại
+                if uid in self._by_uid and (not failed or uid in back):
                     self._by_uid[uid].bin_path = old
         self._save_now()
         msg = "Đã đưa %d clip về bin cũ." % len(back)
@@ -1176,8 +1207,11 @@ class TrolyApi(object):
 
     def _inout_rows(self, uids):
         rows = []
+        dup = self._dup_keys
         for u in uids:
             c = self._by_uid.get(u)
+            if c is not None and tc.clip_key(c) in dup:       # In/Out này có thể người dựng đặt cho clip KIA cùng khóa: không ghi vào DaVinci
+                continue
             fr = tc.inout_frames(self._plan, c) if c is not None else None
             if fr:
                 rows.append((u, c.rel, fr[0], fr[1]))
@@ -1238,7 +1272,7 @@ class TrolyApi(object):
     def _on_inout_restored(self, r):
         self._busy = False
         data = tc.read_inout_backup(r["backup"]) or {}
-        if not r["bad"]:
+        if not r["bad"] and not r.get("skipped"):            # bỏ qua clip chưa đọc thì CHƯA khôi phục đủ: giữ để Hoàn tác lại
             data["restored"] = True                          # đánh dấu để lần Hoàn tác sau lấy bản trước nữa
             try:
                 tc._write_json(r["backup"], data)
@@ -1250,24 +1284,23 @@ class TrolyApi(object):
             if c is not None and e is not None:
                 c.mark_in, c.mark_out = e.get("in"), e.get("out")
         msg = "Đã khôi phục In/Out cũ cho %d clip, đọc lại khớp." % len(r["ok"])
+        if r.get("skipped") and not r["bad"]:
+            msg += " %d clip trong bản sao lưu chưa được đọc (bin khác), bản sao lưu vẫn giữ để Hoàn tác tiếp." % r["skipped"]
         if r["bad"]:
             msg = "Khôi phục %d clip; %d clip KHÔNG khớp, file sao lưu vẫn giữ: %s" % (len(r["ok"]), len(r["bad"]), r["backup"])
         self._emit("state", self.state())
         self._emit("status", {"text": msg, "kind": "warn" if r["bad"] else "ok"})
 
     # ------------------------------------------------------------------ trình phát proxy (ADR-0016)
-    def _play_dir(self):
-        return os.path.join(self._root, "cache", "troly_play", tc._safe(self._project))
-
     def _play_server(self):
         import troly_play as tp
         if self._play is None:
-            self._play = tp.PlayServer([self._proxy_root, self._play_dir()])
+            self._play = tp.PlayServer([self._proxy_root])
         return self._play
 
-    def play_info(self, uid, transcode=False):
-        """URL phát file proxy của clip (chỉ đọc). transcode=True: phương án dự phòng, ffmpeg tạo mp4 H.264 nhẹ trong cache
-        (xóa được). Clip không có proxy: {"error": "Chưa có proxy"} để giao diện hiện thumbnail."""
+    def play_info(self, uid):
+        """URL phát file proxy của clip (chỉ đọc, KHÔNG tạo file nào; ADR-0029). Không phát được thì trả {"error": lời giải thích rõ ràng}
+        để giao diện hiện thumbnail. Clip không có proxy: {"error": "Chưa có proxy"}."""
         import troly_play as tp
         c = self._by_uid.get(uid)
         if c is None:
@@ -1279,15 +1312,10 @@ class TrolyApi(object):
             return {"error": "Chưa có proxy"}
         if not tp.inside(src, [self._proxy_root]):
             return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
-        if transcode:
-            dst = tp.ensure_play_mp4(src, self._play_dir(), c.rel or c.name)
-            if not dst:
-                return {"error": "ffmpeg không tạo được bản xem nhẹ."}
-            src = dst
         url = self._play_server().url_for(src)
         if not url:
             return {"error": "Không phát được file này."}
-        return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "transcoded": bool(transcode)}
+        return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0}
 
     def _frame_store(self):
         import troly_frames as tf

@@ -13,6 +13,7 @@ Chạy tiếp được: clip đã xong mà file không đổi (cùng kích thư�
 import json
 import os
 import sqlite3
+import threading
 import time
 
 import troly_speech as sp
@@ -51,6 +52,7 @@ def headline(lines):
 class Store(object):
     def __init__(self, path):
         self.path = path
+        self._mx = threading.RLock()
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         self.db = sqlite3.connect(path, timeout=30, check_same_thread=False)
         self.db.executescript(DDL)
@@ -209,4 +211,18 @@ def _line_flags(self):
 
 
 Store.line_flags = _line_flags
+
+
+def _locked(fn):
+    """Một kết nối SQLite dùng chung cho luồng chép lời nền và giao diện: mọi hàm đọc/ghi giữ khóa của kho, để giao dịch của luồng này
+    không bị luồng kia commit nửa chừng (rà soát 19/11: 'cannot commit - no transaction is active')."""
+    def run(self, *a, **k):
+        with self._mx:
+            return fn(self, *a, **k)
+    run.__name__, run.__doc__ = fn.__name__, fn.__doc__
+    return run
+
+
+for _n in ("close", "needs_run", "put_result", "put_error", "set_lang", "counts", "reconcile", "clip_rows", "lines_of", "search", "line_flags"):
+    setattr(Store, _n, _locked(getattr(Store, _n)))
 

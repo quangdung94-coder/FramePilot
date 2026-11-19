@@ -32,13 +32,25 @@ class CheckName(unittest.TestCase):
 
     def test_rong_ky_tu_cam_trung_ten_dai(self):
         self.assertIsNotNone(tc.check_new_name("   ", [])[1])
-        for ch in ':&/\\*?"<>|':
+        for ch in ':/\\*?"<>|':
             n, err = tc.check_new_name("Tên%sX" % ch, [])
             self.assertIsNotNone(err, ch)
             self.assertIn(ch, err)
         self.assertIn("Đã có", tc.check_new_name("decor", ["Decor", "Khách"], "Khách")[1])     # không phân biệt hoa thường
         self.assertIsNone(tc.check_new_name("Decor", ["Decor", "Khách"], "Decor")[1])          # giữ nguyên tên mình: không báo trùng
         self.assertIsNotNone(tc.check_new_name("x" * 61, [])[1])
+
+    def test_khong_chan_dau_va_chan_dieu_khien_dau_cham_cuoi(self):
+        """S2 (19/11/2026): & không bị chặn (người dùng có dùng & trong tên bin, Windows không cấm). Chặn ký tự điều khiển và tên kết thúc bằng dấu chấm."""
+        self.assertEqual(tc.check_new_name("Duyên&Phát", []), ("Duyên&Phát", None))
+        self.assertNotIn("&", tc.NAME_FORBIDDEN)
+        for bad in ("Tên\x00X", "Tên\x07X", "Tên\x1fX", "Tên\x7fX", "Tên.", "Tên..", "Tên .", "Tên	X"):
+            n, err = tc.check_new_name(bad, [])
+            if bad == "Tên	X":                                # tab được gọn thành khoảng trắng thường, hợp lệ
+                self.assertIsNone(err)
+            else:
+                self.assertIsNotNone(err, repr(bad))
+        self.assertIsNone(tc.check_new_name("Tên 1.5", [])[1])   # dấu chấm giữa tên vẫn được
 
 
 class RenameInPlan(unittest.TestCase):

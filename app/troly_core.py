@@ -471,7 +471,7 @@ def latest_inout_backup(data_root, project):
         return None
     for n in reversed(names):
         data = _read_json(os.path.join(d, n))
-        if data and not data.get("restored"):
+        if data and data.get("project") == project and not data.get("restored"):   # tên 'X' và 'X_B' cùng tiền tố 'X_': xét đúng project trong file
             return os.path.join(d, n)
     return None
 
@@ -760,6 +760,10 @@ def load_plan(data_root, project):
     d = _read_json(p) if os.path.isfile(p) else None
     if d is None and os.path.isfile(p):
         keep = "%s.corrupt-%s" % (p, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        n_dup = 1
+        while os.path.exists(keep + ("" if n_dup == 1 else "-%d" % n_dup)):       # hai lần hỏng cùng một giây: thêm hậu tố, không ghi đè bản trước
+            n_dup += 1
+        keep += "" if n_dup == 1 else "-%d" % n_dup
         try:
             os.replace(p, keep)
             note = "File kế hoạch bị hỏng, đã giữ lại bản hỏng: %s" % os.path.basename(keep)
@@ -820,19 +824,26 @@ def label_of(plan, clip):
 # ---------------------------------------------------------------------------
 # ĐỔI TÊN GIAI ĐOẠN / BIN CON (ADR-0015)
 # ---------------------------------------------------------------------------
-NAME_FORBIDDEN = ':&/\*?"<>|'          # ký tự cấm của tên timeline/bin (CLAUDE.md)
+NAME_FORBIDDEN = ':/\*?"<>|'           # ký tự Windows cấm trong tên file/thư mục; KHÔNG gồm & (19/11/2026: người dùng có dùng & trong tên bin, ADR-0029)
 NAME_MAX = 60
+WS_OK = chr(9) + chr(10) + chr(13)       # tab, xuống dòng: gọn thành khoảng trắng thường, không coi là lỗi
 
 
 def check_new_name(new, siblings, current=None):
     """Kiểm tên mới. Trả (tên đã gọn khoảng trắng, lỗi hoặc None). siblings = tên các bin cùng cấp; current = tên đang đổi
-    (không tính là trùng với chính nó). Không để trống, không ký tự cấm, không trùng tên khác trong cùng cấp (không phân biệt hoa thường)."""
-    n = " ".join((new or "").split())
+    (không tính là trùng với chính nó). HÀM DUY NHẤT kiểm tên bin/giai đoạn: "+ Bin mới" (add_bin) và Đổi tên (rename_check) cùng gọi.
+    Không để trống, không ký tự cấm (: / \ * ? " < > | và ký tự điều khiển; KHÔNG chặn &), không kết thúc bằng dấu chấm (dấu cách cuối đã bị gọn), không trùng tên khác trong cùng cấp (không phân biệt hoa thường)."""
+    raw = new or ""
+    n = " ".join(raw.split())
+    if any((ord(c) < 32 and c not in WS_OK) or ord(c) == 127 for c in raw):      # kiểm trên bản gốc: split() sẽ nuốt 0x1c-0x1f như khoảng trắng
+        return n, "Tên không được chứa ký tự điều khiển."
     if not n:
         return n, "Tên không được để trống."
     bad = [c for c in NAME_FORBIDDEN if c in n]
     if bad:
         return n, "Tên không được chứa các ký tự: %s" % " ".join(bad)
+    if n.endswith("."):
+        return n, "Tên không được kết thúc bằng dấu chấm."
     if len(n) > NAME_MAX:
         return n, "Tên dài quá %d ký tự." % NAME_MAX
     for s in siblings:

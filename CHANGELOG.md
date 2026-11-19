@@ -1,5 +1,28 @@
 # Nhật ký thay đổi
 
+## 2026-11-19 (sau tổng duyệt) – Quyết định của người dùng 09:03/09:05 (nhánh ra-soat-19-11) - CHỜ ANH THỬ
+- S1: BỎ HẲN "bản xem nhẹ" (mp4 720p trong cache). Xóa mã tạo bản đó, nhánh giao diện và 2 test cũ (TranscodeCmd, PlayerFallback). Proxy không phát được thì chỉ báo rõ (clip nào, vì sao, nên tạo lại proxy H.264 trong DaVinci), không tạo file. Thư mục cache cũ cache	roly_play không bị xóa. ADR-0029.
+- S2: "+ Bin mới" và Đổi tên bin dùng chung một hàm kiểm tên. BỎ `&` khỏi bộ ký tự chặn của cả hai chỗ (trước đây Đổi tên bin chặn `&`). Chặn `: / \ * ? " < > |`, ký tự điều khiển, tên kết thúc bằng dấu chấm.
+- S3: mở FramePilot lần hai cho cùng project thì đưa cửa sổ cũ lên trước (khôi phục nếu thu nhỏ). CHƯA CHẠY THẬT qua menu DaVinci.
+- S4: hai lần kế hoạch hỏng cùng giây không ghi đè .corrupt; trình phát không mượn độ dài clip trước ("chưa rõ độ dài"); Hoàn tác lỗi một phần cập nhật vị trí bin ngay.
+- S5: không làm theo ý người dùng (khóa clip trùng, cắt chữ 1100x680, e.key Esc/Enter), ghi vào docs/BAN_GIAO.md mục 8.
+- 520 bài test đạt (506 − 2 test bản xem nhẹ + 16 bài mới), chạy 3 lần không chập chờn.
+
+## 2026-11-19 – Tổng duyệt toàn bộ panel (nhánh ra-soat-19-11) - CHỜ ANH THỬ
+- Sửa 11 lỗi, mỗi lỗi một commit kèm test trong tests/test_ra_soat_19_11.py (báo cáo đầy đủ: docs/RA_SOAT_19_11.md):
+  - Đọc bin nguồn khác rồi quay lại không còn mất giai đoạn đã kéo/đổi tên (giữ theo từng bin, plan["stages_by_bin"]).
+  - Mỗi project chỉ một cửa sổ FramePilot (khóa file <data_root>\troly\locks, tự nhả khi đóng); trước đây hai cửa sổ ghi đè nhãn của nhau.
+  - Tạo timeline (sao, Bước 5) chỉ AppendToTimeline khi chắc timeline hiện tại là timeline MỚI.
+  - Hai clip trùng khóa đường dẫn tương đối: cảnh báo khi đọc, không ghi In/Out vào DaVinci cho các clip đó.
+  - Hoàn tác In/Out không lấy nhầm sao lưu của project cùng tiền tố tên; không đánh dấu "đã khôi phục" khi còn clip bị bỏ qua.
+  - Hoàn tác lần chuyển của bin khác: báo rõ thay vì im lặng.
+  - Kho lời nói SQLite có khóa khi đọc/ghi (luồng chép lời + giao diện dùng chung kết nối: lỗi "cannot commit").
+  - ffmpeg trích âm và Whisper có giới hạn thời gian (file hỏng không treo cả lượt).
+  - Đọc lại bin sau Áp dụng/Hoàn tác không in đè câu "Đã kết nối" lên cảnh báo.
+  - Bước 5 ở cửa sổ 1100 px: bảng khối không đè sang thẻ bên cạnh.
+  - .gitignore chặn video/âm thanh/kho dữ liệu.
+- Thêm docs/BAN_GIAO.md (bàn giao cho project mới). 506 bài test đạt, chạy 3 lần không chập chờn. Đo lướt bằng main (57,9 / 58,9 hình/giây), RAM 50 clip 21 → 39 MB, 0 ffmpeg mồ côi.
+
 ## 2026-11-19 – GỘP vào main (commit gộp 10d4d18, tag sao lưu truoc-gop-19-11 trên đầu nhánh sua-lag-luot-2 = b8fc195)
 - main giờ chứa: Bước 5 bản 3 timeline kéo thả (ADR-0013, đã gộp từ trước), Tự phân loại Bước 2/3 (ADR-0026), sửa lag lướt + kho khung nhỏ trong RAM + nút Đo lướt (ADR-0016 bản 1 và 2), đổi tên FramePilot + icon (ADR-0027), xưng hô "bạn" (ADR-0028), K3 (tiến trình con chạy ẩn). 493 bài test đạt trên main. Không xung đột, không xóa nhánh nào.
 

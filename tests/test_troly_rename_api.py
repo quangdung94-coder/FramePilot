@@ -79,8 +79,9 @@ class RenameApi(unittest.TestCase):
     def test_kiem_ten(self):
         c = self.api.rename_check
         self.assertIn("trống", c("stage", 0, "", "  ")["error"])
-        for ch in ':&/\\*?"<>|':
+        for ch in ':/\\*?"<>|':
             self.assertIn(ch, c("bin", 0, "Decor", "A%sB" % ch)["error"])
+        self.assertTrue(c("bin", 0, "Decor", "Duyên&Phát").get("ok"))                     # S2 19/11/2026: & KHÔNG bị chặn ở cả đổi tên lẫn + Bin mới
         self.assertIn("Đã có", c("bin", 0, "Decor", "nghi lễ")["error"])                   # trùng bin cùng cấp
         self.api.add_stage()
         self.api.set_stage(1, {"name": "Đón khách", "start_txt": "09:00", "end_txt": "10:00", "bins": ["Decor"]})

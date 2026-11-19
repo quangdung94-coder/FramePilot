@@ -78,6 +78,13 @@ class TlProject(T.FProject):
     def GetTimelineByIndex(self, i):
         return self.timelines[i - 1]
 
+    def SetCurrentTimeline(self, tl):                 # như DaVinci thật (rà soát 19/11: phải chuyển sang timeline mới trước khi AppendToTimeline)
+        self.current = tl
+        return True
+
+    def GetCurrentTimeline(self):
+        return getattr(self, "current", None)
+
 
 def make_api(tmp, mode="ok", name="2026.10.17.LV_Ten"):
     mk = lambda uid, hh: Item(uid, T.props("DG%s.MP4" % uid, "Sat Oct 17 2026 %02d:00:00" % hh,          # noqa: E731

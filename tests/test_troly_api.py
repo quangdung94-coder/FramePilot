@@ -107,6 +107,35 @@ class Api(unittest.TestCase):
         self.assertEqual(self.last("state")["moves"], [])
         self.assertFalse(self.api.undo())                   # hết nhật ký
 
+    def test_hoan_tac_mot_phan_cap_nhat_vi_tri_bin_ngay(self):
+        """S4c (19/11/2026): Hoàn tác lỗi MỘT PHẦN cập nhật vị trí bin của clip đã về chỗ cũ ngay, không đợi lần Đọc clip kế."""
+        self.load()
+        self.api.label(["a"], 0, "Decor")
+        self.api.label(["c"], 1, "Sân khấu")
+        self.assertTrue(self.api.apply())
+        self.run_jobs()
+        a_cu, c_cu = self.api._by_uid["a"].bin_path, self.api._by_uid["c"].bin_path
+        self.assertTrue(a_cu.endswith("/Decor") and c_cu.endswith("/Sân khấu"), (a_cu, c_cu))
+        self.api.move(["a", "c"], 2, None)                    # lần chuyển thứ hai: a và c sang bin giai đoạn 3 -> nhật ký có hai bin cũ khác nhau
+        self.assertTrue(self.api.apply())
+        self.run_jobs()
+        moi = self.api._by_uid["a"].bin_path
+        self.assertNotEqual(moi, a_cu)
+        real = self.pool.MoveClips
+
+        def hong_mot_nua(items, dst):                          # MoveClips về bin "Sân khấu" thất bại, về "Decor" vẫn chạy
+            return False if dst.name == "Sân khấu" else real(items, dst)
+        self.pool.MoveClips = hong_mot_nua
+        try:
+            self.assertTrue(self.api.undo())
+            self.run_jobs()
+        finally:
+            self.pool.MoveClips = real
+        self.assertEqual(self.api._by_uid["a"].bin_path, a_cu)      # a ĐÃ về Decor: vị trí cập nhật ngay
+        self.assertEqual(self.api._by_uid["c"].bin_path, moi)       # c chưa về được: giữ vị trí hiện tại
+        self.assertEqual(len(self.api._plan["moves"]), 2)           # nhật ký vẫn giữ để thử lại
+        self.assertEqual(self.last("status")["kind"], "warn")
+
     def test_view_lists_per_bin_match_counts_and_viewing_changes_nothing(self):
         st = self.load()                                      # Đón khách: a,b · Lễ nhà hàng: c,d · Chào bàn: e
         self.api.label(["a"], 0, "Decor")
@@ -166,6 +195,34 @@ class Api(unittest.TestCase):
         st = self.api.clear_manual()
         self.assertEqual(st["n_manual"], 0)
         self.assertEqual(st["stages"][2]["count"], 0)
+
+    def test_add_bin_dung_chung_ham_kiem_ten_voi_doi_ten(self):
+        """S2 (19/11/2026): "+ Bin mới" và đổi tên bin cùng MỘT hàm kiểm tra (tc.check_new_name), cùng bộ ký tự chặn, không chặn &."""
+        self.load()
+        names = lambda st: [b["name"] for b in st["stages"][0]["bins"]]
+        for bad in ("Cô:dâu", "a/b", "a\b", "a*b", "a?b", 'a"b', "a<b", "a>b", "a|b", "chấm.", "ctl\x01"):
+            r = self.api.add_bin(0, bad)
+            self.assertIn("error", r, bad)
+            r2 = self.api.rename_check("bin", 0, "Decor", bad) if "Decor" in names(self.api.state()) else None
+            if r2 is not None:
+                self.assertEqual(r["error"], r2["error"], bad)           # cùng thông báo
+        self.assertNotIn("Flycam&Drone", names(self.api.state()))
+        st = self.api.add_bin(0, "Flycam&Drone")
+        self.assertNotIn("error", st)
+        self.assertIn("Flycam&Drone", names(st))
+        self.assertIn("error", self.api.add_bin(0, "flycam&DRONE"))      # trùng tên cùng cấp (không phân biệt hoa thường)
+        import troly_core
+        calls = []
+        orig = troly_core.check_new_name
+        troly_core.check_new_name = lambda *a, **k: calls.append(a) or orig(*a, **k)
+        try:
+            self.api.add_bin(0, "Một")
+            b = next(x for x in names(self.api.state()) if x not in ("Khác", "Một"))
+            self.api.rename_check("bin", 0, b, "Hai")
+        finally:
+            troly_core.check_new_name = orig
+        self.assertEqual(len(calls), 2)
+        self.api.close()
 
     def test_add_bin_offsets_template_persist(self):
         self.load()

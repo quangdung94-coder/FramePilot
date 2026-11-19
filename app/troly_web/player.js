@@ -3,7 +3,7 @@
    (api.set_inout), ghi vào DaVinci chỉ khi bấm nút + xác nhận. Phím đọc bằng event.code, bỏ qua khi đang gõ ô chữ. */
 "use strict";
 
-const PL = { openMs: 0, t0: 0, range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, tried: false };
+const PL = { openMs: 0, t0: 0, range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null };
 /* Việc 2 (ADR-0023): lướt mượt. Chỉ gửi lệnh nhảy khi lệnh trước xong (seeked), lệnh mới thay lệnh cũ chưa gửi; đang KÉO thì nhảy theo keyframe
    (giải mã 1 khung), THẢ ra thì nhảy chính xác. Dùng lại MỘT thẻ <video> cho mọi clip. Không tạo proxy mới. */
 const SK = { want: null, fast: false, busy: false, drag: false, timer: 0, sent: 0, seeks: 0, dwell: 0 };
@@ -337,7 +337,7 @@ function plCurT() { return FR.active ? FR.t : (PL.vid ? PL.vid.currentTime : 0);
 /* ---- trình phát ---- */
 function plTime() {
   if (!PL.vid) return;
-  $("plTime").textContent = fmtF(plCurT(), PL.fps) + " / " + fmtF(PL.dur, PL.fps);
+  $("plTime").textContent = fmtF(plCurT(), PL.fps) + " / " + (PL.dur > 0 ? fmtF(PL.dur, PL.fps) : "chưa rõ độ dài");
   if (!SK.drag) $("plSeek").value = PL.dur ? Math.round(plCurT() / PL.dur * 1000) : 0;
   if (typeof p3TxNow === "function" && page === 3) p3TxNow();
 }
@@ -348,23 +348,24 @@ function plToggle() {
 function plStop() {
   const v = PL.el;
   if (v) { try { v.pause(); } catch (e) { /* bỏ qua */ } v.style.opacity = "0"; v.removeAttribute("src"); v.load(); }       // giữ thẻ, chỉ bỏ nguồn
-  PL.vid = null; PL.ok = false; PL.edge = null; PL.tried = false; PL.kf = null; SK.want = null; SK.busy = false; SK.drag = false; clearTimeout(SK.dwell); frReset(); lutDetach();
+  PL.vid = null; PL.ok = false; PL.edge = null; PL.kf = null; SK.want = null; SK.busy = false; SK.drag = false; clearTimeout(SK.dwell); frReset(); lutDetach();
   $("player").classList.add("hidden");
 }
 function plEl() {                                               // MỘT thẻ <video> dùng cho mọi clip; sự kiện gắn một lần
   if (PL.el) return PL.el;
   const v = document.createElement("video");
   v.className = "pv"; v.preload = "auto"; v.playsInline = true; v.crossOrigin = "anonymous"; v.controls = false; v.muted = false; v.style.opacity = "0";
-  const fallback = () => {                                      // dùng bản xem nhẹ ffmpeg (H.264) khi WebView2 không giải mã được hình
+  const noPlay = () => {                                        // WebView2 không giải mã được hình: chỉ báo rõ, KHÔNG tạo file nào (ADR-0029)
     const o = PL.open;
-    if (!o || PL.uid !== o.uid || o.transcode) { $("plNote").textContent = "Không phát được proxy này"; return; }
-    $("plNote").textContent = "Đang tạo bản xem nhẹ..."; PL.tried = true;
-    plOpen(curClip(), true);
+    if (!o || PL.uid !== o.uid) return;
+    const c = curClip(), ten = c ? (c.name || c.rel || "này") : "này";
+    $("plNote").textContent = "Không phát được proxy của clip " + ten + " (WebView2 không giải mã được định dạng, thường là HEVC hoặc ProRes). Nên tạo lại proxy H.264 trong DaVinci; tạm thời chỉ xem hình tĩnh.";
+    plStop(); PL.uid = o.uid; $("player").classList.remove("hidden"); $("plCtl").classList.add("hidden");
   };
   v.addEventListener("loadedmetadata", () => {
     // Đo 18/11/2026: proxy HEVC (hvc1) trong WebView2 KHÔNG báo lỗi, chỉ ra tiếng mà không có hình (videoWidth = 0).
     if (PL.vid !== v) return;
-    if (!v.videoWidth) return fallback();
+    if (!v.videoWidth) return noPlay();
     PL.ok = true; if (v.duration) PL.dur = v.duration; plTime(); plRenderIo(curClip());
   });
   v.addEventListener("timeupdate", () => { plHead(); plTime(); });
@@ -372,30 +373,30 @@ function plEl() {                                               // MỘT thẻ <
   v.addEventListener("pause", () => { $("plPlay").textContent = "▶"; });
   v.addEventListener("seeked", () => { SK.busy = false; clearTimeout(SK.timer); lutDraw(); plPump(); if (SK.want == null && !SK.busy) frRelease(); });
   v.addEventListener("loadeddata", () => { if (PL.vid === v) { v.style.opacity = "1"; if (PL.t0) { PL.openMs = Math.round(performance.now() - PL.t0); PL.t0 = 0; } } lutDraw(); });
-  v.addEventListener("error", () => { if (v.getAttribute("src")) fallback(); });          // WebView2 không phát được định dạng này -> bản xem nhẹ
+  v.addEventListener("error", () => { if (v.getAttribute("src")) noPlay(); });          // WebView2 không phát được định dạng này -> báo rõ
   PL.el = v; return v;
 }
-async function plOpen(c, transcode) {                         // gọi từ showCur khi đổi clip
-  if (!transcode) { plStop(); PL.uid = c ? c.uid : null; }
+async function plOpen(c) {                                    // gọi từ showCur khi đổi clip
+  plStop(); PL.uid = c ? c.uid : null;
   if (!c) return;
-  const uid = c.uid, r = await api().play_info(uid, !!transcode);
+  const uid = c.uid, r = await api().play_info(uid);
   if (curClip() == null || curClip().uid !== uid) return;     // đã chuyển clip khác
   if (r.error) {                                              // không có proxy / chưa cấu hình: giữ thumbnail
     $("plNote").textContent = r.error === "Chưa có proxy" ? "Chưa có proxy - chỉ xem hình tĩnh" : r.error;
     $("player").classList.remove("hidden"); $("plCtl").classList.add("hidden"); return;
   }
-  $("plCtl").classList.remove("hidden"); $("plNote").textContent = transcode ? "Bản xem nhẹ (ffmpeg)" : "";
-  PL.fps = r.fps || PL.fps; PL.dur = r.dur || PL.dur;
+  $("plCtl").classList.remove("hidden"); $("plNote").textContent = "";
+  PL.fps = r.fps || PL.fps; PL.dur = r.dur || 0;         // clip thiếu độ dài: KHÔNG mượn độ dài clip trước (hiện "chưa rõ độ dài" tới khi video báo)
   const v = plEl();
   if (v.parentNode !== $("preview")) $("preview").appendChild(v);
   if (lutGL() && LUT.cv.parentNode !== $("preview")) $("preview").appendChild(LUT.cv);
-  SK.want = null; SK.busy = false; SK.drag = false; PL.kf = null; PL.open = { uid, transcode: !!transcode };
+  SK.want = null; SK.busy = false; SK.drag = false; PL.kf = null; PL.open = { uid };
   v.style.opacity = "0"; PL.vid = v; PL.ok = false;
   PL.t0 = performance.now();                                    // đo thời gian từ lúc mở tới có hình (nút Đo lướt báo lại)
   v.src = r.url;
   $("player").classList.remove("hidden");
   lutAttach(c, v);
-  if (!transcode) { frOpen(c); api().keyframes(uid).then((k) => { if (PL.uid === uid && k && k.kf) PL.kf = k.kf; }); }
+  frOpen(c); api().keyframes(uid).then((k) => { if (PL.uid === uid && k && k.kf) PL.kf = k.kf; });
 }
 $("plPlay").onclick = plToggle;
 $("preview").addEventListener("click", () => { PL.focus = true; plToggle(); });

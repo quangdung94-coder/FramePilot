@@ -1,4 +1,12 @@
-# Trạng thái FramePilot, trước đây "Trợ lý File Quay" (cập nhật 18/11/2026, đêm)
+# Trạng thái FramePilot, trước đây "Trợ lý File Quay" (cập nhật 19/11/2026)
+
+Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
+
+## Tổng duyệt 19/11 (nhánh ra-soat-19-11, CHƯA gộp main) - CHỜ ANH THỬ
+- 19 phát hiện: 4 nghiêm trọng / 7 trung bình / 8 nhẹ; đã sửa 11 (4 nghiêm trọng, 5 trung bình, 2 nhẹ), chưa sửa 8, mỗi lỗi một commit + test (tests/test_ra_soat_19_11.py). Chi tiết, danh sách CHƯA CHẠY THẬT và câu hỏi cho bạn: docs/RA_SOAT_19_11.md.
+- 506 bài test đạt lúc rà soát; sau quyết định 19/11 09:03: **520 bài đạt** (trừ 2 test bản xem nhẹ, thêm 16). Đo lướt không đổi so với main. Chưa thử bằng chuột thật / DaVinci thật cho các sửa đổi này.
+- Đã làm theo quyết định của bạn (docs/RA_SOAT_19_11.md mục 5, ADR-0029): S1 bỏ hẳn bản xem nhẹ; S2 "+ Bin mới" và Đổi tên bin dùng chung một hàm kiểm tên, KHÔNG chặn `&`; S3 mở lần hai thì đưa cửa sổ cũ lên trước (CHƯA CHẠY THẬT qua menu DaVinci); S4 ba lỗi nhẹ; S5 không làm (khóa clip trùng, cắt chữ 1100x680, e.key) và ghi ở docs/BAN_GIAO.md mục 8.
+- Thay đổi hành vi bạn sẽ thấy: mở FramePilot lần hai cho cùng project sẽ đưa cửa sổ cũ lên trước (không đưa được thì báo "đang mở ở cửa sổ khác"); proxy không phát được chỉ báo rõ, không còn bản xem nhẹ; đổi bin nguồn rồi quay lại lấy lại giai đoạn cũ; clip trùng đường dẫn có cảnh báo vàng khi đọc clip.
 
 ## Gộp main 19/11
 - main (commit gộp 10d4d18, 19/11/2026) đã chứa mọi việc của chuỗi nhánh: Bước 5 bản 3 timeline (ADR-0013), Tự phân loại B2/B3 (ADR-0026), lag lướt + kho khung RAM (ADR-0016 bản 1, 2), FramePilot (ADR-0027), "bạn" (ADR-0028), K3. Tag sao lưu: truoc-gop-19-11 (đầu nhánh sua-lag-luot-2). Các nhánh cũ còn nguyên, không xóa. 493 test đạt.
@@ -146,5 +154,5 @@
 - Khi sửa logic trong troly_core.py nên thêm test vào tests/ rồi chạy bộ kiểm thử.
 - Code sao/In-Out gợi ý ban đầu do Antigravity viết, phần nối giao diện + tạo timeline do Claude viết (15/11).
 - Kho Git riêng: https://github.com/quangdung94-coder/TroLyFileQuay (riêng tư). Lịch sử kho riêng bắt đầu ở commit 5e9090c (đã gỡ tên khách; mã cũ 8945cc9 không còn dùng). Lịch sử trước 17/11/2026 nằm ở kho cũ D:\VideoAI\repo (v0.2.5 = commit b13c7fb). Menu DaVinci trỏ vào thư mục này (app\), `install.py --check` đạt.
-- Bộ kiểm thử: tests/ (433 bài, `& $py -m unittest discover -s tests -q`; trên Windows đặt PYTHONUTF8=1). ADR trong docs/adr/ (0009, 0010, 0011, 0014 đến 0019).
-- Số ADR sắp tới: Bước 3 trang riêng = ADR-0019 (đã làm), Bước 5 chia thời lượng = ADR-0013 (ADR-0011 = timeline mới, ADR-0014 = Lời nói A, đã có).
+- Bộ kiểm thử: tests/ (506 bài ngày 19/11, `& $py -m unittest discover -s tests -q`; trên Windows đặt PYTHONUTF8=1). ADR trong docs/adr/ (0009-0011, 0013-0028; danh sách 1 dòng trong docs/BAN_GIAO.md).
+- Số ADR kế tiếp: 0029.
