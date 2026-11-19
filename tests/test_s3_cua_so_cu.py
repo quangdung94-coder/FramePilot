@@ -24,8 +24,8 @@ class BringToFront(unittest.TestCase):
         return u, ctypes.c_void_p(h)
 
     def test_khoi_phuc_cua_so_dang_thu_nho(self):
-        title = troly_env.window_title("2026.11.06.Lora_Duyên&Phát (thử S3)")
-        self.assertEqual(title, "FramePilot - 2026.11.06.Lora_Duyên&Phát (thử S3)")
+        title = troly_env.window_title("2026.11.06.LV_Ten&Ten2 (thử S3)")
+        self.assertEqual(title, "FramePilot - 2026.11.06.LV_Ten&Ten2 (thử S3)")
         u, h = self._make(title)
         u.ShowWindow(h, 6)                                        # SW_MINIMIZE
         self.assertTrue(u.IsIconic(h))
