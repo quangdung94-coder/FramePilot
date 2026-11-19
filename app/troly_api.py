@@ -647,11 +647,14 @@ class TrolyApi(object):
             return self.state()
 
     def add_bin(self, stage_i, name):
+        """"+ Bin mới": kiểm tên bằng CÙNG hàm với Đổi tên (tc.check_new_name). Lỗi: {"error": ...}, không thêm gì."""
         with self._lock:
-            name = (name or "").strip().replace("/", "-")
+            if not (0 <= stage_i < len(self._stages)):
+                return {"error": "Không thấy giai đoạn."}
             s = self._stages[stage_i]
-            if not name or name in s["bins"]:
-                return self.state()
+            name, err = tc.check_new_name(name, list(s["bins"]))
+            if err:
+                return {"error": err}
             pos = len(s["bins"]) - 1 if s["bins"][-1:] == [tc.OTHER_BIN] else len(s["bins"])
             s["bins"].insert(pos, name)
             self._save_soon()

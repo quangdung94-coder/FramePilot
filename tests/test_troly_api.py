@@ -167,6 +167,34 @@ class Api(unittest.TestCase):
         self.assertEqual(st["n_manual"], 0)
         self.assertEqual(st["stages"][2]["count"], 0)
 
+    def test_add_bin_dung_chung_ham_kiem_ten_voi_doi_ten(self):
+        """S2 (19/11/2026): "+ Bin mới" và đổi tên bin cùng MỘT hàm kiểm tra (tc.check_new_name), cùng bộ ký tự chặn, không chặn &."""
+        self.load()
+        names = lambda st: [b["name"] for b in st["stages"][0]["bins"]]
+        for bad in ("Cô:dâu", "a/b", "a\b", "a*b", "a?b", 'a"b', "a<b", "a>b", "a|b", "chấm.", "ctl\x01"):
+            r = self.api.add_bin(0, bad)
+            self.assertIn("error", r, bad)
+            r2 = self.api.rename_check("bin", 0, "Decor", bad) if "Decor" in names(self.api.state()) else None
+            if r2 is not None:
+                self.assertEqual(r["error"], r2["error"], bad)           # cùng thông báo
+        self.assertNotIn("Flycam&Drone", names(self.api.state()))
+        st = self.api.add_bin(0, "Flycam&Drone")
+        self.assertNotIn("error", st)
+        self.assertIn("Flycam&Drone", names(st))
+        self.assertIn("error", self.api.add_bin(0, "flycam&DRONE"))      # trùng tên cùng cấp (không phân biệt hoa thường)
+        import troly_core
+        calls = []
+        orig = troly_core.check_new_name
+        troly_core.check_new_name = lambda *a, **k: calls.append(a) or orig(*a, **k)
+        try:
+            self.api.add_bin(0, "Một")
+            b = next(x for x in names(self.api.state()) if x not in ("Khác", "Một"))
+            self.api.rename_check("bin", 0, b, "Hai")
+        finally:
+            troly_core.check_new_name = orig
+        self.assertEqual(len(calls), 2)
+        self.api.close()
+
     def test_add_bin_offsets_template_persist(self):
         self.load()
         st = self.api.add_bin(0, "Flycam")

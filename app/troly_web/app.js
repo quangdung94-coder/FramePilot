@@ -559,7 +559,7 @@ $("pool").addEventListener("click", (e) => {
     inp.className = "inp sub-input"; inp.placeholder = "Tên bin mới, Enter để thêm";
     e.target.replaceWith(inp); inp.focus();
     inp.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" && inp.value.trim()) api().add_bin(gStage, inp.value).then(setState);
+      if (ev.key === "Enter" && inp.value.trim()) api().add_bin(gStage, inp.value).then((r) => { if (r && r.error) status(r.error, "warn"); else setState(r); });
       if (ev.key === "Escape") renderPage2();
     });
   }
