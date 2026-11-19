@@ -120,6 +120,35 @@ class TrolyWorker(threading.Thread):
     def pool(self):
         return self.project.GetMediaPool()
 
+    @staticmethod
+    def _same_tl(a, b):
+        if a is None or b is None:
+            return False
+        if a is b:
+            return True
+        try:
+            ua, ub = a.GetUniqueId(), b.GetUniqueId()
+            if ua and ub:
+                return ua == ub
+        except Exception:                                     # noqa: BLE001  bản giả lập không có GetUniqueId
+            pass
+        try:
+            return a.GetName() == b.GetName()
+        except Exception:                                     # noqa: BLE001
+            return False
+
+    def _make_current(self, tl):
+        """AppendToTimeline của DaVinci thêm clip vào timeline HIỆN TẠI. Trước khi gọi nó phải chắc timeline hiện tại là timeline MỚI vừa tạo,
+        không thì clip bị chèn vào timeline đang dựng của người dùng. True chỉ khi đọc lại thấy đúng."""
+        try:
+            self.project.SetCurrentTimeline(tl)
+        except Exception:                                     # noqa: BLE001
+            pass
+        try:
+            return self._same_tl(self.project.GetCurrentTimeline(), tl)
+        except Exception:                                     # noqa: BLE001
+            return False
+
     # --- ĐỌC --------------------------------------------------------------
     def do_bins(self, _):
         root = self.pool.GetRootFolder()
@@ -291,7 +320,11 @@ class TrolyWorker(threading.Thread):
             why.append("CreateTimelineFromClips trả rỗng")
             try:
                 tl = pool.CreateEmptyTimeline(name + " b")
-                if tl:
+                if tl and not self._make_current(tl):
+                    why.append("đã tạo timeline rỗng \"%s b\" nhưng không chuyển được sang nó, KHÔNG thêm clip để khỏi chèn nhầm vào timeline "
+                               "đang mở (bạn xóa tay timeline rỗng đó nếu thấy)" % name)
+                    tl = None
+                elif tl:
                     ok = pool.AppendToTimeline(items)
                     if not ok:
                         why.append("AppendToTimeline không thêm được clip nào")
@@ -351,7 +384,10 @@ class TrolyWorker(threading.Thread):
             try:
                 tl = pool.CreateEmptyTimeline(name)
                 created_empty = bool(tl)
-                if tl and infos and not pool.AppendToTimeline(infos):
+                if tl and (infos or v2) and not self._make_current(tl):
+                    why.append("không chuyển được sang timeline mới, KHÔNG thêm đoạn để khỏi chèn nhầm vào timeline đang mở")
+                    tl = None
+                elif tl and infos and not pool.AppendToTimeline(infos):
                     why.append("AppendToTimeline không thêm được đoạn nào")
                     tl = None
                 elif not tl:
@@ -378,11 +414,12 @@ class TrolyWorker(threading.Thread):
         need = any(float(x.get("pct", 100)) < 99.95 for x in segs_all(v1, v2)) or v2 or any(x.get("mute") for x in segs_all(v1, v2))
         if not need:
             return notes
-        proj, pool = self.project, self.pool
-        try:
-            proj.SetCurrentTimeline(tl)
-        except Exception as e:                                # noqa: BLE001
-            notes["msgs"].append("Không đặt được timeline mới làm timeline hiện tại: %s" % e)
+        pool = self.pool
+        is_cur = self._make_current(tl)
+        if not is_cur:
+            notes["msgs"].append("Không đặt được timeline mới làm timeline hiện tại: bỏ qua V2 và tắt tiếng (để khỏi ghi nhầm vào timeline đang mở).")
+            notes["layout_ok"] = False
+            v2 = []
         # 1) V1: Slow lần lượt, ripple
         for i, x in enumerate(v1):
             pct = float(x.get("pct", 100))
