@@ -12,6 +12,7 @@ chỉnh tiếp bằng tay trong DaVinci.
    - Chỉ phát đường dẫn nằm trong `proxy_root` (config.json, KHÔNG ghi cứng trong mã) hoặc thư mục cache `troly_play`.
      Chuẩn hóa + giải liên kết (symlink) trước khi so; kiểm lại lúc phát. Đường dẫn ngoài -> 403/None (có test).
    - Chỉ mở file để ĐỌC; không ghi/đổi tên/xóa trong thư mục proxy.
+> **19/11/2026: phương án dự phòng "bản xem nhẹ" ở dòng dưới đã bị GỠ HẲN (ADR-0029).**
    - Phương án dự phòng: nếu thẻ video báo lỗi (ProRes/DNx...), `play_info(uid, transcode=True)` gọi ffmpeg tạo mp4 H.264 720p
      nhẹ (keyframe mỗi 12 frame) trong `<data_root>\cache\troly_play\<project>\` (xóa được), chỉ cho clip đang xem.
    - Clip không có proxy: hiện "Chưa có proxy - chỉ xem hình tĩnh", giữ thumbnail.

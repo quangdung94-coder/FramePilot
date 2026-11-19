@@ -65,3 +65,24 @@ Mức độ: **Nghiêm trọng** = mất/hỏng dữ liệu, crash, ghi nhầm v
 3. Ở cửa sổ nhỏ nhất (1100x680) vài nút bị cắt chữ. Bạn có dùng cửa sổ nhỏ không? Nếu có thì chọn: cho hàng nút xuống dòng, hay nâng cỡ cửa sổ nhỏ nhất?
 4. "+ Bin mới" có nên chặn các ký tự `: & / \ * ? " < > |` giống đổi tên không?
 5. Mở FramePilot lần hai cho cùng project nay bị chặn kèm thông báo. Bạn muốn thế, hay muốn tự đưa cửa sổ cũ lên trước?
+
+## 5. Quyết định của người dùng 19/11 09:03 (+ chỉnh 09:05) và việc đã làm (nhánh `ra-soat-19-11`, thêm 7 commit)
+Số test: 506 trước đợt này → **520 test đạt** (chạy 3 lần không chập chờn). Đã TRỪ 2 test của bản xem nhẹ bị xóa (`TranscodeCmd.test_lenh_co_dinh_dang_ro_va_giu_tieng`, `PlayerFallback.test_chuyen_ban_xem_nhe_khi_khong_co_hinh`) và thêm 16 bài mới (kể cả bài nằm trong lớp kế thừa chạy hai lần).
+
+| Mục | Việc | Commit | Kiểm thế nào |
+|---|---|---|---|
+| S1 | Bỏ hẳn "bản xem nhẹ" (câu hỏi 1; sửa phát hiện 13). Xóa `transcode_cmd`, `ensure_play_mp4`, tham số `transcode`, thư mục phục vụ `cache	roly_play`, nhánh "Đang tạo bản xem nhẹ" trong player.js. Proxy không phát được: thông báo nói clip nào, vì sao (HEVC/ProRes), nên tạo lại proxy H.264 trong DaVinci; không tạo file nào. ADR-0029: quyết định 18/11 "không tạo bản nhẹ mới" giữ nguyên. | 15b4b39 | `KhongTaoBanXemNhe` (4 bài). Thư mục cache cũ: `D:\VideoAI\data\cache	roly_play\<project>\` — KHÔNG tự xóa; trên máy này (D:\VideoAI\data) thư mục đó không tồn tại, máy khác có thì bạn tự xóa. |
+| S2 | "+ Bin mới" và Đổi tên bin dùng CHUNG một hàm `check_new_name` (câu hỏi 4; sửa phát hiện 17). **Bỏ `&` khỏi bộ chặn của CẢ HAI chỗ** (trước đây Đổi tên bin chặn `&`; bạn có dùng `&`, Windows không cấm). Chặn: `: / \ * ? " < > |`, ký tự điều khiển, tên kết thúc bằng dấu chấm. `add_bin` nay trả lỗi rõ thay vì im lặng. | 64070b2 | `test_troly_rename`, `test_troly_rename_api`, `test_troly_api` (hai chỗ cùng một hàm, cùng thông báo, `Duyên&Phát` hợp lệ). |
+| S3 | Mở lần hai cho cùng project: đưa cửa sổ cũ lên trước, khôi phục nếu thu nhỏ; không đưa lên được thì giữ thông báo chặn (câu hỏi 5; ADR-0029). | 2bc1e21, e21589a | `tests/test_s3_cua_so_cu.py` dùng cửa sổ Windows thật (thu nhỏ → khôi phục). **CHƯA CHẠY THẬT qua menu DaVinci**, và chưa thử Windows có từ chối giành foreground khi cửa sổ cũ bị che hoàn toàn bởi app khác. |
+| S4a | Hai lần kế hoạch hỏng cùng một giây: thêm hậu tố `-2`, `-3`, không ghi đè bản `.corrupt` (phát hiện 16). | 75e4232 | `test_s4a_corrupt` |
+| S4b | Trình phát không mượn độ dài clip trước; clip thiếu độ dài hiện "chưa rõ độ dài" (phát hiện 18). | c56eb80 | `test_s4b_do_dai` (kiểm mã JS, chưa chạy trong cửa sổ thật). |
+| S4c | Hoàn tác lỗi một phần cập nhật ngay vị trí bin của clip đã về chỗ cũ (phát hiện 19). | fa63a73 | `test_troly_api::test_hoan_tac_mot_phan_cap_nhat_vi_tri_bin_ngay` |
+| S5 | KHÔNG làm theo ý bạn: khóa clip trùng đường dẫn (phát hiện 12; mỗi máy đổi tên file nên không trùng, giữ cảnh báo), cắt chữ 1100x680 (14), `e.key` Esc/Enter (15). Ghi vào docs/BAN_GIAO.md mục 8. | | |
+
+Bảng 1 sau đợt này: **đã sửa 11 + 5 (13, 16, 17, 18, 19) = 16; không sửa theo quyết định 3 (12, 14, 15).** Câu hỏi 2 và 3 đã trả lời "không đổi".
+
+## 6. CHƯA CHẠY THẬT (bổ sung cho mục 3)
+- S3 qua menu DaVinci thật (mới thử tìm/khôi phục cửa sổ bằng user32 trên cửa sổ thử).
+- S1: cảnh báo "Không phát được proxy của clip …" khi gặp proxy HEVC thật trong WebView2 (đo ngày 18/11 cho thấy WebView2 không báo lỗi mà `videoWidth = 0`; mã bắt đúng điều kiện đó nhưng đoạn mã JS mới chưa chạy trong cửa sổ thật).
+- S2: nhập tên trong ô "+ Bin mới" bằng bàn phím thật (mới kiểm hàm Python và mã JS).
+- S4b, S4c: chưa chạy trong panel thật / DaVinci thật.

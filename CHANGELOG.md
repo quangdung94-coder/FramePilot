@@ -1,5 +1,13 @@
 # Nhật ký thay đổi
 
+## 2026-11-19 (sau tổng duyệt) – Quyết định của người dùng 09:03/09:05 (nhánh ra-soat-19-11) - CHỜ ANH THỬ
+- S1: BỎ HẲN "bản xem nhẹ" (mp4 720p trong cache). Xóa mã tạo bản đó, nhánh giao diện và 2 test cũ (TranscodeCmd, PlayerFallback). Proxy không phát được thì chỉ báo rõ (clip nào, vì sao, nên tạo lại proxy H.264 trong DaVinci), không tạo file. Thư mục cache cũ cache	roly_play không bị xóa. ADR-0029.
+- S2: "+ Bin mới" và Đổi tên bin dùng chung một hàm kiểm tên. BỎ `&` khỏi bộ ký tự chặn của cả hai chỗ (trước đây Đổi tên bin chặn `&`). Chặn `: / \ * ? " < > |`, ký tự điều khiển, tên kết thúc bằng dấu chấm.
+- S3: mở FramePilot lần hai cho cùng project thì đưa cửa sổ cũ lên trước (khôi phục nếu thu nhỏ). CHƯA CHẠY THẬT qua menu DaVinci.
+- S4: hai lần kế hoạch hỏng cùng giây không ghi đè .corrupt; trình phát không mượn độ dài clip trước ("chưa rõ độ dài"); Hoàn tác lỗi một phần cập nhật vị trí bin ngay.
+- S5: không làm theo ý người dùng (khóa clip trùng, cắt chữ 1100x680, e.key Esc/Enter), ghi vào docs/BAN_GIAO.md mục 8.
+- 520 bài test đạt (506 − 2 test bản xem nhẹ + 16 bài mới), chạy 3 lần không chập chờn.
+
 ## 2026-11-19 – Tổng duyệt toàn bộ panel (nhánh ra-soat-19-11) - CHỜ ANH THỬ
 - Sửa 11 lỗi, mỗi lỗi một commit kèm test trong tests/test_ra_soat_19_11.py (báo cáo đầy đủ: docs/RA_SOAT_19_11.md):
   - Đọc bin nguồn khác rồi quay lại không còn mất giai đoạn đã kéo/đổi tên (giữ theo từng bin, plan["stages_by_bin"]).

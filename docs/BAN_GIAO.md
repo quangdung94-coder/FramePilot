@@ -62,8 +62,9 @@ Mốc đo lướt 19/11 (RTX 3060, 4K 150%): thanh lướt ~58 hình/giây, són
 | 0026 | "Tự phân loại" chạy luôn ở Bước 2 và 3 |
 | 0027 | Tên FramePilot + icon |
 | 0028 | Chữ hiển thị gọi người dùng là "bạn" |
+| 0029 | Bỏ hẳn "bản xem nhẹ"; một hàm kiểm tên bin (không chặn &); mở lần hai thì đưa cửa sổ cũ lên trước |
 
-Số ADR kế tiếp: 0029 (0012 bị bỏ trống từ trước).
+Số ADR kế tiếp: 0030 (0012 bị bỏ trống từ trước).
 
 ## 4. Quy tắc làm việc
 - Việc giao qua bảng Notion "Trợ lý File Quay – Tiến độ": mỗi dòng có checklist mã (R1, B1...). Xong mục nào tick ngay mục đó; kẹt thì ghi "KẸT: ..." dưới mục và làm tiếp. Bắt đầu: Trạng thái "Đang làm"; xong: "Chờ anh thử" (người dùng tự đổi sang "Xong").
@@ -76,7 +77,7 @@ Số ADR kế tiếp: 0029 (0012 bị bỏ trống từ trước).
 
 ## 5. Quyết định đã chốt, KHÔNG được đảo
 - Mặc định chỉ ĐỌC DaVinci. Chỉ được ghi: tạo bin con + MoveClips; tạo timeline MỚI; In/Out clip nguồn khi người dựng bấm + xác nhận số clip (sao lưu trước, Hoàn tác); SaveProject chỉ trong luồng tắt máy (ADR-0017).
-- KHÔNG BAO GIỜ: xóa clip, đổi tên/di chuyển/xóa file trên ổ, sửa/xóa timeline có sẵn, render, tạo proxy hay bản nhẹ mới trên đĩa (xem câu hỏi về "bản xem nhẹ" trong docs/RA_SOAT_19_11.md).
+- KHÔNG BAO GIỜ: xóa clip, đổi tên/di chuyển/xóa file trên ổ, sửa/xóa timeline có sẵn, render, tạo proxy hay bản nhẹ mới trên đĩa. "Bản xem nhẹ" (mp4 720p trong cache) đã bị GỠ HẲN ngày 19/11 theo quyết định của người dùng (ADR-0029): proxy không phát được thì chỉ báo rõ, không tạo file nào.
 - Gợi ý tự động (In/Out, AI) không bao giờ tự ghi vào DaVinci; In/Out đặt tay luôn thắng gợi ý. "Nhận" gợi ý AI chỉ gán nhãn trong panel.
 - Khóa clip trong kế hoạch = đường dẫn TƯƠNG ĐỐI từ thư mục project (năm.tháng.ngày.tên); giờ quay thật = Date Created (đối chiếu Modified − độ dài, 15 giây).
 - Bin chỉ là nhãn trong panel cho tới khi bấm "Áp dụng vào Media Pool".
@@ -86,13 +87,19 @@ Số ADR kế tiếp: 0029 (0012 bị bỏ trống từ trước).
 - Người dùng thử bằng chuột thật trong panel thật: Tự phân loại B2/B3, ghi In/Out 2-3 clip rồi Hoàn tác, Bước 5 tạo timeline có Slow + V2 trên project thật, Phân tích cả project với tick tắt máy rồi Huỷ.
 - Chạy `install.py` để menu DaVinci hiện "FramePilot" (xóa mục cũ bằng `--remove-old`).
 - Kiểm bằng mắt K3 (cửa sổ cmd chớp khi mở liên tiếp nhiều clip).
-- Câu hỏi cho người dùng trong docs/RA_SOAT_19_11.md (mục "Câu hỏi").
+- Danh sách "CHƯA CHẠY THẬT" trong docs/RA_SOAT_19_11.md (mục 3) cần người dùng thử tay. 5 câu hỏi của đợt rà soát đã được trả lời 19/11 (xem mục 8 và ADR-0029).
 - Ý tưởng chưa thiết kế: nhiều máy quay theo làn, sao nhiều mức, số thứ tự trước tên bin (TRANG_THAI.md, "Việc tiếp theo").
 
 ## 7. Giới hạn đã biết
 - Clip dài: kho khung RAM chỉ giữ tối đa 150 MB một clip (clip 20 phút proxy thật chỉ có khung cho khoảng phần đầu; phần sau rê bằng thẻ video, chậm hơn).
-- Proxy HEVC: WebView2 không hiện hình mà không báo lỗi; panel dự phòng bằng "bản xem nhẹ" ffmpeg (tạo file mp4 trong cache — đang chờ người dùng quyết có giữ không).
+- Proxy HEVC: WebView2 không hiện hình mà không báo lỗi; panel chỉ báo rõ (clip nào, vì sao, nên tạo lại proxy H.264 trong DaVinci) và giữ thumbnail; KHÔNG tạo bản nhẹ (đã gỡ 19/11, ADR-0029). Người dùng cho biết proxy gần như toàn H.264.
 - DPI: đã chụp ở 150% (4K) với cửa sổ 1100x680 và 1440x900; DPI 100% và màn khác CHƯA thử. Ở cỡ nhỏ nhất 1100x680 vài nút Bước 3 và ô "Kiểu quay" bị cắt chữ.
 - Rê chuột thật: sự kiện đầu mỗi lần rê có lúc trễ 50-112 ms (đã chấp nhận).
 - Hai máy cùng thẻ nhớ đặt trong thư mục không theo tên project (vd. ...\CAM A\PRIVATE\M4ROOT\CLIP\C0001.MP4) thì trùng khóa: panel cảnh báo và không ghi In/Out cho các clip đó, nhưng nhãn/sao vẫn dùng chung.
 - Tự nhận vi/en khi chép lời chỉ là đoán theo chữ.
+
+## 8. Đã biết, cố ý chưa sửa (người dùng quyết 19/11/2026 09:03)
+Đây là ba chỗ rà soát đã tìm thấy nhưng người dùng chọn KHÔNG sửa. Đừng "sửa giúp" nếu chưa hỏi lại.
+- **Khóa clip trùng đường dẫn tương đối** (hai clip khác nhau cùng `CLIP/C0001.MP4`): giữ cảnh báo hiện có (không ghi In/Out cho các clip đó), KHÔNG đổi cách đặt khóa. Lý do: mỗi máy quay của người dùng đều đổi tên file nên thực tế không bao giờ trùng. Nhãn/sao của clip trùng khóa vẫn dùng chung.
+- **Chữ bị cắt ở cửa sổ nhỏ nhất 1100x680** (ô "Kiểu quay", hàng nút Bước 3, nút "Áp dụng vào Media Pool"): để NGUYÊN. Lý do: người dùng không dùng cửa sổ cỡ đó (ở 1440x900 và toàn màn hình thì đủ chữ).
+- **Esc / Enter / mũi tên đọc bằng `e.key`** (số và chữ đã dùng `event.code`): để nguyên. Các phím này không bị Unikey đổi nên không gây lỗi; sửa là đụng phím đã duyệt.
