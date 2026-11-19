@@ -113,6 +113,23 @@ class UndoOtherBin(Base):
         self.assertEqual(len(self.api._plan["moves"]), 1)     # nhật ký vẫn giữ
 
 
+class StatusNotHidden(Base):
+    def test_ket_qua_ap_dung_khong_bi_cau_da_ket_noi_de_mat(self):
+        """Lỗi (Trung bình): sau Áp dụng/Hoàn tác panel đọc lại danh sách bin và in câu 'Đã kết nối DaVinci. Chọn bin nguồn...' đè lên
+        dòng trạng thái duy nhất -> cảnh báo 'N clip KHÔNG chuyển được' biến mất ngay."""
+        self.api.init()
+        self.run_jobs()
+        self.api.load(A)
+        self.run_jobs()
+        st = self.api.state()
+        self.api.label([c["uid"] for c in st["clips"]], 0, st["stages"][0]["bins"][0]["name"])
+        self.pool.fail_move = True
+        self.assertTrue(self.api.apply())
+        self.run_jobs()                               # apply -> applied (cảnh báo) -> đọc lại bin
+        self.run_jobs()
+        self.assertIn("KHÔNG chuyển được", self.statuses()[-1])
+
+
 class InoutBackupOtherProject(unittest.TestCase):
     def test_hoan_tac_in_out_khong_lay_nham_sao_luu_cua_project_ten_dai_hon(self):
         """Lỗi (Trung bình): project 'X' lấy nhầm file sao lưu của project 'X_B' (cùng tiền tố 'X_')."""

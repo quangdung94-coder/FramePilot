@@ -461,8 +461,9 @@ class TrolyApi(object):
             self._worker.jobs.put(("load", want))
             return
         self._autoload = False
-        self._emit("status", {"text": "Đã kết nối DaVinci. Chọn bin nguồn rồi bấm \"Đọc clip\" (chỉ đọc).",
-                              "kind": "info"})
+        if not self._clips:                               # đọc lại bin sau Áp dụng/Hoàn tác: không đè kết quả (cảnh báo) lên dòng trạng thái
+            self._emit("status", {"text": "Đã kết nối DaVinci. Chọn bin nguồn rồi bấm \"Đọc clip\" (chỉ đọc).",
+                                  "kind": "info"})
 
     def load(self, bin_path):
         if not bin_path:
