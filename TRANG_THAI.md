@@ -2,6 +2,9 @@
 
 Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
 
+## Kiểm tài nguyên git + dọn rác 19/11 (nhánh kiem-git-19-11, CHƯA gộp main)
+- Đã thêm config.example.json, requirements_speech.txt, bảng tài nguyên ở docs/BAN_GIAO.md mục 2b; clone sạch chạy được test, install thử và panel với DaVinci giả. 524 bài test. Chi tiết: CHANGELOG.md.
+
 ## Tổng duyệt 19/11 + S1-S6: ĐÃ GỘP main 19/11 (commit gộp e08fff5, tag sao lưu truoc-gop-ra-soat-19-11 = 67bfa7d) - 520 test đạt; các mục CHƯA CHẠY THẬT vẫn chờ bạn thử tay
 - 19 phát hiện: 4 nghiêm trọng / 7 trung bình / 8 nhẹ; đã sửa 11 (4 nghiêm trọng, 5 trung bình, 2 nhẹ), chưa sửa 8, mỗi lỗi một commit + test (tests/test_ra_soat_19_11.py). Chi tiết, danh sách CHƯA CHẠY THẬT và câu hỏi cho bạn: docs/RA_SOAT_19_11.md.
 - 506 bài test đạt lúc rà soát; sau quyết định 19/11 09:03: **520 bài đạt** (trừ 2 test bản xem nhẹ, thêm 16). Đo lướt không đổi so với main. Chưa thử bằng chuột thật / DaVinci thật cho các sửa đổi này.
