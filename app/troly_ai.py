@@ -502,13 +502,14 @@ class AiJob(object):
         if not self.available():
             return False
         import subprocess
+        import troly_proc
         d = embed_dir(self.root, self.project)
         os.makedirs(d, exist_ok=True)
         stop = os.path.join(d, "STOP")
         if os.path.isfile(stop):
             os.remove(stop)
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        self._proc = subprocess.Popen([self.python, "-X", "utf8", os.path.join(APP, "troly_ai.py"), "run", "--project", self.project],
+        self._proc = troly_proc.mo_an([self.python, "-X", "utf8", os.path.join(APP, "troly_ai.py"), "run", "--project", self.project],
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
         return True
 

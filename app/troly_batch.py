@@ -11,6 +11,7 @@ QUY TẮC AN TOÀN (đã chốt với người dựng 18/11/2026):
 """
 import os
 import subprocess
+import troly_proc
 import time
 
 COUNTDOWN_S = 120
@@ -20,7 +21,7 @@ def system_shutdown():
     """Lệnh tắt máy thật (Windows). Từ chối nếu TROLY_NO_SHUTDOWN được đặt (kiểm thử, chạy thử)."""
     if os.environ.get("TROLY_NO_SHUTDOWN"):
         raise RuntimeError("TROLY_NO_SHUTDOWN được đặt: từ chối tắt máy thật.")
-    subprocess.run(["shutdown", "/s", "/t", "10", "/c", "FramePilot: phân tích xong, tắt máy theo yêu cầu."], check=True,
+    troly_proc.chay_an(["shutdown", "/s", "/t", "10", "/c", "FramePilot: phân tích xong, tắt máy theo yêu cầu."], check=True,
                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
 

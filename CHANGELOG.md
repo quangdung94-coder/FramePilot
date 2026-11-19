@@ -1,5 +1,8 @@
 # Nhật ký thay đổi
 
+## 2026-11-19 – K3: hết cửa sổ cmd chớp khi mở clip (ADR-0016 bản 2)
+- Thủ phạm theo mã: nạp sóng âm (ffmpeg thiếu cờ ẩn console); bản xem nhẹ ffmpeg cũng thiếu. Thêm app/troly_proc.py (chay_an / mo_an: CREATE_NO_WINDOW + SW_HIDE), mọi lời gọi tiến trình con đi qua đó; test quét không còn lời gọi subprocess ngoài file này. 493 bài đạt. Chưa kiểm bằng mắt.
+
 ## 2026-11-19 – Rê chuột xem trước: đo trong pywebview thật + kho khung nhỏ trong RAM (ADR-0016 bản 2) - CHỜ NGƯỜI DỰNG THỬ bằng chuột thật
 - Đo TRONG cửa sổ pywebview thật (tools/panel_do_luot.py, DaVinci giả + proxy thật): cách cũ chỉ 5,8 hình/giây khi kéo thanh lướt, trễ p50 0,9 giây; JS/Python xử lý mỗi sự kiện chưa tới 1 ms, nghẽn là Video Decode của GPU lên 99% (số Chromium đêm 18/11 không phản ánh panel thật).
 - Thử từng nghi phạm: tắt WebGL LUT, tắt tải trước, 3 nhóm cờ WebView2 (kể cả giải mã CPU): không đổi gì. Hẹn giờ "dừng tay nhảy chính xác" làm sóng âm tệ hơn (p50 20 ms lên 1133 ms). Gỡ tải trước clip kế (bộ giải mã thứ hai).

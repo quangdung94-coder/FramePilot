@@ -14,6 +14,7 @@ import secrets
 import socketserver
 import threading
 import subprocess
+import troly_proc
 
 CHUNK = 256 * 1024
 
@@ -190,7 +191,7 @@ def ensure_play_mp4(src, cache_dir, key, ffmpeg="ffmpeg", timeout=600):
         return dst
     tmp = dst + ".part"
     try:
-        subprocess.run(transcode_cmd(src, tmp, ffmpeg), check=True, timeout=timeout,
+        troly_proc.chay_an(transcode_cmd(src, tmp, ffmpeg), check=True, timeout=timeout,
                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         os.replace(tmp, dst)
         return dst

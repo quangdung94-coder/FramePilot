@@ -6,6 +6,7 @@
 - #3 xong code (nhánh doi-ten-framepilot, ADR-0027): đổi tên FramePilot + icon; đã mở panel thật 4K 150% thấy icon đúng. Chạy `install.py` để menu DaVinci hiện "FramePilot" (mục cũ xóa bằng `--remove-old`).
 - #4 xong code (nhánh doi-ten-framepilot, ADR-0028): chữ hiển thị gọi người dùng là "bạn" (39 chỗ), có test quét. Chờ bạn đọc lại.
 - 19/11 (nhánh sua-lag-luot-2, ADR-0016 bản 2): rê chuột xem trước đã đo trong pywebview thật và làm kho khung nhỏ trong RAM (58-60 hình/giây, trễ p95 dưới 8 ms). Còn: rê thử bằng chuột thật; sự kiện đầu mỗi lần rê vẫn có lúc trễ 50-112 ms (chưa đạt hẳn "dưới 30 ms"); so màu bằng mắt.
+- K3 xong code: tiến trình con chạy ẩn qua troly_proc (thủ phạm cửa sổ cmd chớp theo mã: nạp sóng âm). Chờ bạn mở liên tiếp nhiều clip xem còn chớp không.
 
 
 ## Đã chạy được

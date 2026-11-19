@@ -139,3 +139,7 @@ Số Chromium đêm 18/11 (27 hình/giây, đứng tối đa 55 ms) KHÔNG phả
 
 **CHƯA ĐO THẬT:** rê bằng chuột người thật (đây là sự kiện giả); màn hình/DPI khác 150%; project và proxy khác (đo 1-2 clip, chưa đo clip nhiều phút, proxy HEVC dùng bản xem nhẹ); LUT khác; hai card đồ họa (chỉ thấy RTX 3060); RAM khi mở nhiều clip liên tiếp trong panel thật; so màu bằng mắt.
 **Chưa giải quyết:** phát liên tục (Space) vẫn là thẻ video như cũ (vốn mượt); mỗi lần thả chuột video vẫn nhảy chính xác một lần (70-350 ms).
+
+
+### K3 (19/11): cửa sổ cmd đen chớp khi mở liên tiếp nhiều clip
+Quét mọi lời gọi tiến trình con trong app\: thủ phạm tìm được là **nạp sóng âm** (`troly_wave.make_peaks` chạy ffmpeg KHÔNG có `creationflags`, panel chạy bằng pythonw nên Windows mở một console chớp). Kho khung RAM (troly_frames), thumbnail, keyframe (ffprobe), Whisper, tiến trình AI và lệnh tắt máy đã có cờ ẩn; bản xem nhẹ ffmpeg (`troly_play.ensure_play_mp4`) thiếu cờ giống sóng âm (chỉ chạy khi proxy HEVC). Chưa quan sát trực tiếp cửa sổ chớp (không bắt được bằng mã); kết luận dựa trên mã. Cách sửa: `app/troly_proc.py` có `chay_an` (như subprocess.run) và `mo_an` (như Popen), luôn thêm CREATE_NO_WINDOW và STARTUPINFO SW_HIDE, giữ cờ người gọi đặt (độ ưu tiên thấp của kho khung); thay hết các chỗ gọi; test quét không còn `subprocess.run/Popen/...` nào ngoài troly_proc.py. Không đổi hành vi khác. CHƯA kiểm bằng mắt trong panel thật (người dựng mở liên tiếp nhiều clip để xem còn chớp không).

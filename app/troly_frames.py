@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import subprocess
+import troly_proc
 import threading
 import time
 
@@ -150,7 +151,7 @@ class FrameStore(object):
         start_t = (len(c.frames) * c.step / (c.fps or 25.0)) if c.frames else 0.0
         cmd = build_cmd(self.ffmpeg, c.src, c.step, start_t, c.lut_name)
         try:
-            p = subprocess.Popen(cmd, cwd=self.cache_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, creationflags=FLAGS)
+            p = troly_proc.mo_an(cmd, cwd=self.cache_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, creationflags=FLAGS)
         except OSError as e:
             c.failed = "ffmpeg không chạy được: %s" % e
             return

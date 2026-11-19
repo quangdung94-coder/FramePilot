@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import subprocess
+import troly_proc
 import threading
 
 BINS = 800                      # số cột đỉnh của một clip (đủ mịn cho thanh rộng ~750 px)
@@ -56,7 +57,7 @@ def peaks_from_pcm(raw, bins=BINS):
     return [int(round(v * 100.0 / top)) for v in out]
 
 
-def make_peaks(src, out_path, ffmpeg="ffmpeg", timeout=TIMEOUT_S, runner=subprocess.run):
+def make_peaks(src, out_path, ffmpeg="ffmpeg", timeout=TIMEOUT_S, runner=troly_proc.chay_an):
     """Làm file đỉnh sóng. Trả {'peaks': [...], ...} hoặc {'error': lời báo}. Không bao giờ ném lỗi."""
     cmd = [ffmpeg, "-v", "error", "-nostdin", "-i", src, "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"]
     try:
@@ -86,7 +87,7 @@ def make_peaks(src, out_path, ffmpeg="ffmpeg", timeout=TIMEOUT_S, runner=subproc
 class WaveMaker(object):
     """Làm sóng âm nền, mỗi lần một clip. get() trả ngay: đỉnh sóng | {'pending': True} | {'error': ...}."""
 
-    def __init__(self, cache_dir, ffmpeg="ffmpeg", timeout=TIMEOUT_S, runner=subprocess.run):
+    def __init__(self, cache_dir, ffmpeg="ffmpeg", timeout=TIMEOUT_S, runner=troly_proc.chay_an):
         self._dir, self._ffmpeg, self._timeout, self._runner = cache_dir, ffmpeg, timeout, runner
         self._lock = threading.Lock()
         self._done = {}                         # key -> kết quả
