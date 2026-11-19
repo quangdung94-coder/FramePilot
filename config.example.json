@@ -1,0 +1,12 @@
+{
+    "data_root": "D:\VideoAI\data",
+    "proxy_root": "F:\02_Proxy Media",
+    "python": "C:\VideoAI_venv\Scripts\python.exe",
+    "resolve": {
+        "install_path": "C:\Program Files\Blackmagic Design\DaVinci Resolve"
+    },
+    "whisper": {
+        "exe": "D:\VideoAI\tools\whisper\constme\cli\main.exe",
+        "model": "D:\VideoAI\tools\whisper\ggml-medium.bin"
+    }
+}
