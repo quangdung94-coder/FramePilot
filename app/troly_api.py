@@ -1289,6 +1289,35 @@ class TrolyApi(object):
             return {"error": "Không phát được file này."}
         return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "transcoded": bool(transcode)}
 
+    def _frame_store(self):
+        import troly_frames as tf
+        if getattr(self, "_frames", None) is None:
+            self._frames = tf.FrameStore(os.path.join(self._root, "cache", "troly_frames", tc._safe(self._project)), self._thumbs.ffmpeg, lut_copy=tt.local_lut)
+            self._play_server().frames = self._frames
+        return self._frames
+
+    def frames_open(self, uid, prefetch=False):
+        """Kho khung nhỏ trong RAM của clip (ADR-0016 bản 2): ffmpeg ưu tiên thấp đọc proxy (chỉ ĐỌC) ra khung JPEG nhỏ giữ TRONG RAM, không ghi đĩa.
+        Trả {url, n, total, fps, done, ...}; giao diện lấy khung ở <url>/<chỉ số> và hỏi tiến độ ở <url>/info. prefetch=True: nạp trước khi rảnh."""
+        c = self._by_uid.get(uid)
+        if c is None:
+            return {"error": "Không thấy clip."}
+        if not self._proxy_root or not c.proxy or not os.path.isfile(c.proxy):
+            return {"error": "Chưa có proxy"}
+        import troly_play as tp
+        if not tp.inside(c.proxy, [self._proxy_root]):
+            return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
+        st = self._frame_store()
+        lut_path = self._thumbs.lut_for(c.lut) if c.lut else None
+        r = st.open(c.rel or c.name, c.proxy, c.fps or 25.0, c.dur or 0, lut_path, bool(prefetch))
+        if r.get("token"):
+            r["url"] = "http://127.0.0.1:%d/f/%s" % (self._play_server().port, r["token"])
+        return r
+
+    def frames_stats(self):
+        st = getattr(self, "_frames", None)
+        return st.stats() if st else {"clips": 0, "bytes": 0}
+
     def debug_on(self):
         return bool(self.debug)
 
@@ -2088,6 +2117,8 @@ class TrolyApi(object):
     def close(self):
         if self._play is not None:
             self._play.close()
+        if getattr(self, "_frames", None) is not None:
+            self._frames.close()
         self._closed = True
         if self._analyze is not None:                    # đóng cửa sổ giữa chừng: dừng và KHÔNG tắt máy
             self._analyze.stop = True

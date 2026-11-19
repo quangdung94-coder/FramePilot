@@ -711,3 +711,6 @@ button, input, select { font-family: inherit; }
 .p3-auto .p3-autotx b { color: var(--text); }
 .p3-auto .p3-gy { margin-bottom: 0; justify-content: center; }
 .p3-auto .p3-gy .gn { display: none; }
+
+/* ADR-0016 bản 2: canvas khung xem nhanh từ RAM nằm trên video (và trên canvas LUT) trong lúc rê */
+.preview canvas.pv-frame { position: absolute; inset: 0; width: 100%; height: 100%; background: #000; cursor: pointer; z-index: 2; }

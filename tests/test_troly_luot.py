@@ -45,16 +45,10 @@ class Web(unittest.TestCase):
         self.assertIn("plSeekRelease", self.pl)                                                # thả thanh lướt: chính xác
         self.assertIn("clearTimeout(SK.dwell)", self.pl[self.pl.index("function plStop"):self.pl.index("function plEl")])    # đổi clip: hủy hẹn giờ
 
-    def test_dung_lai_mot_the_video_va_tai_truoc_clip_ke(self):
-        self.assertEqual(self.pl.count('document.createElement("video")'), 2)                  # thẻ chính (dùng lại) + một thẻ ẩn tải trước
+    def test_chi_mot_the_video_khong_tai_truoc_bang_bo_giai_ma_thu_hai(self):
+        self.assertEqual(self.pl.count('document.createElement("video")'), 1)                  # đo trong pywebview thật: bộ giải mã thứ hai không giúp gì, bỏ
+        self.assertNotIn("plPreloadNext", self.pl)
         self.assertIn("function plEl()", self.pl)
-        pre = self.pl[self.pl.index("async function plPreloadNext"):self.pl.index("/* ---- Đêm #2: nút")]
-        self.assertIn('preload = "metadata"', pre)
-        self.assertIn("items[cur + 1]", pre)
-        self.assertIn("play_info", pre)
-        for bad in ("set_inout", "inout_write", "api().move", "api().apply", "SetMarkInOut"):
-            self.assertNotIn(bad, pre, bad)                                                    # chỉ đọc proxy qua máy chủ phát
-        self.assertIn("plPreloadNext()", self.pl[self.pl.index("async function plOpen"):self.pl.index('$("plPlay").onclick')])
 
     def test_nut_do_luot_an_mac_dinh_va_chi_doc(self):
         self.assertRegex(self.html, r'<button class="btn hidden" id="plMeasure"')

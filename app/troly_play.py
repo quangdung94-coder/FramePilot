@@ -96,7 +96,42 @@ class PlayServer(object):
             self._tokens[tok] = path
         return "http://127.0.0.1:%d/v/%s" % (self.port, tok)
 
+    frames = None                                       # FrameStore (troly_frames) nếu có: phục vụ /f/<vé>/<n> (khung nhỏ trong RAM)
+
+    def _serve_frame(self, h, body):
+        import json as _json
+        import troly_frames as tf
+        pr = tf.parse_path(h.path)
+        st = self.frames
+        if pr is None or st is None:
+            h.send_error(404)
+            return
+        tok, what = pr
+        if what == "info":
+            d = st.info_by_token(tok)
+            data = _json.dumps(d if d else {"error": "Không có"}).encode("utf-8")
+            ctype = "application/json"
+        else:
+            data = st.frame(tok, what)
+            ctype = "image/jpeg"
+            if data is None:
+                h.send_error(404)
+                return
+        h.send_response(200)
+        h.send_header("Content-Type", ctype)
+        h.send_header("Content-Length", str(len(data)))
+        h.send_header("Cache-Control", "no-store")
+        h.send_header("Access-Control-Allow-Origin", "*")
+        h.end_headers()
+        if body:
+            try:
+                h.wfile.write(data)
+            except (OSError, ConnectionError):
+                pass
+
     def _serve(self, h, body):
+        if h.path.startswith("/f/"):
+            return self._serve_frame(h, body)
         m = re.match(r"^/v/([A-Za-z0-9_\-]+)$", h.path.split("?")[0])
         with self._lock:
             path = self._tokens.get(m.group(1)) if m else None

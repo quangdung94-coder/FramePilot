@@ -5,6 +5,7 @@
 - #2 xong code (nhánh sua-lag-luot, ADR-0016): đo lướt + dừng tay thì nhảy chính xác + tải trước clip kế. CHƯA đo trong panel pywebview thật (chạy panel với --debug, bấm Đo lướt).
 - #3 xong code (nhánh doi-ten-framepilot, ADR-0027): đổi tên FramePilot + icon; đã mở panel thật 4K 150% thấy icon đúng. Chạy `install.py` để menu DaVinci hiện "FramePilot" (mục cũ xóa bằng `--remove-old`).
 - #4 xong code (nhánh doi-ten-framepilot, ADR-0028): chữ hiển thị gọi người dùng là "bạn" (39 chỗ), có test quét. Chờ bạn đọc lại.
+- 19/11 (nhánh sua-lag-luot-2, ADR-0016 bản 2): rê chuột xem trước đã đo trong pywebview thật và làm kho khung nhỏ trong RAM (58-60 hình/giây, trễ p95 dưới 8 ms). Còn: rê thử bằng chuột thật; sự kiện đầu mỗi lần rê vẫn có lúc trễ 50-112 ms (chưa đạt hẳn "dưới 30 ms"); so màu bằng mắt.
 
 
 ## Đã chạy được

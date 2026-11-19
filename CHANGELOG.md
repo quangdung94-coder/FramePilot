@@ -1,5 +1,12 @@
 # Nhật ký thay đổi
 
+## 2026-11-19 – Rê chuột xem trước: đo trong pywebview thật + kho khung nhỏ trong RAM (ADR-0016 bản 2) - CHỜ NGƯỜI DỰNG THỬ bằng chuột thật
+- Đo TRONG cửa sổ pywebview thật (tools/panel_do_luot.py, DaVinci giả + proxy thật): cách cũ chỉ 5,8 hình/giây khi kéo thanh lướt, trễ p50 0,9 giây; JS/Python xử lý mỗi sự kiện chưa tới 1 ms, nghẽn là Video Decode của GPU lên 99% (số Chromium đêm 18/11 không phản ánh panel thật).
+- Thử từng nghi phạm: tắt WebGL LUT, tắt tải trước, 3 nhóm cờ WebView2 (kể cả giải mã CPU): không đổi gì. Hẹn giờ "dừng tay nhảy chính xác" làm sóng âm tệ hơn (p50 20 ms lên 1133 ms). Gỡ tải trước clip kế (bộ giải mã thứ hai).
+- Thêm kho khung nhỏ trong RAM (troly_frames.py): ffmpeg ưu tiên thấp giải mã sẵn khung 640 px, 25 khung/giây, JPEG, giữ trong RAM (8 clip, 300 MB, LRU), không ghi đĩa, không tạo proxy. Rê chuột/kéo thanh/rê trên sóng âm vẽ từ RAM; thả hoặc dừng 0,25 s thì video nhảy chính xác.
+- Sau: 58-60 hình/giây, trễ p50 0,1-0,5 ms, p95 dưới 8 ms, không đứng hình quá 31 ms. CHƯA ĐẠT hoàn toàn mục tiêu dưới 30 ms ở trường hợp xấu nhất (1-2 sự kiện đầu mỗi lần rê trễ 50-112 ms, chưa rõ nguyên nhân).
+- Test: +26 (tests/test_troly_frames.py), 489 bài đạt.
+
 ## 2026-11-18 (đêm) – Đêm #4: chữ hiển thị gọi người dùng là "bạn" (ADR-0028) - CHỜ NGƯỜI DỰNG ĐỌC LẠI
 - Đổi "anh/Anh" thành "bạn/Bạn" ở 39 chỗ hiển thị trong 10 file (nút, tooltip, hộp xác nhận, thông báo, trang báo cáo AI...), đọc lại từng câu. Giữ "tiếng Anh" (English).
 - Test quét chuỗi hiển thị: "anh" đứng một mình = 0 chỗ (+3 test); 463 bài đạt. Xem 5 trang ở 1440x900: không còn sót, không tràn ngang; thu nút "Tự phân loại" cho vừa chữ.

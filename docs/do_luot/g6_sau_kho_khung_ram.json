@@ -1,0 +1,225 @@
+{
+ "mode": "",
+ "gpu": {
+  "cores": 12,
+  "ua": "Edg/157.0.0.0",
+  "webgl": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 (0x00002504) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "h264": {
+   "supported": true,
+   "smooth": true,
+   "powerEfficient": true
+  }
+ },
+ "clip": "DG00.MP4",
+ "dur": 83.52,
+ "kf": 18,
+ "mo_clip_ms": 161,
+ "lut": true,
+ "kq": [
+  {
+   "name": "bar",
+   "su_kien": 183,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.43,
+    "p95": 0.7,
+    "max": 1.5
+   },
+   "goi_python": {},
+   "goi_fetch": 39,
+   "longtask_ms": [],
+   "hinh_hien": 181,
+   "hinh_moi_giay": 58.1,
+   "tre_den_hinh_ms": {
+    "tb": 2,
+    "p50": 0.5,
+    "p95": 7.9,
+    "max": 69.9
+   },
+   "dung_hinh_ms": {
+    "tb": 17.2,
+    "max": 25.6
+   },
+   "khung_rot": 0,
+   "cho_hinh_chinh_xac_ms": 77
+  },
+  {
+   "name": "wave",
+   "su_kien": 181,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.35,
+    "p95": 0.5,
+    "max": 1.4
+   },
+   "goi_python": {},
+   "goi_fetch": 36,
+   "longtask_ms": [],
+   "hinh_hien": 181,
+   "hinh_moi_giay": 58.8,
+   "tre_den_hinh_ms": {
+    "tb": 1.4,
+    "p50": 0.2,
+    "p95": 7.2,
+    "max": 12.3
+   },
+   "dung_hinh_ms": {
+    "tb": 17,
+    "max": 29.2
+   },
+   "khung_rot": 0,
+   "cho_hinh_chinh_xac_ms": 347
+  },
+  {
+   "name": "iobar",
+   "su_kien": 183,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.64,
+    "p95": 1,
+    "max": 3
+   },
+   "goi_python": {
+    "set_inout": 1
+   },
+   "goi_fetch": 27,
+   "longtask_ms": [],
+   "hinh_hien": 29162,
+   "hinh_moi_giay": 9221.5,
+   "tre_den_hinh_ms": {
+    "tb": 1.1,
+    "p50": 0.5,
+    "p95": 2.9,
+    "max": 60.1
+   },
+   "dung_hinh_ms": {
+    "tb": 0.1,
+    "max": 25.5
+   },
+   "khung_rot": 0,
+   "cho_hinh_chinh_xac_ms": 190
+  },
+  {
+   "name": "cu_gan_thang",
+   "su_kien": 181,
+   "xu_ly_su_kien_ms": {
+    "tb": 0.03,
+    "p95": 0.1,
+    "max": 0.2
+   },
+   "goi_python": {},
+   "goi_fetch": 0,
+   "longtask_ms": [],
+   "hinh_hien": 1,
+   "hinh_moi_giay": 0.3,
+   "tre_den_hinh_ms": {
+    "tb": 1602.5,
+    "p50": 1603.1,
+    "p95": 3005,
+    "max": 3159.8
+   },
+   "dung_hinh_ms": {
+    "tb": null,
+    "max": null
+   },
+   "khung_rot": 0,
+   "cho_hinh_chinh_xac_ms": 56
+  }
+ ],
+ "ram": {
+  "kho": {
+   "n": 444,
+   "total": 2088,
+   "done": true,
+   "err": "",
+   "load_s": 1.79,
+   "ram_python_MB": 10.9,
+   "bitmap_trong_js": 108
+  },
+  "python": {
+   "clips": 2,
+   "bytes": 11386723,
+   "max_clips": 8,
+   "max_bytes": 314572800,
+   "running": null
+  },
+  "js_heap_MB": 4.3
+ },
+ "mau": {
+  "nguon_so_sanh": "canvas WebGL LUT",
+  "diem": [
+   {
+    "t": 12.5,
+    "video": [
+     117.1,
+     115,
+     106.7
+    ],
+    "ram": [
+     99.6,
+     100.1,
+     95.6
+    ],
+    "lech_tb": 14.51
+   },
+   {
+    "t": 29.2,
+    "video": [
+     73,
+     69.5,
+     68.7
+    ],
+    "ram": [
+     74.2,
+     73.2,
+     72.2
+    ],
+    "lech_tb": 2.82
+   },
+   {
+    "t": 45.9,
+    "video": [
+     73,
+     69.5,
+     68.7
+    ],
+    "ram": [
+     74.2,
+     73.2,
+     72.2
+    ],
+    "lech_tb": 2.82
+   },
+   {
+    "t": 62.6,
+    "video": [
+     73,
+     69.5,
+     68.7
+    ],
+    "ram": [
+     74.2,
+     73.2,
+     72.2
+    ],
+    "lech_tb": 2.82
+   },
+   {
+    "t": 75.2,
+    "video": [
+     73,
+     69.5,
+     68.7
+    ],
+    "ram": [
+     74.2,
+     73.2,
+     72.2
+    ],
+    "lech_tb": 2.82
+   }
+  ],
+  "lech_tb_max": 14.51
+ },
+ "_cua_so": "pywebview (WebView2)",
+ "_app": "app",
+ "_flags": "",
+ "_proxy": "DG7366.mov"
+}
