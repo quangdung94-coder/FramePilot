@@ -67,6 +67,9 @@ window.onEvent = function (kind, data) {
   if (kind === "bins") {
     const s = $("binSel");
     s.innerHTML = data.bins.map((b) => `<option value="${esc(b.path)}"${b.path === data.pick ? " selected" : ""}>${esc(b.path)}  (${b.n})</option>`).join("");
+    BINS = data.bins; if (page === 1) renderTree();
+  } else if (kind === "timelines") {
+    $("tlSel").innerHTML = `<option value="">Timeline: giờ trong file</option>` + data.names.map((n) => `<option value="${esc(n)}"${n === data.pick ? " selected" : ""}>${esc(n)}</option>`).join("");
   } else if (kind === "speech_progress") lnProgress(data);
   else if (kind === "speech_done") lnDone(data);
   else if (kind.indexOf("analyze_") === 0) anEvent(kind, data);
@@ -81,6 +84,7 @@ window.onEvent = function (kind, data) {
     $("thumbText").textContent = `Thumbnail ${data.done}/${data.n}` + (data.bad ? `, ${data.bad} lỗi` : "");
     const img = document.querySelector(`.card[data-uid="${CSS.escape(data.uid)}"] .thumb`);
     if (img && data.src) setThumb(img, data.src);
+    const t1 = data.src ? document.querySelector(`#g1 .tile[data-uid="${CSS.escape(data.uid)}"] .th`) : null; if (t1) setThumb(t1, data.src);
     if (items[cur] && items[cur].uid === data.uid) showCur();
   }
 };
@@ -99,8 +103,9 @@ function setState(st) {
 /* ------------------------------------------------------------------ vẽ chung */
 function render(rebuildItems) {
   const p = INFO.parsed || {};
-  const parts = [p.team ? p.team + " · " + p.name : p.name || INFO.project, p.date].filter(Boolean);
-  if (S) parts.push(S.n + " file");
+  const parts = [p.team ? p.team + " · " + p.name : p.name || INFO.project].filter(Boolean);
+  if (S && S.src && S.src.n_machines) parts.push(S.src.n_machines + " máy");      // như demo: "Lora · Phuong&Tung · 3 máy"
+  else { if (p.date) parts.push(p.date); if (S) parts.push(S.n + " file"); }
   $("sub").textContent = parts.join(" · ");
   document.querySelectorAll(".step").forEach((a) => {
     const n = +a.dataset.page;
@@ -120,7 +125,7 @@ function render(rebuildItems) {
   $("undoBtn2").classList.toggle("hidden", !hasMoves);
   if (S && $("styleSel").value !== (S.shoot_style || "") && document.activeElement !== $("styleSel")) $("styleSel").value = S.shoot_style || "";
   if (S) {
-    $("tplSel").innerHTML = S.templates.map((t) => `<option${t === S.template ? " selected" : ""}>${esc(t)}</option>`).join("");
+    $("tplSel").innerHTML = `<option value=""${S.template ? "" : " selected"}>Chọn mẫu sự kiện…</option>` + S.templates.map((t) => `<option${t === S.template ? " selected" : ""}>${esc(t)}</option>`).join("");
   }
   renderPage1();
   renderPage2(rebuildItems);
@@ -139,144 +144,253 @@ function localAssign() {
     c.stage = hit;
     if (hit === null) outside++; else cnt[hit]++;
   }
-  S.stages.forEach((s, i) => { s.count = cnt[i]; s.range = fmt(s.start) + " – " + fmt(s.end); });
+  S.stages.forEach((s, i) => { s.count = cnt[i]; s.range = fmtA(s.start) + " – " + fmtA(s.end); });
   S.outside = outside;
 }
 
+/* Bước 1: chọn mốc giai đoạn bằng thumbnail (ADR-0033, theo design/trang1_chon_moc).
+   Bấm một clip, bấm F1..F9 = mốc ĐẦU của giai đoạn n, Shift+F1..F9 = mốc CUỐI. Trục: timeline DaVinci (H:MM:SS) hoặc giờ trong file (HH:MM). */
+let selUid = null, mFilter = "all", BINS = [], scrollSel = false;
+function axisTl() { return !!(S && S.src && S.src.axis === "timeline"); }
+function fmtA(m) {
+  if (!axisTl()) return fmt(m);
+  const s = Math.round(m * 60), a = Math.abs(s);
+  return (s < 0 ? "-" : "") + Math.floor(a / 3600) + ":" + String(Math.floor(a % 3600 / 60)).padStart(2, "0") + ":" + String(a % 60).padStart(2, "0");
+}
+function parseAx(t) {
+  const x = String(t).trim();
+  if (axisTl()) {
+    const m = x.match(/^(\d{1,3}):(\d{2})(?::(\d{2}))?$/);
+    return m && +m[2] < 60 && (m[3] === undefined || +m[3] < 60) ? (+m[1]) * 60 + (+m[2]) + (m[3] ? (+m[3]) / 60 : 0) : null;
+  }
+  return parseHM(x, Math.floor(view[0] / 1440));
+}
 function fitView() {
   if (!S || !S.clips.length) return;
   const ms = [];
   S.clips.forEach((c) => { if (c.m0 != null) ms.push(c.m0, c.m1); });
-  S.stages.forEach((s) => ms.push(s.start, s.end));
   if (!ms.length) return;
   const a = Math.min(...ms), b = Math.max(...ms);
-  view = [Math.floor((a - 15) / 60) * 60, Math.ceil((b + 15) / 60) * 60];
+  if (axisTl()) { const pad = Math.max(1, (b - a) * 0.02); view = [Math.max(0, a - pad), b + pad]; }
+  else view = [Math.floor((a - 15) / 60) * 60, Math.ceil((b + 15) / 60) * 60];
   fitted = true;
 }
-
 function pct(m) { return ((m - view[0]) / (view[1] - view[0]) * 100).toFixed(3) + "%"; }
+const clip1 = (uid) => (S ? S.clips.find((c) => c.uid === uid) : null);
+const machOf = (l) => (S && S.machines.find((m) => m.letter === l)) || null;
+const chip = (l) => { const m = machOf(l); return l ? `<span class="cam-chip" style="--c:${m ? m.color : "#888"}" title="${esc(m ? m.name : "Máy " + l)}">${esc(l)}</span>` : ""; };
+function marksOf(uid) {
+  const out = [];
+  if (S) S.stages.forEach((s, i) => { if (s.head && !s.head.auto && s.head.uid === uid) out.push({ i, t: "đầu" }); if (s.tail && !s.tail.auto && s.tail.uid === uid) out.push({ i, t: "cuối" }); });
+  return out;
+}
+function list1() {
+  if (!S) return [];
+  return S.clips.filter((c) => c.m0 != null && (mFilter === "all" || c.mk === mFilter)).sort((a, b) => a.m0 - b.m0 || (a.name < b.name ? -1 : 1));
+}
 
 function renderPage1() {
   const st = S ? S.stages : [];
-  $("stageCount").textContent = st.length + " giai đoạn";
-  $("stageList").innerHTML = st.map((s, i) => `
-    <div class="stage${editIdx === i ? " open" : ""}" data-i="${i}">
-      <div class="stage-row">
-        <div class="stage-bar" style="background:${s.color}"></div>
-        <div class="stage-txt"><span class="stage-name" title="Bấm đúp để đổi tên giai đoạn">${esc(s.name)}</span><span class="dim12">${esc(s.range)}</span></div>
-        <span class="chip">${s.count} file</span>
-      </div>
-      ${editIdx === i ? `<div class="stage-edit">
-        <label class="full">Tên giai đoạn<input class="inp" data-f="name" value="${esc(s.name)}"></label>
-        <label>Bắt đầu<input class="inp" data-f="start_txt" value="${fmt(s.start)}"></label>
-        <label>Kết thúc<input class="inp" data-f="end_txt" value="${fmt(s.end)}"></label>
-        <label class="full">Bin con (cách nhau dấu phẩy, phím 1–9 theo thứ tự; muốn ĐỔI TÊN một bin con thì bấm đúp tên bin ở bước 2)<input class="inp" data-f="bins" value="${esc(s.bins.map((b) => b.name).filter((b) => b !== "Khác").join(", "))}"></label>
-        <div class="row-end"><button class="btn-del" data-act="del">Xóa giai đoạn</button><button class="btn" data-act="save" style="height:32px">Lưu</button></div>
-      </div>` : ""}
-    </div>`).join("");
-  // lệch giờ theo máy
-  const cams = S ? S.cameras : [];      // một máy thì lệch giờ không đổi gì (giai đoạn chỉnh tay): chỉ hiện khi >= 2 máy
-  $("camBox").innerHTML = cams.length > 1 ?`<b style="color:var(--dim2)">Lệch giờ theo máy (giây)</b>` + cams.map((c) =>
-    `<div class="cam-row"><span>${esc(c.cam)} · ${c.n} file</span><input class="inp" data-cam="${esc(c.cam)}" value="${c.off || 0}"></div>`).join("") : "";
-  $("from").value = fmt(view[0]); $("to").value = fmt(view[1]);
-  renderTimeline();
-  renderBinGrid();
-}
-
-function renderTimeline() {
-  const W = $("bands").clientWidth || 800, span = view[1] - view[0];
-  const step = [15, 30, 60, 120, 180, 240, 360].find((s) => s / span * W >= 64) || 720;
-  let h = "";
-  for (let t = Math.ceil(view[0] / step) * step; t <= view[1]; t += step) {
-    const left = (t - view[0]) / span * 100;
-    h +=`<span style="left:${left.toFixed(3)}%">${fmt(t)}</span>`;
-  }
-  $("ruler").innerHTML = h;
-  let d = "";
-  if (S) for (const c of S.clips) {
-    if (c.m0 == null || c.m1 < view[0] || c.m0 > view[1]) continue;
-    d += `<i style="left:${pct(c.m0)}"></i>`;             // vạch mảnh 2 px như demo, đặt ở giờ bấm quay
-  }
-  $("density").innerHTML = d;
-  $("bands").innerHTML = (S ? S.stages : []).map((s, i) => `
-    <div class="band" data-i="${i}" style="left:${pct(s.start)};width:${((s.end - s.start) / span * 100).toFixed(3)}%;background:${s.color}26;border-color:${s.color}">
-      <div class="h l" data-mode="start" style="background:${s.color}"></div><div class="h r" data-mode="end" style="background:${s.color}"></div>
-      <span class="n">${esc(s.name)}</span><span class="r">${esc(s.range)}</span>
-    </div>`).join("");
-  $("gapText").textContent = !S ? "Chưa đọc clip" : S.gap ? `Nghỉ quay ${S.gap.text} (không có file)` : "Không có khoảng nghỉ quay";
-  $("sumText").textContent = S ? `${S.n} file · ${S.stages.length} giai đoạn · ${S.outside} file ngoài giai đoạn` +
-    (S.n_manual ? ` · ${S.n_manual} file chọn tay (giữ giai đoạn khi kéo giờ)` : "") +
-    (S.new_n ? ` · ${S.new_n} file MỚI chưa phân loại` : "") : "";
+  $("stageCount").textContent = st.length ? st.length + " giai đoạn" : "";
+  renderStageList(); renderSrcNote(); renderTimeline(); renderTree(); renderGrid1(); renderMeta(); renderKeys();
+  $("applyBtn1").classList.toggle("hidden", !(S && S.n));
   $("clearManual").classList.toggle("hidden", !(S && S.n_manual));
 }
 
-function renderBinGrid() {
-  if (!S || !S.stages.length) { $("binGrid").innerHTML = `<div class="empty">Bấm "Đọc clip" để đọc giờ quay và chia giai đoạn.</div>`; return; }
-  let h = S.stages.map((s) => `<div class="bin-card">${folder(s.color, 20)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span></div>`).join("");
-  if (S.outside) h += `<div class="bin-card">${folder("#6A6A72", 20)}<span class="t" style="color:var(--dim)">Giữ nguyên chỗ cũ</span><span class="dim12">${S.outside}</span></div>`;
-  $("binGrid").innerHTML = h;
+function stageCard(s, i) {
+  const mk = (what, h, label) => `<div class="mk${h ? (h.auto ? " auto" : "") : " none"}"><span class="kb">${label}</span><span>${what}</span><span class="nm" title="${h && h.auto ? "Tự suy ra từ khoảng giờ; bấm clip rồi F để đặt mốc" : ""}">${h ? esc(h.name) + (h.auto ? " (tự động)" : "") : "chưa chọn"}</span></div>`;
+  const chipHtml = s.incomplete ? `<span class="chip" style="color:#E0A030">thiếu mốc</span>` : `<span class="chip">${s.count} file</span>`;
+  return `<div class="stage p1${editIdx === i ? " open" : ""}" data-i="${i}">
+    <div class="stage-row"><div class="stage-bar" style="background:${s.color}"></div><div class="stage-txt">
+      <div class="inline8" style="justify-content:space-between"><span class="stage-name" title="Bấm đúp để đổi tên giai đoạn">${esc(s.name)}</span>${chipHtml}</div>
+      <span class="dim12">${esc(s.range)}</span>
+      <div class="lines">${mk("đầu", s.head, "F" + (i + 1))}${mk("cuối", s.tail, "⇧F" + (i + 1))}</div></div></div>
+    ${editIdx === i ? `<div class="stage-edit">
+      <label class="full">Tên giai đoạn<input class="inp" data-f="name" value="${esc(s.name)}"></label>
+      <label class="full">Bin con (cách nhau dấu phẩy, phím 1–9 theo thứ tự)<input class="inp" data-f="bins" value="${esc(s.bins.filter((b) => b.name !== "Khác").map((b) => b.name).join(", "))}"></label>
+      <div class="row-end"><button class="btn-del" data-act="del">Xóa giai đoạn</button><button class="btn" data-act="save" style="height:32px">Lưu</button></div>
+    </div>` : ""}</div>`;
+}
+function renderStageList() {
+  $("stageList").innerHTML = S && S.stages.length ? S.stages.map(stageCard).join("")
+    : `<div class="empty">${S && S.n ? "Chưa có giai đoạn. Bấm “+ Thêm giai đoạn” hoặc chọn mẫu rồi Gợi ý lại." : 'Bấm "Đọc clip" để đọc clip.'}</div>`;
 }
 
-/* kéo khối giai đoạn / trượt / phóng */
-let drag = null;
-$("bands").addEventListener("pointerdown", (e) => {
-  const band = e.target.closest(".band"); if (!band) return;
-  const i = +band.dataset.i, s = S.stages[i];
-  drag = { mode: e.target.dataset.mode || "move", i, x: e.clientX, a: s.start, b: s.end };
-  band.setPointerCapture(e.pointerId);
-  e.preventDefault();
-});
-$("density").addEventListener("pointerdown", (e) => {
-  drag = { mode: "pan", x: e.clientX, v: view.slice() };
-  $("density").setPointerCapture(e.pointerId);
-});
-document.addEventListener("pointermove", (e) => {
-  hoverLine(e);
-  if (!drag) return;
-  const W = $("bands").clientWidth, dm = (e.clientX - drag.x) / W * (view[1] - view[0]);
-  if (drag.mode === "pan") { view = [drag.v[0] - dm, drag.v[1] - dm]; renderPage1(); return; }
-  const s = S.stages[drag.i], q = Math.round(dm * 6) / 6;     // bước 10 giây
-  if (drag.mode === "move") { s.start = drag.a + q; s.end = drag.b + q; }
-  else if (drag.mode === "start") s.start = Math.min(drag.a + q, s.end);
-  else s.end = Math.max(drag.b + q, s.start);
-  drag.moved = true;
-  localAssign(); renderPage1();
-});
-document.addEventListener("pointerup", () => {
-  if (drag && drag.mode === "pan") saveUi();                // trượt thanh giờ xong: lưu khoảng đang xem
-  if (drag && drag.mode !== "pan" && drag.moved) {
-    const s = S.stages[drag.i];
-    api().set_stage(drag.i, { start: s.start, end: s.end }).then(setState);
-  }
-  drag = null;
-});
-function hoverLine(e) {
-  const d = $("density"), r = d.getBoundingClientRect();
-  const old = d.querySelector(".hover"); if (old) old.remove();
-  if (page !== 1 || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
-  const m = view[0] + (e.clientX - r.left) / r.width * (view[1] - view[0]);
-  const el = document.createElement("div"); el.className = "hover"; el.style.left = (e.clientX - r.left) + "px";
-  el.innerHTML = `<b>${fmt(m)}</b>`; d.appendChild(el);
+/* nguồn dữ liệu: timeline, số máy, cảnh báo */
+function renderSrcNote() {
+  const el = $("srcNote");
+  if (!S || !S.n) { el.innerHTML = ""; el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  const src = S.src;
+  let h = "";
+  if (src.timeline && src.synced) h += `<span class="src-line ok">Đọc từ timeline DaVinci: <b>${esc(src.timeline)}</b></span>`;
+  else if (src.timeline) h += `<span class="src-line warn">${esc(src.timeline)}: ${esc(src.note || "Chưa sync, đang dùng giờ trong file")}</span>`;
+  else h += `<span class="src-line">Giờ quay lấy từ ngày giờ ghi trong file (chưa chọn timeline).</span>`;
+  h += `<span class="src-line">${src.n_machines} máy · ${src.n_clips} clip</span>`;
+  if (src.n_missing) h += `<span class="src-line warn">${src.n_missing} clip chưa nằm trong timeline</span>`;
+  if (src.n_extra) h += `<span class="src-line warn">${src.n_extra} clip trên timeline không có trong bin nguồn</span>`;
+  if (src.timeline && src.synced && S.machines.length > 1) h += `<span class="src-line">Nhiều máy: các giai đoạn liền nhau, không có khoảng trống.</span>`;
+  el.innerHTML = h;
+  $("vertCams").checked = !!src.vertical;
 }
-$("tlCard").addEventListener("wheel", (e) => {
-  e.preventDefault();
-  const r = $("bands").getBoundingClientRect();
-  const m = view[0] + (e.clientX - r.left) / r.width * (view[1] - view[0]);
-  const k = e.deltaY < 0 ? 0.8 : 1.25, na = m - (m - view[0]) * k, nb = m + (view[1] - m) * k;
-  if (nb - na < 5) return;
-  view = [na, nb]; renderPage1(); saveUi();
-}, { passive: false });
-$("tlCard").addEventListener("dblclick", () => { fitView(); renderPage1(); saveUi(); });
+$("vertCams").addEventListener("change", (e) => api().set_vertical(e.target.checked).then(setState));
+
+/* thanh thời gian thấp: thước, mỗi máy một hàng, khối giai đoạn */
+function renderTimeline() {
+  const W = $("bands").clientWidth || 800, span = view[1] - view[0];
+  const step = [1, 2, 5, 10, 15, 30, 60, 120, 180, 240, 360, 720].find((s) => s / span * W >= 70) || 1440;
+  let h = "";
+  for (let t = Math.ceil(view[0] / step) * step; t <= view[1]; t += step) h += `<span style="left:${((t - view[0]) / span * 100).toFixed(3)}%">${fmtA(t)}</span>`;
+  $("ruler").innerHTML = h;
+  const mach = S && S.machines.length ? S.machines : [{ letter: "", color: "#4FC1A6", name: "" }];
+  let d = "";
+  mach.forEach((m) => {
+    d += `<div class="dens-row" style="--c:${m.color}">${m.letter ? chip(m.letter).replace('class="cam-chip"', 'class="lab cam-chip"') : ""}`;
+    if (S) for (const c of S.clips) {
+      if (c.m0 == null || c.m0 < view[0] || c.m0 > view[1] || c.mk !== m.letter) continue;
+      d += `<i style="left:${pct(c.m0)}"></i>`;
+    }
+    d += `</div>`;
+  });
+  const sc = selUid ? clip1(selUid) : null;
+  if (sc && sc.m0 != null) d += `<div class="sel-mark" style="left:${pct(sc.m0)}" title="Clip đang chọn"></div>`;
+  $("density").innerHTML = d;
+  let b = "";
+  if (S) S.stages.forEach((s) => {
+    let a, e, partial = false;
+    if (s.marks) { if (s.pa == null) return; a = s.pa; e = s.incomplete ? a + Math.max(span * 0.07, 1) : s.end; partial = !!s.incomplete; }
+    else { if (!(s.start >= 0 && s.end > s.start)) return; a = s.start; e = s.end; }
+    if (e <= view[0] || a >= view[1]) return;
+    const x0 = Math.max(a, view[0]), x1 = Math.min(e, view[1]);
+    b += `<div class="band${partial ? " dash" : ""}" title="${esc(s.name)}  ${esc(s.range)}" style="left:${pct(x0)};width:${((x1 - x0) / span * 100).toFixed(3)}%;border-color:${s.color};background:${s.color}22">` +
+      `<i class="h l" style="background:${s.color}"></i><span class="n" style="color:${s.color}">${esc(s.name)}</span><span class="r">${esc(s.range)}</span>${partial ? "" : `<i class="h r" style="background:${s.color}"></i>`}</div>`;
+  });
+  $("bands").innerHTML = b;
+  $("from").value = fmtA(view[0]); $("to").value = fmtA(view[1]);
+}
 ["from", "to"].forEach((id) => $(id).addEventListener("change", () => {
-  const a = parseHM($("from").value, Math.floor(view[0] / 1440)), b = parseHM($("to").value, Math.floor(view[0] / 1440));
-  if (a === null || b === null || b <= a) { status("Giờ hiển thị không hợp lệ (viết kiểu 06:00).", "warn"); renderPage1(); return; }
+  const a = parseAx($("from").value), b = parseAx($("to").value);
+  if (a === null || b === null || b <= a) { status(axisTl() ? "Mốc hiển thị không hợp lệ (viết kiểu 0:30:00)." : "Giờ hiển thị không hợp lệ (viết kiểu 06:00).", "warn"); renderPage1(); return; }
   view = [a, b]; renderPage1(); saveUi();
 }));
-window.addEventListener("resize", () => { if (S) renderTimeline(); });
+window.addEventListener("resize", () => { if (S && page === 1) renderTimeline(); });
+
+/* cây Media bin: bin thật của project; bấm bin để đọc bin đó. Máy A, B, C là chữ cái màu dưới bin đang đọc */
+function renderTree() {
+  const f = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C4C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FOLDER}</svg>`;
+  const cur = S ? S.bin : null;
+  let h = BINS.length ? "" : `<div class="empty">(đang đọc bin...)</div>`;
+  for (const b of BINS) {
+    const parts = b.path.split("/"), on = b.path === cur;
+    h += `<div class="tn${on && mFilter === "all" ? " on" : ""}" data-path="${esc(b.path)}" style="margin-left:${(parts.length - 1) * 12}px" title="${esc(b.path)}">${f}<span class="t">${esc(parts[parts.length - 1])}</span><span class="chip">${b.n}</span></div>`;
+    if (on && S) for (const m of S.machines) {
+      const n = S.clips.filter((c) => c.mk === m.letter).length;
+      h += `<div class="tn c1${mFilter === m.letter ? " on" : ""}" data-m="${esc(m.letter)}" style="margin-left:${(parts.length - 1) * 12 + 16}px"><span class="cam-dot" style="--c:${m.color}"></span><span class="t">${esc(m.name)}</span><span class="chip">${n}</span></div>`;
+    }
+  }
+  $("tree").innerHTML = h;
+}
+$("tree").addEventListener("click", (e) => {
+  const n = e.target.closest(".tn"); if (!n) return;
+  if (n.dataset.m !== undefined) { mFilter = mFilter === n.dataset.m ? "all" : n.dataset.m; renderTree(); renderGrid1(); return; }
+  const path = n.dataset.path;
+  if (S && path === S.bin) { mFilter = "all"; renderTree(); renderGrid1(); return; }
+  if (!BINS.some((b) => b.path === path)) return;
+  $("binSel").value = path; mFilter = "all"; selUid = null; $("loadBtn").click();
+});
+
+/* lưới thumbnail theo giờ quay (hoặc vị trí timeline) */
+function tileHtml(c) {
+  const m = marksOf(c.uid), col = m.length ? S.stages[m[0].i].color : "";
+  const rib = m.map((x) => `<span style="background:${S.stages[x.i].color}">F${x.i + 1} ${x.t.toUpperCase()}</span>`).join("");
+  const mach = machOf(c.mk), bg = mach ? mach.color : "#4FC1A6";
+  return `<div class="tile${c.uid === selUid ? " picked" : ""}" data-uid="${esc(c.uid)}">
+    <div class="th${m.length ? " mark" : ""}" style="${thumbs[c.uid] ? "" : `background:linear-gradient(135deg,${bg}55,#18181B);`}${m.length ? "--mc:" + col + ";" : ""}">${thumbs[c.uid] ? `<img src="${thumbs[c.uid]}" draggable="false">` : PLAY}
+      ${c.mk ? chip(c.mk) : ""}<span class="dur">${durTxt(c.dur)}</span>${m.length ? `<div class="rib" style="left:4px;top:4px;transform:none">${rib}</div>` : ""}</div>
+    <span class="fn" title="${esc(c.name)}">${esc(c.name)}</span><span class="tm">${axisTl() ? fmtA(c.m0) : esc(c.time)}</span></div>`;
+}
+function renderGrid1() {
+  const list = list1(), keep = $("g1").scrollTop;
+  const last = S && S.bin ? S.bin.split("/").pop() : "Source";
+  $("g1Title").textContent = mFilter === "all" ? last : ((machOf(mFilter) || {}).name || last);
+  $("g1Count").textContent = S && S.n ? `${list.length} clip · theo ${axisTl() ? "vị trí timeline" : "giờ quay"}` : "";
+  $("g1").innerHTML = list.length ? list.map(tileHtml).join("") : `<div class="empty">${S && S.n ? "Không có clip có vị trí trên trục." : 'Bấm "Đọc clip" để đọc clip.'}</div>`;
+  $("g1").scrollTop = keep;
+  observeTiles();
+  if (scrollSel) { scrollSel = false; const t = $("g1").querySelector(".tile.picked"); if (t) t.scrollIntoView({ block: "nearest" }); }
+}
+let io1 = null, want1 = null;
+const vis1 = new Set();
+function observeTiles() {
+  if (io1) io1.disconnect();
+  vis1.clear();
+  io1 = new IntersectionObserver((ents) => {
+    ents.forEach((en) => { if (en.isIntersecting) vis1.add(en.target.dataset.uid); else vis1.delete(en.target.dataset.uid); });
+    clearTimeout(want1);
+    want1 = setTimeout(() => api().want_thumbs([...vis1]).then((ready) => {
+      for (const u in ready) if (ready[u]) {
+        thumbs[u] = ready[u];
+        const box = document.querySelector(`#g1 .tile[data-uid="${CSS.escape(u)}"] .th`); if (box) setThumb(box, ready[u]);
+      }
+    }), 120);
+  }, { root: $("g1"), rootMargin: "300px" });
+  document.querySelectorAll("#g1 .tile").forEach((el) => io1.observe(el));
+}
+$("g1").addEventListener("click", (e) => {
+  const t = e.target.closest(".tile"); if (!t) return;
+  selUid = t.dataset.uid; $("g1").focus({ preventScroll: true });
+  document.querySelectorAll("#g1 .tile.picked").forEach((x) => x.classList.remove("picked"));
+  t.classList.add("picked"); renderMeta(); renderTimeline();
+});
+
+/* thông tin clip */
+function renderMeta() {
+  const el = $("meta"), c = selUid ? clip1(selUid) : null;
+  if (!c) { el.innerHTML = `<div class="empty-m">Bấm một clip trong lưới để xem thông tin, rồi bấm F1, F2… để đặt làm mốc.</div><div class="add-slot">Chừa chỗ: sau này có thể thêm trường khác.</div>`; return; }
+  const m = marksOf(c.uid), mach = machOf(c.mk);
+  const durS = c.m1 != null && c.m0 != null ? (c.m1 - c.m0) * 60 : c.dur;
+  const when = axisTl()
+    ? `<div class="mrow"><span class="l">Vị trí trên timeline</span><span class="v big">${fmtA(c.m0)}</span><span class="dim12">dài ${durTxt(durS)} · ${fmtA(c.m0)} – ${fmtA(c.m1)}</span></div>
+       <div class="mrow"><span class="l">Giờ quay ghi trong file</span><span class="v">${esc(c.time)}</span></div>`
+    : `<div class="mrow"><span class="l">Giờ quay</span><span class="v big">${esc(c.time)}</span><span class="dim12">dài ${durTxt(durS)} · ${fmt(c.m0)} – ${fmt(c.m1)}</span></div>`;
+  el.innerHTML = `<div class="mrow"><span class="l">Tên file</span><span class="v">${esc(c.name)}</span></div>${when}
+    <div class="mrow"><span class="l">Máy</span><span class="v">${c.mk ? chip(c.mk) + esc(mach ? mach.name : "") : "—"}</span></div>
+    <div class="mrow"><span class="l">Đang là mốc</span><span class="v" style="flex-wrap:wrap">${m.length ? m.map((x) => `<span class="kb" style="color:#18181B;background:${S.stages[x.i].color};border-color:${S.stages[x.i].color}">${esc(S.stages[x.i].name)} · ${x.t}</span>`).join("") : '<span class="dim12">chưa</span>'}</span></div>
+    <div class="add-slot">Chừa chỗ: sau này có thể thêm trường khác.</div>`;
+}
+function renderKeys() {
+  const n = S ? Math.min(S.stages.length, 9) : 0;
+  $("keybar").innerHTML = `<span>Bấm clip → <b>F1…F${n || 1}</b> = mốc <b>ĐẦU</b> · <b>Shift+F1…</b> = mốc <b>CUỐI</b> · Esc bỏ chọn</span>
+    <span class="alt">Phương án phụ, chưa làm: bấm F1 hai lần thay Shift+F1.</span>`;
+}
+
+/* phím F1..F9 (đọc bằng event.code): đặt mốc đầu; Shift+F = mốc cuối */
+async function setMark(i, isTail) {
+  if (!selUid) return status("Chưa chọn clip. Bấm một clip trong lưới trước.", "warn");
+  if (!S || i >= S.stages.length) return status(`Chưa có giai đoạn ${i + 1}. Bấm "+ Thêm giai đoạn" trước.`, "warn");
+  const r = await api().set_mark(i, selUid, isTail ? "tail" : "head");
+  if (r.error) return status(r.error, "error");
+  setState(r); status(r.mark_msg, "ok");
+}
+function key1(e) {
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.altKey || e.metaKey) return;
+  const m = /^F([1-9])$/.exec(e.code || "");
+  if (m) { e.preventDefault(); setMark(+m[1] - 1, e.shiftKey); return; }
+  const list = list1(), dv = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols1(), ArrowUp: -cols1() }[e.code];
+  if (dv && list.length) {
+    e.preventDefault();
+    let p = list.findIndex((c) => c.uid === selUid);
+    p = p < 0 ? 0 : Math.max(0, Math.min(list.length - 1, p + dv));
+    selUid = list[p].uid; scrollSel = true; renderGrid1(); renderMeta(); renderTimeline();
+  }
+}
+function cols1() { return Math.max(1, getComputedStyle($("g1")).gridTemplateColumns.split(" ").length); }
+
+
 
 /* danh sách giai đoạn */
 let nameClick = { i: -1, t: 0, prev: null };
-$("stageList").addEventListener("click", (e) => {
+$("stageList").addEventListener("click", async (e) => {
   const card = e.target.closest(".stage"); if (!card) return;
   const i = +card.dataset.i, act = e.target.dataset.act;
   if (act === "save") return saveStage(i, card);
@@ -310,27 +424,30 @@ async function saveStage(i, card) {
   }
   api().set_stage(i, f).then((st) => { if (st.error) return status(st.error, "warn"); editIdx = null; setState(st); });
 }
-$("camBox").addEventListener("change", (e) => {
-  const c = e.target.dataset.cam; if (c === undefined) return;
-  api().set_offset(c, e.target.value).then(setState);
-});
 $("clearManual").onclick = async () => {
   if (await ask("Bỏ chọn tay", `Bỏ chọn tay của ${S.n_manual} clip? Các clip này quay về giai đoạn tính theo giờ quay.<br>(Nhãn bin con đã xếp vẫn giữ, chỉ có hiệu lực khi clip về đúng giai đoạn của nhãn.)`, "Bỏ chọn tay")) {
     setState(await api().clear_manual()); status("Đã bỏ chọn tay.", "ok");
   }
 };
-$("addStage").onclick =() => api().add_stage().then((st) => { editIdx = st.stages.length - 1; setState(st); });
+$("addStage").onclick = () => api().add_stage().then((st) => {
+  if (st.error) return status(st.error, "warn");
+  editIdx = null; setState(st); status(`Đã thêm giai đoạn ${st.stages.length}. Dùng F${st.stages.length} để đặt mốc.`, "ok");
+});
 $("suggestBtn").onclick = async () => {
   if (!S || !S.n) return status('Hãy bấm "Đọc clip" trước.', "warn");
+  if (!$("tplSel").value) return status("Hãy chọn một mẫu sự kiện trước khi bấm Gợi ý lại.", "warn");
   if (S.stages.length && !(await ask("Gợi ý lại giai đoạn", "Thay các giai đoạn đang có bằng gợi ý mới theo khoảng nghỉ quay dài nhất?<br>(Nhãn phân loại đã ghi vẫn giữ.)", "Gợi ý lại"))) return;
-  setState(await api().suggest($("tplSel").value)); fitView(); renderPage1();
+  const r = await api().suggest($("tplSel").value);
+  if (r.error) return status(r.error, "warn");
+  setState(r); fitView(); renderPage1();
 };
 $("saveTpl").onclick = async () => {
   if (!S || !S.stages.length) return;
   const name = await ask("Lưu mẫu giờ cho đám sau", `Tên mẫu (trùng tên thì ghi đè):<br><input id="tplName" class="inp" style="width:100%;margin-top:8px" value="${esc(S.template)}">`, "Lưu mẫu", () => $("tplName").value);
   if (name) { setState(await api().save_template(name)); status(`Đã lưu mẫu "${name}".`, "ok"); }
 };
-$("loadBtn").onclick = () => { const b = $("binSel").value; if (b) { fitted = false; api().load(b); } };
+$("loadBtn").onclick = () => { const b = $("binSel").value; if (b) { fitted = false; api().load(b, $("tlSel").value); } };
+$("tlSel").addEventListener("change", () => { if (S && S.n) $("loadBtn").click(); });          // đổi timeline nguồn: đọc lại ngay (chỉ đọc)
 
 /* ------------------------------------------------------------------ áp dụng / hoàn tác (hỏi trước, ADR-0009) */
 let gotoAfterApply = false;
@@ -753,6 +870,7 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") $("mNo").click(); else if (e.key === "Enter") $("mYes").click();
     return;
   }
+  if (page === 1) { if (e.key === "Escape") { if (selUid) { selUid = null; renderGrid1(); renderMeta(); renderTimeline(); } return; } key1(e); return; }
   if (e.key === "Escape") { $("ctx").classList.add("hidden"); if (pending) { cancelPending(); status("Đã thôi chờ bin con (clip giữ nguyên giai đoạn mới).", "info"); } return; }
   if (page === 4) { lnKey(e); return; }
   if (page === 3) {                                                  // Bước 3: chỉ J, ↑/↓ đổi clip, Enter; số KHÔNG xếp bin ở đây

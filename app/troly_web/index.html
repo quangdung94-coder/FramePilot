@@ -28,6 +28,7 @@
     <a href="#" data-page="5" class="step">5 · Thời lượng</a>
   </nav>
   <div class="top-right" id="right1">
+    <select id="tlSel" class="sel" title="Timeline nguồn: lấy vị trí các clip từ timeline đã sync trong DaVinci (chỉ đọc)"><option value="">Timeline: giờ trong file</option></select>
     <select id="binSel" class="sel" title="Bin nguồn trong Media Pool"><option>(đang đọc bin...)</option></select>
     <button class="btn" id="loadBtn">Đọc clip</button>
   </div>
@@ -46,59 +47,42 @@
   </div>
 </header>
 
-<!-- ======================= BƯỚC 1: GIAI ĐOẠN ======================= -->
+<!-- ======================= BƯỚC 1: CHỌN MỐC GIAI ĐOẠN BẰNG THUMBNAIL (ADR-0033, theo design/trang1_chon_moc) ======================= -->
 <main class="page" id="page1">
-  <aside class="col-left">
-    <div class="row-between baseline">
-      <h2>Giai đoạn trong ngày</h2>
-      <span class="dim12" id="stageCount">0 giai đoạn</span>
-    </div>
+  <aside class="col-left p1">
+    <div class="row-between baseline"><h2>Giai đoạn trong ngày</h2><span class="dim12" id="stageCount"></span></div>
     <div class="stage-list" id="stageList"></div>
     <button class="btn-dashed" id="addStage">+ Thêm giai đoạn</button>
-    <div class="inline8">
-      <select id="tplSel" class="sel flex1" title="Mẫu sự kiện"></select>
-      <button class="btn" id="suggestBtn" title="Chia lại giai đoạn theo các khoảng nghỉ quay dài nhất">Gợi ý lại</button>
-    </div>
-    <div class="flex1"></div>
-    <div class="note-box" id="camBox"></div>
-    <div class="note-box">Giờ quay lấy từ ngày giờ ghi trong mỗi file. Kéo hai đầu của từng khoảng màu trên thanh thời gian để chỉnh giờ bắt đầu và kết thúc. Bấm vào giai đoạn để sửa tên, giờ, bin con.</div>
+    <div class="inline8 hide-short"><select id="tplSel" class="sel flex1" title="Mẫu sự kiện"></select><button class="btn" id="suggestBtn" title="Chia lại giai đoạn theo mẫu đã chọn, rồi đặt mốc đầu/cuối vào các clip gần nhất">Gợi ý lại</button></div>
+    <div class="todo-box" id="srcNote"></div>
+    <div class="note-box hide-short" id="axisNote">Bấm vào giai đoạn để sửa tên và bin con (cách nhau dấu phẩy, phím 1 đến 9). Bin con cũng thêm được ở bước 2.</div>
+    <div class="mini-links hide-short"><button class="btn-link" id="saveTpl" title="Lưu tên giai đoạn và bin con thành mẫu">Lưu mẫu cho đám sau</button><button class="btn-link hidden" id="clearManual" title="Các clip này quay về giai đoạn tính theo giờ">Bỏ chọn tay</button><button class="btn-link hidden" id="undoBtn1">Hoàn tác lần chuyển gần nhất</button></div>
+    <button class="btn-accent btn-lg go" id="applyBtn1">Tạo bin, sang bước 2</button>
   </aside>
 
-  <section class="col-main">
-    <div class="row-between end">
-      <div class="title-block">
-        <h1>Thanh thời gian buổi quay</h1>
-        <span class="dim13">Mỗi vạch là một file quay, đặt đúng theo giờ máy quay ghi lại</span>
-      </div>
-      <div class="inline8">
-        <label for="from" class="lbl">Hiển thị từ</label>
-        <input id="from" class="inp center" value="06:00" style="width:72px">
-        <label for="to" class="lbl">đến</label>
-        <input id="to" class="inp center" value="22:00" style="width:72px">
-      </div>
-    </div>
-
-    <div class="tl-card" id="tlCard">
+  <section class="col-main p1">
+    <div class="tl-card low" id="tlCard">
+      <div class="tl-head"><h2>Thanh thời gian buổi quay <span class="dim12" id="tlSub" style="font-weight:400">· mỗi hàng một máy, khối màu là các giai đoạn</span></h2>
+        <div class="inline8"><span class="lbl">Hiển thị</span><input id="from" class="inp center mini-in"><span class="lbl">đến</span><input id="to" class="inp center mini-in"></div></div>
       <div class="ruler" id="ruler"></div>
-      <div class="density" id="density"></div>
+      <div class="dens-wrap" id="density"></div>
       <div class="bands" id="bands"></div>
-      <div class="tl-foot">
-        <span id="gapText">Chưa đọc clip</span>
-        <span><span id="sumText"></span><button class="btn-link hidden" id="clearManual" title="Các clip này quay về giai đoạn tính theo giờ quay">Bỏ chọn tay</button></span>
+    </div>
+
+    <div class="media">
+      <div class="pane">
+        <div class="pane-h">Media bin</div>
+        <div class="pane-b tree" id="tree"></div>
+        <div class="tree-note">Chọn bin mẹ, rồi bấm clip đầu và clip cuối của từng giai đoạn.<label class="vcam" title="Mặc định TẮT: chỉ nhóm máy theo track (kích thước mã hoá gốc + tiền tố tên file, bỏ qua cờ xoay). Bật thì tách thêm theo hướng sau xoay."><input type="checkbox" id="vertCams"> Có máy quay dọc</label></div>
       </div>
-    </div>
-
-    <div class="v12">
-      <h2>Bin sẽ tạo trong Media Pool</h2>
-      <div class="bin-grid" id="binGrid"></div>
-    </div>
-
-    <div class="flex1"></div>
-    <div class="row-between center">
-      <button class="btn-link hidden" id="undoBtn1">Hoàn tác lần chuyển gần nhất</button>
-      <div class="inline12">
-        <button class="btn btn-lg" id="saveTpl">Lưu mẫu giờ cho đám sau</button>
-        <button class="btn-accent btn-lg" id="applyBtn1">Tạo bin và sang bước phân loại</button>
+      <div class="pane">
+        <div class="pane-h"><span id="g1Title">Source</span><span class="r" id="g1Count"></span></div>
+        <div class="keybar" id="keybar"></div>
+        <div class="pane-b g1" id="g1" tabindex="0"></div>
+      </div>
+      <div class="pane">
+        <div class="pane-h">Thông tin clip</div>
+        <div class="pane-b meta-pane" id="meta"></div>
       </div>
     </div>
   </section>

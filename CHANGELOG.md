@@ -1,5 +1,13 @@
 # Nhật ký thay đổi
 
+## 2026-11-19 – Bước 1 chọn mốc giai đoạn bằng thumbnail (nhánh nhieu-camera-giao-dien, CHƯA gộp main, ADR-0033)
+- Giao diện Bước 1 theo demo design/trang1_chon_moc: danh sách giai đoạn có mốc đầu/cuối, timeline thấp, cây Media bin, lưới thumbnail, thông tin clip; phím F1…F9 (đầu) và Shift+F (cuối) đọc bằng event.code; chặn mốc sai thứ tự; nhiều máy liền nhau, 1 máy có khoảng trống; tối đa 9 giai đoạn.
+- Thêm TrolyApi.set_mark, tools/panel_probe.py (thử panel pywebview thật trên bản sao dữ liệu), biến môi trường TROLY_CONFIG, tools/harness_cam.py --tl. Test mới ở tests/test_nguon_timeline.py. Phần 2 (exe) chưa làm.
+
+## 2026-11-19 – Nhiều camera, trang 1 làm lại theo timeline đã sync (nhánh nhieu-camera-giao-dien, CHƯA gộp main, tag sao lưu truoc-nhieu-camera-ui)
+- Trang 1 đọc timeline DaVinci (chỉ đọc): máy = track video, tên theo tiền tố tên file, trục từ đầu timeline, hàng giai đoạn kéo được, con trỏ đỏ, cắt giai đoạn tại con trỏ, bám mép clip, bin mẹ (nhóm trong panel), mẫu "Chỉ tiệc nhà hàng", công tắt máy quay dọc. ADR-0032 (ADR-0031 đã bị thay thế).
+- Thêm app/troly_src.py, worker tl_list/tl_read, TrolyApi add_event/rename_event/cut_stage/set_vertical, tools/harness_cam.py (--real). Bỏ troly_cams.py, cam.js, cam.css. 556 bài test đạt. Thử trên DaVinci thật project 2026.11.14, chưa ghi marker.
+
 ## 2026-11-19 – Bước 2: phím giai đoạn đổi sang F1–F12 (nhánh doi-phim-giai-doan-f, CHƯA gộp main, tag sao lưu truoc-doi-phim-f)
 - F1–F12 chọn giai đoạn rồi chờ số bin con; Shift+số hết là phím giai đoạn. Đọc event.code, chặn mặc định F1/F5/F11/F12, cảnh báo trên giao diện khi quá 12 giai đoạn. ADR-0030.
 - Cập nhật nhãn (Media Pool, dòng nhắc phím, menu chuột phải), TRANG_THAI, ADR-0009. 533 bài test đạt (thêm 7). Chưa thử trên panel thật.
