@@ -57,6 +57,7 @@ class TrolyApi(object):
         self._note = self._plan.pop("_note", None)      # ghi chú khi phải khôi phục file kế hoạch (hiện lúc kết nối)
         self._autoload = bool(self._plan.get("source_bin"))   # mở lại panel: tự nạp clip của bin nguồn đã dùng
         self._new_n, self._gone_n = 0, 0
+        self._dup_keys = set()
         self._clips, self._by_uid, self._day0 = [], {}, None
         self._assign = {}
         self._bins = []
@@ -494,7 +495,9 @@ class TrolyApi(object):
             self._day0 = tc.day0_of(self._clips)
             self._plan["day0"] = self._day0.isoformat()
             self._suggest(self._plan.get("template"))
-        keys = {tc.clip_key(c) for c in self._clips}
+        kc = collections.Counter(tc.clip_key(c) for c in self._clips)
+        self._dup_keys = {k for k, v in kc.items() if v > 1}            # hai clip khác nhau cùng khóa (vd. hai thẻ Sony cùng CLIP/C0001.MP4)
+        keys = set(kc)
         prev = set(self._plan.get("seen") or [])
         self._new_n = len(keys - prev) if (same and prev) else 0       # clip MỚI kể từ lần đọc trước (chưa phân loại)
         known = set(self._plan["labels"]) | set(self._plan.get("manual") or {})
@@ -511,6 +514,10 @@ class TrolyApi(object):
             msg += " %d clip lấy giờ theo Date Modified (file đã chép lại)." % moved
         if no_time:
             msg += " %d clip không có giờ quay." % no_time
+        if self._dup_keys:
+            nd = sum(kc[k] for k in self._dup_keys)
+            msg += (" CẢNH BÁO: %d clip trùng đường dẫn (vd. %s) nên dùng chung nhãn, sao và In/Out; Trợ lý KHÔNG ghi In/Out cho các clip này. "
+                    "Nên đặt thư mục footage theo tên project (năm.tháng.ngày.tên)." % (nd, sorted(self._dup_keys)[0]))
         self._save_soon()
         self._emit("state", self.state())
         self._emit("status", {"text": msg, "kind": "ok"})
@@ -1194,8 +1201,11 @@ class TrolyApi(object):
 
     def _inout_rows(self, uids):
         rows = []
+        dup = self._dup_keys
         for u in uids:
             c = self._by_uid.get(u)
+            if c is not None and tc.clip_key(c) in dup:       # In/Out này có thể người dựng đặt cho clip KIA cùng khóa: không ghi vào DaVinci
+                continue
             fr = tc.inout_frames(self._plan, c) if c is not None else None
             if fr:
                 rows.append((u, c.rel, fr[0], fr[1]))
