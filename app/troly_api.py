@@ -1287,18 +1287,15 @@ class TrolyApi(object):
         self._emit("status", {"text": msg, "kind": "warn" if r["bad"] else "ok"})
 
     # ------------------------------------------------------------------ trình phát proxy (ADR-0016)
-    def _play_dir(self):
-        return os.path.join(self._root, "cache", "troly_play", tc._safe(self._project))
-
     def _play_server(self):
         import troly_play as tp
         if self._play is None:
-            self._play = tp.PlayServer([self._proxy_root, self._play_dir()])
+            self._play = tp.PlayServer([self._proxy_root])
         return self._play
 
-    def play_info(self, uid, transcode=False):
-        """URL phát file proxy của clip (chỉ đọc). transcode=True: phương án dự phòng, ffmpeg tạo mp4 H.264 nhẹ trong cache
-        (xóa được). Clip không có proxy: {"error": "Chưa có proxy"} để giao diện hiện thumbnail."""
+    def play_info(self, uid):
+        """URL phát file proxy của clip (chỉ đọc, KHÔNG tạo file nào; ADR-0029). Không phát được thì trả {"error": lời giải thích rõ ràng}
+        để giao diện hiện thumbnail. Clip không có proxy: {"error": "Chưa có proxy"}."""
         import troly_play as tp
         c = self._by_uid.get(uid)
         if c is None:
@@ -1310,15 +1307,10 @@ class TrolyApi(object):
             return {"error": "Chưa có proxy"}
         if not tp.inside(src, [self._proxy_root]):
             return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
-        if transcode:
-            dst = tp.ensure_play_mp4(src, self._play_dir(), c.rel or c.name)
-            if not dst:
-                return {"error": "ffmpeg không tạo được bản xem nhẹ."}
-            src = dst
         url = self._play_server().url_for(src)
         if not url:
             return {"error": "Không phát được file này."}
-        return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "transcoded": bool(transcode)}
+        return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0}
 
     def _frame_store(self):
         import troly_frames as tf

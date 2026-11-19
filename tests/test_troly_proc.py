@@ -1,5 +1,5 @@
-"""K3 (19/11): cửa sổ cmd đen chớp khi mở clip. Thủ phạm tìm được: nạp sóng âm (troly_wave.make_peaks gọi ffmpeg KHÔNG có creationflags). Cũng thiếu cờ ở bản xem nhẹ
-ffmpeg (troly_play.ensure_play_mp4). Mọi lời gọi tiến trình con giờ đi qua troly_proc.chay_an / mo_an."""
+"""K3 (19/11): cửa sổ cmd đen chớp khi mở clip. Thủ phạm tìm được: nạp sóng âm (troly_wave.make_peaks gọi ffmpeg KHÔNG có creationflags). (Bản xem nhẹ của trình phát đã bị gỡ ngày 19/11, ADR-0029.)
+Mọi lời gọi tiến trình con giờ đi qua troly_proc.chay_an / mo_an."""
 import glob
 import os
 import re
@@ -27,7 +27,7 @@ class Proc(unittest.TestCase):
 
     def test_cac_cho_chay_ffmpeg_dung_ham_dung_chung(self):
         for f, needle in (("troly_wave.py", "runner=troly_proc.chay_an"), ("troly_kf.py", "runner=troly_proc.chay_an"), ("troly_frames.py", "troly_proc.mo_an("),
-                          ("troly_thumbs.py", "troly_proc.chay_an(cmd"), ("troly_play.py", "troly_proc.chay_an(transcode_cmd"),
+                          ("troly_thumbs.py", "troly_proc.chay_an(cmd"),
                           ("troly_speech.py", "troly_proc.chay_an("), ("troly_ai.py", "troly_proc.mo_an("), ("troly_batch.py", "troly_proc.chay_an(")):
             with open(os.path.join(APP, f), encoding="utf-8") as fh:
                 self.assertIn(needle, fh.read(), f)

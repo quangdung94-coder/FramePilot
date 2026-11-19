@@ -3,7 +3,7 @@ troly_play.py - Máy chủ phát video proxy cục bộ cho khung xem trước (
 
 - Chỉ nghe 127.0.0.1, cổng ngẫu nhiên. Hỗ trợ Range (kéo thanh thời gian để lướt).
 - Chỉ ĐỌC file. Mỗi clip có một "vé" (token ngẫu nhiên) -> đường dẫn; chỉ phát đường dẫn nằm TRONG các thư mục cho phép
-  (proxy_root trong config.json, và thư mục cache troly_play). Đường dẫn ngoài thư mục (kể cả dùng .. hay liên kết) bị từ chối.
+  (proxy_root trong config.json). Đường dẫn ngoài thư mục (kể cả dùng .. hay liên kết) bị từ chối.
 - Không ghi, đổi tên hay xóa file nào.
 """
 import http.server
@@ -13,8 +13,6 @@ import re
 import secrets
 import socketserver
 import threading
-import subprocess
-import troly_proc
 
 CHUNK = 256 * 1024
 
@@ -174,30 +172,3 @@ class PlayServer(object):
                     left -= len(buf)
         except (OSError, ConnectionError):
             pass
-
-
-def transcode_cmd(src, dst, ffmpeg="ffmpeg"):
-    """Phương án dự phòng: mp4 H.264 nhẹ (720p, keyframe dày để lướt mượt, âm thanh AAC), chỉ cho clip đang xem.
-    Phải có -f mp4: file tạm đuôi .part khiến ffmpeg không chọn được định dạng (đo 18/11/2026: lệnh cũ lỗi ngay, trả None)."""
-    return [ffmpeg, "-y", "-v", "error", "-i", src, "-vf", "scale=-2:720", "-c:v", "libx264", "-preset", "veryfast",
-            "-crf", "28", "-g", "12", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", "-f", "mp4", dst]
-
-
-def ensure_play_mp4(src, cache_dir, key, ffmpeg="ffmpeg", timeout=600):
-    """Tạo (nếu chưa có) mp4 nhẹ trong cache_dir cho clip. Trả đường dẫn hoặc None nếu ffmpeg lỗi. Chỉ ĐỌC src."""
-    os.makedirs(cache_dir, exist_ok=True)
-    dst = os.path.join(cache_dir, re.sub(r"[^\w\-.]", "_", key) + ".mp4")
-    if os.path.isfile(dst) and os.path.getsize(dst) > 0:
-        return dst
-    tmp = dst + ".part"
-    try:
-        troly_proc.chay_an(transcode_cmd(src, tmp, ffmpeg), check=True, timeout=timeout,
-                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        os.replace(tmp, dst)
-        return dst
-    except (OSError, subprocess.SubprocessError):
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
-        return None
