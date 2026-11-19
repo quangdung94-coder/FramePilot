@@ -62,6 +62,7 @@ class TrolyApi(object):
         self._tl_names, self._tl_raw, self._tl_synced, self._tl_why = [], None, False, ""    # nguồn timeline DaVinci (ADR-0032)
         self._tl_want = self._plan.get("tl_source") or ""        # tên timeline người dựng chọn làm nguồn ("" = giờ trong file)
         self._tl_wait, self._pending_msg = False, None           # đang đợi timeline đọc xong mới báo trạng thái
+        self._key_clip = {}
         self._mk_letter, self._machines = {}, []                 # {uid: chữ máy}, danh sách máy (hàng của thanh thời gian)
         self._tl_stats = {"n_clips": 0, "n_missing": 0, "n_extra": 0}
         self._clips, self._by_uid, self._day0 = [], {}, None
@@ -188,6 +189,7 @@ class TrolyApi(object):
         return self._plan["stages"]
 
     def _recount(self):
+        self._recompute_stages()                          # giờ giai đoạn theo mốc luôn khớp với số đếm
         self._assign = tc.assign(self._clips, self._stages, self._day0, self._plan["offsets"],
                                  manual=self._plan.get("manual")) if self._day0 else {}
 
@@ -217,7 +219,10 @@ class TrolyApi(object):
                 stages.append({"name": s["name"], "start": s["start"], "end": s["end"], "color": s["color"],
                                "count": cnt[i], "bin": "%02d_%s" % (i + 1, s["name"]),
                                "event": self._event_of_stage(s), "mach": letters,
-                               "range": "%s – %s" % (self._fmt_axis(s["start"]), self._fmt_axis(s["end"])),
+                               "marks": "head" in s, "head": self._mark_view(s, "head"), "tail": self._mark_view(s, "tail"),
+                               "pa": (self._stage_range(i) or (None,))[0] if "head" in s else None,
+                               "incomplete": ("head" in s) and not (self._stage_range(i) and self._stage_range(i)[1] is not None),
+                               "range": self._range_text(i, s),
                                "uids": [c.uid for c in in_stage], "none": none,
                                "done": len(in_stage) - len(none),
                                "bins": [{"name": b, "key": str(j + 1) if j < 9 else "",
@@ -511,6 +516,7 @@ class TrolyApi(object):
         self._plan["source_bin"] = bin_path
         self._clips = sorted(clips, key=lambda c: (c.t_start or datetime.datetime.max, c.name))
         self._by_uid = {c.uid: c for c in self._clips}
+        self._key_clip = {tc.clip_key(c): c for c in self._clips}          # khóa clip (đường dẫn tương đối) -> clip, để tìm clip mốc đầu/cuối
         if not same and isinstance(stash.get(bin_path), dict) and stash[bin_path].get("stages") and stash[bin_path].get("day0"):
             back = stash.pop(bin_path)
             self._plan["stages"], self._plan["day0"] = back["stages"], back["day0"]
@@ -652,10 +658,125 @@ class TrolyApi(object):
                 for c in cs:
                     self._mk_letter[c.uid] = m["letter"]
             self._tl_stats = {"n_clips": len(self._clips), "n_missing": 0, "n_extra": 0}
+        self._recompute_stages()
         self._recount()
+
+    # ------------------------------------------------------------------ Bước 1: chọn mốc giai đoạn bằng thumbnail (ADR-0033)
+    # Mỗi giai đoạn có mốc ĐẦU và mốc CUỐI là hai clip (khóa clip trong stage["head"] / stage["tail"]). Giờ giai đoạn: đầu = giờ (vị trí) clip đầu,
+    # cuối = hết clip cuối. Project nhiều máy: các giai đoạn LIỀN NHAU, cuối = đầu của giai đoạn kế có mốc đầu. Giai đoạn không có khóa "head"
+    # (kế hoạch cũ, hoặc đặt giờ tay) giữ nguyên start/end như cũ.
+    MAX_STAGES = 9
+
+    def _pos_of(self, c):
+        return tc.clip_minutes(c, self._day0, self._plan["offsets"]) if (c is not None and self._day0) else None
+
+    def _marked(self, s, which):
+        key = s.get(which)
+        return self._key_clip.get(key) if key else None
+
+    def _stage_range(self, i):
+        """(đầu, cuối) phút trên trục của giai đoạn i theo mốc; (đầu, None) khi thiếu mốc cuối; None khi chưa có mốc đầu."""
+        s = self._stages[i]
+        hp = self._pos_of(self._marked(s, "head"))
+        if not hp:
+            return None
+        a = hp[0]
+        tp = self._pos_of(self._marked(s, "tail"))
+        b = tp[1] if tp else None
+        if len(self._machines) > 1:                               # nhiều máy: liền nhau, cuối = đầu của giai đoạn kế có mốc đầu
+            for x in self._stages[i + 1:]:
+                xp = self._pos_of(self._marked(x, "head"))
+                if xp:
+                    b = xp[0]
+                    break
+        if b is not None and b <= a:
+            return (a, None)                                      # sai thứ tự (mốc cuối nằm trước đầu): coi là thiếu mốc
+        return (a, b)
+
+    def _recompute_stages(self):
+        for i, s in enumerate(self._stages):
+            if "head" not in s:
+                continue
+            r = self._stage_range(i)
+            if r and r[1] is not None:
+                s["start"], s["end"] = float(r[0]), float(r[1])
+            else:
+                s["start"], s["end"] = -1.0, -1.0                 # chưa đủ mốc: không nhận clip nào
+
+    def _marks_from_ranges(self):
+        """Đổi khoảng giờ đã có (mẫu gợi ý) thành mốc: đầu = clip đầu tiên bắt đầu trong khoảng, cuối = clip cuối cùng bắt đầu trong khoảng."""
+        pos = [(self._pos_of(c), c) for c in self._clips]
+        pos = sorted(((p[0], p[1], c) for p, c in pos if p), key=lambda t: (t[0], t[2].name))
+        for s in self._stages:
+            a, b = s.get("start", -1), s.get("end", -1)
+            inside = [t for t in pos if a <= t[0] < b] if (a >= 0 and b > a) else []
+            s["head"] = tc.clip_key(inside[0][2]) if inside else None
+            s["tail"] = tc.clip_key(inside[-1][2]) if inside else None
+        self._recompute_stages()
+
+    def set_mark(self, i, uid, which):
+        """Đặt mốc ĐẦU ("head") hoặc CUỐI ("tail") của giai đoạn i là clip uid. Chặn mốc đầu SAU mốc cuối và mốc cuối TRƯỚC mốc đầu của cùng giai đoạn.
+        Chỉ đổi kế hoạch của Trợ lý, không ghi gì vào DaVinci."""
+        with self._lock:
+            if which not in ("head", "tail"):
+                return {"error": "Loại mốc không hợp lệ."}
+            if i is None or not (0 <= i < len(self._stages)):
+                return {"error": "Chưa có giai đoạn %s." % ((i + 1) if isinstance(i, int) else "?")}
+            c = self._by_uid.get(uid)
+            if c is None:
+                return {"error": "Không thấy clip này."}
+            p = self._pos_of(c)
+            if not p:
+                return {"error": "Clip này chưa có vị trí trên trục (chưa nằm trong timeline), không đặt mốc được."}
+            s = self._stages[i]
+            other = self._pos_of(self._marked(s, "tail" if which == "head" else "head"))
+            if which == "head" and other and p[0] > other[0]:
+                return {"error": "Mốc đầu không được sau mốc cuối của %s." % s["name"]}
+            if which == "tail" and other and p[0] < other[0]:
+                return {"error": "Mốc cuối không được trước mốc đầu của %s." % s["name"]}
+            if "head" not in s:                                # đang theo khoảng giờ: giữ clip đầu/cuối suy ra làm mốc, chỉ đổi mốc vừa bấm
+                h0, t0 = self._implied(s)
+                s["head"] = tc.clip_key(h0) if h0 is not None else None
+                s["tail"] = tc.clip_key(t0) if t0 is not None else None
+            s[which] = tc.clip_key(c)
+            self._recompute_stages()
+            self._recount()
+            self._save_soon()
+            st = self.state()
+            st["mark_msg"] = "%s của %s = %s (%s)" % ("Mốc CUỐI" if which == "tail" else "Mốc ĐẦU", s["name"], c.name, self._fmt_clip_time(c, p))
+            return st
+
+    def _fmt_clip_time(self, c, p):
+        if self._tl_mode():
+            return ts.fmt_hms(p[0])
+        return c.t_start.strftime("%H:%M:%S") if c.t_start else ts.fmt_hms(p[0])
+
+    def _implied(self, s):
+        """Giai đoạn theo khoảng giờ (chưa có mốc): clip đầu tiên và cuối cùng bắt đầu trong khoảng, chỉ để hiển thị."""
+        a, b = s.get("start", -1), s.get("end", -1)
+        if not (a >= 0 and b > a):
+            return None, None
+        inside = [(self._pos_of(c)[0], c.name, c) for c in self._clips if self._pos_of(c) and a <= self._pos_of(c)[0] < b]
+        inside.sort(key=lambda t: (t[0], t[1]))
+        return (inside[0][2], inside[-1][2]) if inside else (None, None)
+
+    def _mark_view(self, s, which):
+        if "head" not in s:                                    # kế hoạch cũ / đặt giờ tay: hiện clip đầu/cuối suy ra, đánh dấu auto
+            c = self._implied(s)[0 if which == "head" else 1]
+            return {"uid": c.uid, "name": c.name, "auto": True} if c is not None else None
+        c = self._marked(s, which)
+        return {"uid": c.uid, "name": c.name} if c is not None else None
 
     def _fmt_axis(self, m):
         return ts.fmt_hms(m) if self._tl_mode() else tc.fmt_min(m)
+
+    def _range_text(self, i, s):
+        if "head" not in s:
+            return "%s – %s" % (self._fmt_axis(s["start"]), self._fmt_axis(s["end"]))
+        r = self._stage_range(i)
+        if not r:
+            return "chưa có giờ"
+        return "%s – %s" % (self._fmt_axis(r[0]), self._fmt_axis(r[1]) if r[1] is not None else "…")
 
     def _event_of_stage(self, s):
         return s.get("event") or tc.event_of(self._plan.get("template"), s["name"])
@@ -711,6 +832,7 @@ class TrolyApi(object):
             if not template_name:
                 return {"error": "Hãy chọn một mẫu sự kiện trước khi bấm Gợi ý lại."}
             self._suggest(template_name)
+            self._marks_from_ranges()                       # bấm Gợi ý lại: đổi khoảng giờ gợi ý thành mốc đầu/cuối (clip) để người dựng chỉnh bằng F1, Shift+F1
             self._save_soon()
             return self.state()
 
@@ -719,8 +841,11 @@ class TrolyApi(object):
         bins (danh sách tên). Giờ sai -> trả {'error': ...}."""
         with self._lock:
             s = self._stages[i]
+            if any(k in fields for k in ("start", "end", "start_txt", "end_txt")):
+                s.pop("head", None)                          # đặt giờ tay: bỏ mốc clip của giai đoạn này, giờ tay thắng
+                s.pop("tail", None)
             try:
-                ref = int(s["start"] // 1440)
+                ref = max(0, int(s["start"] // 1440))
                 if self._tl_mode():                               # trục timeline: H:MM:SS, không qua nửa đêm
                     a = ts.parse_hms(fields["start_txt"]) if "start_txt" in fields else fields.get("start", s["start"])
                     b = ts.parse_hms(fields["end_txt"]) if "end_txt" in fields else fields.get("end", s["end"])
@@ -746,9 +871,16 @@ class TrolyApi(object):
 
     def add_stage(self, event=None):
         with self._lock:
-            last = max([s["end"] for s in self._stages] or [0.0 if self._tl_mode() else 8 * 60.0])
+            if len(self._stages) >= self.MAX_STAGES:
+                return {"error": "Tối đa %d giai đoạn (phím F1 đến F%d)." % (self.MAX_STAGES, self.MAX_STAGES)}
             ev = event or (self._event_of_stage(self._stages[-1]) if self._stages else None)
-            self._stages.append(tc.make_stage("Giai đoạn %d" % (len(self._stages) + 1), last, last + 30, [], len(self._stages), ev))
+            n = len(self._stages) + 1
+            names = {x["name"] for x in self._stages}
+            while "Giai đoạn %d" % n in names:
+                n += 1
+            st = tc.make_stage("Giai đoạn %d" % n, -1.0, -1.0, [], len(self._stages), ev)
+            st["head"], st["tail"] = None, None                 # chưa có mốc: chưa có giờ, chưa nhận clip nào
+            self._stages.append(st)
             self._save_soon()
             return self.state()
 

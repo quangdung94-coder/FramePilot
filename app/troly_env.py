@@ -14,9 +14,14 @@ ROOT = os.path.dirname(APP)
 CONFIG = os.path.join(ROOT, "config.json")
 
 
+def config_path():
+    """config.json mặc định ở thư mục gốc; biến môi trường TROLY_CONFIG trỏ sang file khác (dùng để thử panel trên BẢN SAO dữ liệu)."""
+    return os.environ.get("TROLY_CONFIG") or CONFIG
+
+
 def config():
     try:
-        with open(CONFIG, "r", encoding="utf-8-sig") as f:
+        with open(config_path(), "r", encoding="utf-8-sig") as f:
             return json.load(f) or {}
     except (OSError, ValueError):
         return {}

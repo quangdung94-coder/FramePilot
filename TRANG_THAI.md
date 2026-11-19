@@ -2,6 +2,11 @@
 
 Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
 
+## Bước 1 chọn mốc giai đoạn bằng thumbnail (nhánh nhieu-camera-giao-dien, 19/11/2026, CHƯA gộp main, ADR-0033) - 570+ test đạt
+- Tab "1 · Giai đoạn" thành màn hình chọn mốc theo demo design/trang1_chon_moc: bấm clip rồi F1…F9 = mốc ĐẦU, Shift+F = mốc CUỐI; luật chặn đầu sau cuối; nhiều máy thì giai đoạn liền nhau, 1 máy vẫn có khoảng trống; cây Media bin thật; lưới thumbnail; thông tin clip. Tạo bin giữ nguyên logic cũ.
+- Đã thử trong cửa sổ pywebview THẬT trên bản sao dữ liệu (tools/panel_probe.py): phím thật F1, Shift+F1, báo đỏ, báo vàng, Esc đều đúng, project 1 máy 400 clip. Nhiều máy mới thử bằng DaVinci GIẢ (dữ liệu thử), chưa thử nhiều máy THẬT trên panel pywebview (project 2026.11.14 đang không mở).
+- Phần 2 (đóng gói exe) CHƯA làm, chờ người dựng nói ok.
+
 ## Nhiều camera, trang 1 làm lại (nhánh nhieu-camera-giao-dien, 19/11/2026, CHƯA gộp main, tag sao lưu truoc-nhieu-camera-ui) - 556 test đạt
 - Trang 1 đọc thẳng timeline đã sync trong DaVinci (ADR-0032, thay ADR-0031): mỗi track video = một máy, tên máy theo tiền tố tên file (bỏ ngày ở đầu), trục từ đầu timeline, hàng giai đoạn kéo được + hàng máy + hàng âm thanh, con trỏ đỏ, cắt giai đoạn tại con trỏ, bám mép clip, bin mẹ (chỉ nhóm trong panel), mẫu "Chỉ tiệc nhà hàng". Bỏ panel chỉnh đồng hồ và thẻ máy cũ.
 - Đã thử trên DaVinci THẬT (chỉ đọc) qua tools/harness_cam.py --real: project 2026.11.14, timeline "test muliticam" (3 máy, 134 clip) và "multicam_01_footage" (3 máy, 1034 clip). CHƯA mở bằng cửa sổ pywebview thật, CHƯA ghi marker (người dựng chọn không ghi).

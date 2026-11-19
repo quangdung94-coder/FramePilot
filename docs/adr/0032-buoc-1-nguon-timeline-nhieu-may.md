@@ -1,5 +1,7 @@
 # ADR-0032: Bước 1 lấy nguồn từ timeline đã sync, mỗi track một máy (19/11/2026, bản thử)
 
+> Phần GIAO DIỆN (thanh timeline kéo mép, con trỏ đỏ, cắt giai đoạn, bin mẹ dạng khung) đã được ADR-0033 thay bằng màn hình chọn mốc bằng thumbnail. Nguồn timeline và gộp máy theo track vẫn đúng.
+
 ## Bối cảnh
 Người dựng quay nhiều máy và sync bằng tool riêng. Ngày giờ ghi trong file của các máy lệch nhau (đồng hồ máy), nên không dùng làm trục. Người dựng
 bỏ hướng "chỉnh đồng hồ máy trong panel" của ADR-0031 và duyệt demo "A · Timeline nhiều track" (design/nhieu_camera).

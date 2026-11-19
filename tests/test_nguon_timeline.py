@@ -314,26 +314,218 @@ class ApiTL(unittest.TestCase):
         self.assertEqual(b._plan["tl_source"], "test muliticam")
 
 
+class Marks(unittest.TestCase):
+    """Bước 1 chọn mốc đầu/cuối bằng clip (ADR-0033): luật chặn, giờ liền nhau (nhiều máy) và khoảng trống (1 máy)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.apis = []
+
+    def tearDown(self):
+        for a in self.apis:
+            a._closed = True
+            a._thumbs.shutdown()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def run_jobs(self, a):
+        w = a._worker
+        while not w.jobs.empty():
+            job, arg = w.jobs.get()
+            getattr(w, "do_" + job)(arg)
+            a._drain()
+        a._drain()
+
+    def multi(self):
+        pool, tls = build()
+        proj = FProjectTL(NAME, pool, tls)
+        a = ta.TrolyApi(NAME, self.tmp, resolve_factory=lambda: T.FResolve(proj), start_worker=False)
+        a._worker.connect()
+        self.apis.append(a)
+        a.init()
+        self.run_jobs(a)
+        a.load(PATH, "test muliticam")
+        self.run_jobs(a)
+        return a
+
+    def single(self):
+        def mk(f, hh, mm):
+            return T.props(f, "Sat Nov 14 2026 %02d:%02d:00" % (hh, mm), "Sat Nov 14 %02d:%02d:06 2026" % (hh, mm), 150, Type="Video + Audio")
+        times = [(8, 0), (8, 10), (8, 20), (9, 0), (9, 10), (9, 20), (12, 0)]
+        clips = [T.FItem("s%d" % i, mk("DG%d.MP4" % i, h, m)) for i, (h, m) in enumerate(times)]
+        foot = T.FFolder("01_footage", clips)
+        root = T.FFolder("Master")
+        root.subs.append(foot)
+        proj = T.FProject(NAME, T.FPool(root))
+        a = ta.TrolyApi(NAME, self.tmp, resolve_factory=lambda: T.FResolve(proj), start_worker=False)
+        a._worker.connect()
+        self.apis.append(a)
+        a.init()
+        self.run_jobs(a)
+        a.load(PATH)
+        self.run_jobs(a)
+        a._plan["stages"] = []
+        a._recount()
+        return a
+
+    def uid(self, a, name):
+        return next(c.uid for c in a._clips if c.name == name)
+
+    def test_nhieu_may_giai_doan_lien_nhau_khong_co_khoang_trong(self):
+        a = self.multi()
+        a.suggest("Chỉ tiệc nhà hàng")
+        a.set_mark(0, self.uid(a, "DG1.MP4"), "head")
+        a.set_mark(0, self.uid(a, "DG2.MP4"), "tail")
+        st = a.set_mark(1, self.uid(a, "DG3.MP4"), "head")
+        s0, s1 = st["stages"][0], st["stages"][1]
+        self.assertEqual(s0["range"].split(" – ")[1], s1["range"].split(" – ")[0])         # cuối giai đoạn 1 = đầu giai đoạn 2
+        self.assertEqual(s0["end"], s1["start"] if s1["start"] >= 0 else s0["end"])
+        self.assertTrue(st["stages"][1]["incomplete"])                                      # giai đoạn 2 chưa có mốc cuối: thiếu mốc
+        self.assertTrue(st["stages"][1]["range"].endswith("…"))
+
+    def test_mot_may_giai_doan_van_chia_khoang_trong(self):
+        a = self.single()
+        self.assertEqual(len(a._machines), 1)
+        a.add_stage()
+        a.add_stage()
+        a.set_mark(0, self.uid(a, "DG0.MP4"), "head")
+        a.set_mark(0, self.uid(a, "DG2.MP4"), "tail")
+        a.set_mark(1, self.uid(a, "DG6.MP4"), "head")
+        a.set_mark(1, self.uid(a, "DG6.MP4"), "tail")
+        st = a.state()
+        self.assertEqual(st["stages"][0]["range"], "08:00 – 08:20")                          # cuối = hết clip cuối (bắt đầu 08:20, dài vài giây)
+        self.assertLess(st["stages"][0]["end"], st["stages"][1]["start"])                   # có khoảng trống giữa hai giai đoạn
+        self.assertEqual(st["stages"][0]["count"], 3)
+        self.assertEqual(st["stages"][1]["count"], 1)
+
+    def test_luat_chan_moc_dau_sau_moc_cuoi_va_nguoc_lai(self):
+        a = self.single()
+        a.add_stage()
+        a.set_mark(0, self.uid(a, "DG1.MP4"), "head")
+        a.set_mark(0, self.uid(a, "DG3.MP4"), "tail")
+        r = a.set_mark(0, self.uid(a, "DG4.MP4"), "head")                                    # đầu SAU cuối
+        self.assertIn("không được sau mốc cuối", r["error"])
+        r = a.set_mark(0, self.uid(a, "DG0.MP4"), "tail")                                    # cuối TRƯỚC đầu
+        self.assertIn("không được trước mốc đầu", r["error"])
+        s = a.state()["stages"][0]
+        self.assertEqual((s["head"]["name"], s["tail"]["name"]), ("DG1.MP4", "DG3.MP4"))      # bị chặn thì không đổi gì
+        self.assertNotIn("error", a.set_mark(0, self.uid(a, "DG1.MP4"), "tail"))              # cùng một clip: được
+
+    def test_khong_co_giai_doan_hoac_clip_la(self):
+        a = self.single()
+        self.assertIn("error", a.set_mark(0, self.uid(a, "DG1.MP4"), "head"))                # chưa có giai đoạn
+        a.add_stage()
+        self.assertIn("error", a.set_mark(0, "khong-co", "head"))
+        self.assertIn("error", a.set_mark(0, self.uid(a, "DG1.MP4"), "giua"))
+
+    def test_toi_da_9_giai_doan(self):
+        a = self.single()
+        for _ in range(9):
+            self.assertNotIn("error", a.add_stage())
+        r = a.add_stage()
+        self.assertIn("Tối đa 9", r["error"])
+        self.assertEqual(len(a.state()["stages"]), 9)
+
+    def test_giai_doan_moi_chua_co_gio_va_khong_nhan_clip(self):
+        a = self.single()
+        st = a.add_stage()
+        s = st["stages"][0]
+        self.assertEqual(s["range"], "chưa có giờ")
+        self.assertTrue(s["incomplete"])
+        self.assertEqual(s["count"], 0)
+
+    def test_clip_ngoai_timeline_khong_dat_moc_duoc(self):
+        a = self.multi()
+        a.suggest("Chỉ tiệc nhà hàng")
+        r = a.set_mark(0, self.uid(a, "DG9.MP4"), "head")
+        self.assertIn("chưa có vị trí", r["error"])
+
+    def test_moc_luu_trong_ke_hoach_va_mo_lai_van_con(self):
+        a = self.multi()
+        a.suggest("Chỉ tiệc nhà hàng")
+        a.set_mark(0, self.uid(a, "DG1.MP4"), "head")
+        a._save_now()
+        pool, tls = build()
+        proj = FProjectTL(NAME, pool, tls)
+        b = ta.TrolyApi(NAME, self.tmp, resolve_factory=lambda: T.FResolve(proj), start_worker=False)
+        b._worker.connect()
+        self.apis.append(b)
+        b.init()
+        self.run_jobs(b)
+        self.run_jobs(b)
+        st = b.state()
+        self.assertEqual(st["stages"][0]["head"]["name"], "DG1.MP4")
+
+    def test_goi_y_lai_doi_khoang_gio_thanh_moc(self):
+        a = self.multi()
+        st = a.suggest("Chỉ tiệc nhà hàng")
+        s = st["stages"][0]
+        self.assertTrue(s["marks"])
+        self.assertTrue(s["head"] and not s["head"].get("auto"))
+        self.assertTrue(s["tail"])
+
+    def test_giai_doan_cu_hien_dau_cuoi_suy_ra_va_chuyen_sang_moc_khi_bam(self):
+        a = self.single()
+        a._plan["stages"] = [tc.make_stage("Cũ", 8 * 60.0, 8 * 60 + 25.0, ["Decor"], 0)]
+        a._recount()
+        s = a.state()["stages"][0]
+        self.assertFalse(s["marks"])
+        self.assertTrue(s["head"]["auto"] and s["tail"]["auto"])
+        self.assertEqual((s["head"]["name"], s["tail"]["name"]), ("DG0.MP4", "DG2.MP4"))
+        st = a.set_mark(0, self.uid(a, "DG1.MP4"), "head")                                    # bấm F1: đầu đổi, cuối giữ clip suy ra
+        s = st["stages"][0]
+        self.assertTrue(s["marks"])
+        self.assertEqual((s["head"]["name"], s["tail"]["name"]), ("DG1.MP4", "DG2.MP4"))
+        self.assertFalse(s["head"].get("auto"))
+
+    def test_khong_ghi_davinci(self):
+        a = self.single()
+        a.add_stage()
+        a.set_mark(0, self.uid(a, "DG1.MP4"), "head")
+        self.assertTrue(a._worker.jobs.empty())
+
+
+class KeyFiles(unittest.TestCase):
+    def setUp(self):
+        web = os.path.join(HERE, "..", "app", "troly_web")
+        with open(os.path.join(web, "app.js"), encoding="utf-8") as f:
+            self.js = f.read()
+
+    def test_phim_f_doc_bang_event_code_shift_la_moc_cuoi(self):
+        i = self.js.index("function key1(e)")
+        seg = self.js[i:i + 900]
+        self.assertIn("/^F([1-9])$/.exec(e.code", seg)
+        self.assertIn("setMark(+m[1] - 1, e.shiftKey)", seg)
+        self.assertNotIn("e.key", seg)
+
+    def test_bao_trang_thai_xanh_vang_do(self):
+        i = self.js.index("async function setMark")
+        seg = self.js[i:i + 900]
+        for k in ('"warn"', '"error"', '"ok"', "set_mark"):
+            self.assertIn(k, seg)
+
+
 class WebFiles(unittest.TestCase):
     def setUp(self):
         web = os.path.join(HERE, "..", "app", "troly_web")
-        self.html = open(os.path.join(web, "index.html"), encoding="utf-8").read()
-        self.js = open(os.path.join(web, "app.js"), encoding="utf-8").read()
-        self.css = open(os.path.join(web, "style.css"), encoding="utf-8").read()
+        with open(os.path.join(web, "index.html"), encoding="utf-8") as f:
+            self.html = f.read()
+        with open(os.path.join(web, "app.js"), encoding="utf-8") as f:
+            self.js = f.read()
+        with open(os.path.join(web, "style.css"), encoding="utf-8") as f:
+            self.css = f.read()
 
     def test_giao_dien_co_dung_khoi_theo_demo(self):
-        for ident in ("tlSel", "zOut", "zIn", "zFit", "cutStage", "snapBtn", "srcPills", "vertCams", "tlView", "tlLabels", "addEvent", "binPath"):
+        for ident in ("tlSel", "tree", "g1", "meta", "keybar", "stageList", "addStage", "applyBtn1", "vertCams", "density", "bands", "ruler"):
             self.assertIn('id="%s"' % ident, self.html)
-        for text in ("Cắt giai đoạn tại con trỏ", "Vừa khít", "+ Thêm sự kiện (bin mẹ)", "Lưu mẫu cho đám sau", "Có máy quay dọc", "Gợi ý lại"):
+        for text in ("Media bin", "Thông tin clip", "Tạo bin, sang bước 2", "+ Thêm giai đoạn", "Gợi ý lại", "Có máy quay dọc"):
             self.assertIn(text, self.html + self.js)
 
     def test_da_bo_nhung_phan_cu(self):
-        for gone in ("camBox", "Chỉnh đồng hồ máy", "Project này chỉ có 1 máy", "Trợ lý đọc được", "Quy định", "Timeline sau khi sync"):
+        for gone in ("camBox", "Chỉnh đồng hồ máy", "Project này chỉ có 1 máy", "Trợ lý đọc được", "Quy định", "Timeline sau khi sync", "Cắt giai đoạn tại con trỏ"):
             self.assertNotIn(gone, self.html + self.js)
 
-    def test_chu_cat_bang_dau_ba_cham_va_nhan_con_tro_khong_de_nhan_moc(self):
-        self.assertIn("text-overflow: ellipsis", self.css[self.css.index(".sblk .sn"):self.css.index(".sblk .h ")])
-        self.assertIn("Math.abs(x - curX) < 70", self.js)                            # nhãn mốc trục gần con trỏ bị ẩn
+    def test_chu_cat_bang_dau_ba_cham(self):
+        self.assertIn("text-overflow: ellipsis", self.css[self.css.index("#page1 .band .n"):])
 
     def test_trang_1_khong_goi_ham_ghi_davinci(self):
         i = self.js.index("function renderPage1")

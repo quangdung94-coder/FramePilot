@@ -43,7 +43,7 @@ class TestPhimF(unittest.TestCase):
     def test_shift_so_khong_con_chon_giai_doan(self):
         self.assertNotIn("e.shiftKey && !e.ctrlKey && !e.altKey) {       // Shift+số", self.js)
         self.assertNotIn('"Shift+" + (k + 1)', self.js)
-        self.assertNotIn("⇧", self.js)
+        self.assertIsNone(re.search("⇧[0-9]", self.js))              # nhãn cũ ⇧1 hết; ⇧F1 (mốc cuối ở Bước 1) là phím mới
 
     def test_canh_bao_qua_12_giai_doan(self):
         self.assertIn("S.stages.length > MAX_F", self.js)
