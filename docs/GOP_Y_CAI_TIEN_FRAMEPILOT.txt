@@ -1,0 +1,145 @@
+================================================================================
+          BẢN GÓP Ý & ĐỀ XUẤT CẢI TIẾN PANEL FRAMEPILOT (DAVINCI RESOLVE)
+          Dành riêng cho Quy trình Dựng Phim Cưới Thực Tế
+          Ngày lập: 19/11/2026
+================================================================================
+
+TỔNG QUAN:
+FramePilot hiện tại đã hoàn thiện rất tốt về mặt an toàn dữ liệu, logic phân loại, 
+trình phát proxy, chép lời Whisper và tạo timeline tự động trong DaVinci Resolve.
+Tài liệu này tập hợp các ý kiến đóng góp mang tính thực tiễn cao, xuất phát từ thói 
+quen và nhu cầu tăng tốc độ dựng phim cưới thực tế của người dựng (editor).
+
+--------------------------------------------------------------------------------
+1. BƯỚC 2: PHÂN LOẠI BIN & TƯƠNG TÁC LƯỚI THUMBNAIL
+--------------------------------------------------------------------------------
+[Vấn đề thực tế]
+Mỗi đám cưới thường có từ 500 đến 1.000 clip. Hiện tại editor phải click chọn clip
+thì khung xem bên phải mới tải proxy để xem. Thao tác này qua hàng trăm clip vẫn 
+chiếm nhiều thời gian.
+
+[Đề xuất cải tiến]
+a) Rê chuột xem nhanh trên Thumbnail (Hover Scrubbing):
+   - Khi rê chuột từ trái sang phải trên ô thumbnail trong lưới, hình ảnh thumbnail
+     thay đổi liên tục từ đầu đến cuối clip (tương tự trang Cut của DaVinci Resolve
+     hoặc tính năng xem trước của YouTube).
+   - Editor chỉ cần lướt chuột qua 1-2 giây là nắm được nội dung clip để bấm phím 
+     1-9 phân loại ngay, không cần click chọn clip.
+
+b) Bộ lọc nhanh theo Máy quay (Camera Quick Filters):
+   - Khi đi quay về, editor thường phân loại theo từng máy: Máy A (cô dâu), Máy B
+     (chú rể), Drone/Flycam.
+   - Bổ sung thanh lọc nhanh: [Tất cả] [Cam A] [Cam B] [Drone].
+   - Ví dụ: Bấm "Drone" -> Lưới lọc toàn bộ clip Flycam -> Editor dùng phím gán bin
+     "Decor / Ngoại cảnh" hàng loạt chỉ trong 5 giây.
+
+c) Thêm trạng thái "Loại bỏ / Out nét / Hỏng" (Reject / Hide):
+   - Nhiều clip lia vội, hỏng, rung lắc, out nét chắc chắn không dùng đến.
+   - Bổ sung phím tắt (ví dụ phím 'X' hoặc 'Delete'): Đánh dấu "Bỏ" và làm mờ/ẩn 
+     clip khỏi danh sách hiển thị (chỉ lưu cờ trong kế hoạch, tuyệt đối không xóa 
+     file trên ổ cứng). Giúp editor không bị rối mắt bởi clip rác.
+
+--------------------------------------------------------------------------------
+2. BƯỚC 3: IN / OUT & ĐỒ THỊ SÓNG ÂM
+--------------------------------------------------------------------------------
+[Vấn đề thực tế]
+Với các clip quay liên tục dài 10 - 25 phút (như toàn bộ Lễ gia tiên, Nghi lễ nhà 
+hàng, Lời thề Vows hay Phỏng vấn dài), thanh sóng âm bị nén trên chiều ngang cố 
+định, kéo chuột 1 pixel có thể nhảy mất 3 - 5 giây, rất khó căn chính xác.
+
+[Đề xuất cải tiến]
+a) Phóng to / Thu nhỏ sóng âm bằng con lăn chuột (Waveform Zoom):
+   - Cho phép giữ Ctrl + Cuộn chuột giữa (Ctrl + MouseWheel) trên khung sóng âm để 
+     phóng to đoạn sóng âm xung quanh con trỏ chuột.
+   - Giúp editor dễ dàng nhìn rõ từng nhịp ngắt câu và đặt điểm In/Out chuẩn xác 
+     đến từng frame hình.
+
+b) Tự động "hút" vào khoảng lặng (Snap to Silence):
+   - Tận dụng dữ liệu VAD / Whisper đã có, khi kéo mép In hoặc Out gần đến khoảng 
+     nghỉ giữa hai câu nói (khoảng 0.2 - 0.5s), mép tự động "hút" nhẹ vào điểm bắt 
+     đầu/kết thúc câu nói.
+   - Editor không còn nỗi lo vô tình cắt cụt mất đuôi chữ của nhân vật.
+
+--------------------------------------------------------------------------------
+3. BƯỚC 4: LỜI NÓI & CHÉP TIẾNG WHISPER
+--------------------------------------------------------------------------------
+[Vấn đề thực tế]
+Hiện tại lệnh "Chép lời cả bin" sẽ quét qua toàn bộ 300 - 500 clip trong project. 
+Các bin như Decor, Beauty, Tiệc bàn, B-roll hầu như không có tiếng nói, chỉ có tạp 
+âm hoặc nhạc nền, nhưng Whisper vẫn phải nạp và trích xuất âm thanh, làm mất từ 
+1 đến 2 tiếng của máy.
+
+[Đề xuất cải tiến]
+a) Tùy chọn "Chỉ chép lời các Bin được chọn":
+   - Thêm danh sách tick chọn các bin cần chép lời (mặc định chọn sẵn: Phỏng vấn, 
+     Nghi lễ, Gia tiên, Trao nhẫn).
+   - Bỏ qua các bin cảnh quay tĩnh/B-roll.
+   - Thời gian phân tích sẽ rút ngắn từ 1 - 2 tiếng xuống chỉ còn 10 - 15 phút!
+
+b) Thống kê câu "Đắt giá" (Golden Quotes / Vows):
+   - Tự động gom các câu có cụm từ then chốt (yêu thương, cảm ơn cha mẹ, lời hứa, 
+     hạnh phúc) lên một bảng tóm tắt riêng để editor bấm nghe thử và chọn làm câu 
+     nói mở đầu (intro) cho clip Highlight.
+
+--------------------------------------------------------------------------------
+4. BƯỚC 5: THỜI LƯỢNG & BỐ CỤC TIMELINE
+--------------------------------------------------------------------------------
+[Vấn đề thực tế]
+Phim cưới thương mại luôn có các gói sản phẩm với thời lượng chuẩn xác theo thỏa 
+thuận với khách hàng hoặc theo nền tảng phát hành.
+
+[Đề xuất cải tiến]
+a) Nút bấm mẫu thời lượng phổ biến (Duration Presets):
+   - Bên cạnh ô nhập "Video mục tiêu", bổ sung các nút bấm nhanh:
+     + [Teaser Reels/TikTok: 1:00]
+     + [Highlight cưới: 3:30 - 4:30] (Độ dài chuẩn 1 bài hát)
+     + [Phóng sự ngắn: 8:00 - 10:00]
+     + [Phim truyền thống: 15:00 - 20:00]
+   - Bấm 1 nút là panel tự động tính toán co giãn thời lượng các khối ngay lập tức.
+
+b) Nhập thời lượng theo Bài hát (Audio Track Sync):
+   - Cho phép nhập độ dài bài hát nhạc nền cưới (ví dụ 4 phút 12 giây), timeline 
+     sẽ tự động cân đối tổng các khối hình V1 đúng khớp với bài hát đó.
+
+--------------------------------------------------------------------------------
+5. QUẢN LÝ DUNG LƯỢNG & TÀI NGUYÊN (CACHE MANAGER)
+--------------------------------------------------------------------------------
+[Vấn đề thực tế]
+Mỗi đám cưới tạo ra hàng trăm MB đến vài GB cache thumbnail và cache sóng âm trong 
+thư mục D:\VideoAI\data\cache. Sau mùa cưới (10 - 20 project), dung lượng ổ SSD 
+bị chiếm dụng đáng kể.
+
+[Đề xuất cải tiến]
+- Thêm một cửa sổ nhỏ "Quản lý dung lượng cache":
+  + Liệt kê danh sách các project đã lưu kèm dung lượng cache tương ứng.
+  + Cho phép bấm "Xóa cache" của những project đã dựng xong và bàn giao cho khách.
+  + Không bao giờ đụng đến file kế hoạch (nhãn, sao, In/Out vẫn giữ nguyên trong 
+    file JSON, khi nào mở lại project thì thumbnail tự sinh lại nếu cần).
+
+--------------------------------------------------------------------------------
+6. TRỢ GIÚP THAO TÁC & PHÍM TẮT (CHEAT-SHEET)
+--------------------------------------------------------------------------------
+- Bảng tra cứu phím tắt nhanh (Bấm phím '?'):
+  + Hiện pop-up mờ tổng hợp nhanh toàn bộ phím tắt:
+    * 1 - 9: Xếp bin con
+    * Shift + số: Chuyển giai đoạn
+    * J: Gắn / bỏ sao ★
+    * Space: Phát / Dừng video
+    * I / O: Đặt In / Out tại điểm phát
+    * A: Nhận gợi ý In/Out (Bước 3) hoặc nhận gợi ý AI (Bước 2)
+    * Mũi tên trái/phải: Nhảy từng frame hình (Shift: 10 frame)
+    * Mũi tên lên/xuống: Đổi clip kế tiếp
+  + Giúp editor mới hoặc khi quên có thể liếc nhanh trong 1 giây mà không cần mở tài liệu.
+
+================================================================================
+TỔNG KẾT THỨ TỰ ƯU TIÊN THỰC HIỆN:
+1. Ưu tiên 1 (Tăng tốc độ làm việc ngay):
+   - Lọc nhanh theo máy quay (Cam A, Cam B, Drone) ở Bước 2.
+   - Tùy chọn chỉ chép lời Whisper cho các bin cần thiết ở Bước 4.
+2. Ưu tiên 2 (Tăng độ chính xác & tiện lợi):
+   - Phóng to sóng âm (Waveform Zoom) ở Bước 3.
+   - Nút mẫu thời lượng nhanh (Teaser 1p, Highlight 4p) ở Bước 5.
+3. Ưu tiên 3 (Dọn dẹp & Tối ưu dài hạn):
+   - Quản lý xóa cache project cũ.
+   - Bảng tra cứu phím tắt pop-up (phím '?').
+================================================================================
