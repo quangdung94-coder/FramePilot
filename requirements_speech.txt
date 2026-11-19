@@ -1,0 +1,5 @@
+# Bước 4 Lời nói (lọc khoảng lặng bằng silero-vad). Cài thêm vào venv của panel (C:\VideoAI_venv) NẾU dùng Bước 4.
+# Thiếu thì panel vẫn chạy, chỉ không lọc được khoảng lặng (load_vad trả None). silero-vad cần torch:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu130 --extra-index-url https://pypi.org/simple
+numpy==2.2.6
+silero-vad==6.2.3

@@ -39,6 +39,27 @@ $env:PYTHONUTF8 = "1"; & $py -m unittest discover -s tests -q                   
 ```
 Mốc đo lướt 19/11 (RTX 3060, 4K 150%): thanh lướt ~58 hình/giây, sóng âm ~59, trễ trung vị dưới 1 ms. So A/B với bản cũ: `--app <thư mục app của worktree cũ>`.
 
+## 2b. Cài trên máy mới (clone kho về là chạy được panel)
+Đã thử 19/11/2026: clone từ GitHub vào thư mục tạm → 520 test đạt (không cần config.json), `install.py` cài vào thư mục APPDATA thử đạt. Panel không mở được nếu thiếu `config.json` (báo "Không đọc được config.json (data_root)").
+
+Các bước: (1) cài Python 3.10, tạo venv `C:\VideoAI_venv`, `pip install -r requirements.txt` (thêm `requirements_speech.txt` nếu dùng Bước 4); (2) chép `config.example.json` thành `config.json` rồi sửa đường dẫn cho máy mới; (3) `install.py`; (4) DaVinci Studio 21: Preferences > System > General > External scripting using = Local.
+
+| Tài nguyên | Loại | Ở đâu / cách lấy |
+|---|---|---|
+| Mã panel `app\*.py`, giao diện `app\troly_web\`, icon `app\assets\framepilot.ico`, từ điển lễ cưới `app\wedding_phrases.json`, `install.py`, `tools\`, `tests\`, `design\`, `docs\` | (a) trên git | Có sẵn sau khi clone |
+| `requirements.txt` (pywebview, Pillow), `requirements_speech.txt` (numpy, silero-vad), `requirements_ai.txt` (venv AI) | (a) trên git | `pip install -r ...` (silero-vad và AI cần torch bản CUDA, cài riêng theo ghi chú đầu file) |
+| `config.example.json` | (a) trên git | Mẫu cấu hình; `config.json` thật KHÔNG lên git (đường dẫn máy) |
+| `config.json` | (b) ngoài git, có chủ ý | Chép từ `config.example.json` và sửa: `data_root`, `proxy_root`, `resolve.install_path`, `whisper.exe`, `whisper.model` |
+| Dữ liệu `<data_root>` (kế hoạch, nhãn, cache thumbnail/sóng/khung/embed, kho lời nói, sao lưu In/Out) | (b) ngoài git | Panel tự tạo thư mục khi chạy. Muốn giữ nhãn đã xếp thì chép nguyên thư mục `D:\VideoAI\data\troly` sang máy mới |
+| Footage, proxy, project DaVinci | (b) ngoài git (nặng, dữ liệu khách) | Của người dựng; proxy đặt ở `proxy_root` |
+| ffmpeg, ffprobe | (b) ngoài git | Cài vào PATH (ví dụ `winget install Gyan.FFmpeg`), kiểm bằng `ffmpeg -version` |
+| LUT | (b) ngoài git | Do DaVinci quản lý (thuộc tính "Input LUT" của clip); panel chỉ đọc và chép bản sao vào cache |
+| DaVinci Resolve Studio 21 + `fusionscript.dll` | (b) ngoài git | Cài DaVinci; đường dẫn khác mặc định thì sửa `resolve.install_path` |
+| Whisper (Const-me, `main.exe` + `ggml-medium.bin`) | (b) ngoài git | Chỉ cần cho Bước 4. Đặt đâu cũng được, ghi đường dẫn vào `config.json` mục `whisper` (mặc định trong mã: `D:\VideoAI\tools\whisper\constme\cli\main.exe`) |
+| Mô hình OpenCLIP ViT-B/32 (`open_clip_model.safetensors`, ~600 MB) | (b) ngoài git | Chỉ cần cho Bước 6 AI. Tải file từ Hugging Face repo `laion/CLIP-ViT-B-32-laion2B-s34B-b79K` về `<data_root>\models\openclip_vitb32_laion2b\open_clip_model.safetensors` (chỉ tải khi người dùng duyệt, ADR-0020) |
+| Silero VAD | (b) ngoài git | Đi kèm gói pip `silero-vad` (không tải riêng) |
+| (c) THIẾU | | Không còn mục nào thiếu sau 19/11 (đã thêm `config.example.json` và `requirements_speech.txt`) |
+
 ## 3. Quyết định (ADR, docs/adr/)
 
 | ADR | Tóm tắt |

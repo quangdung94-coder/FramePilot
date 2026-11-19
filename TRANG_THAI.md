@@ -2,6 +2,9 @@
 
 Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
 
+## Kiểm tài nguyên git + dọn rác 19/11 (nhánh kiem-git-19-11, CHƯA gộp main)
+- Đã thêm config.example.json, requirements_speech.txt, bảng tài nguyên ở docs/BAN_GIAO.md mục 2b; clone sạch chạy được test, install thử và panel với DaVinci giả. 524 bài test. Chi tiết: CHANGELOG.md.
+
 ## Tổng duyệt 19/11 + S1-S6: ĐÃ GỘP main 19/11 (commit gộp e08fff5, tag sao lưu truoc-gop-ra-soat-19-11 = 67bfa7d) - 520 test đạt; các mục CHƯA CHẠY THẬT vẫn chờ bạn thử tay
 - 19 phát hiện: 4 nghiêm trọng / 7 trung bình / 8 nhẹ; đã sửa 11 (4 nghiêm trọng, 5 trung bình, 2 nhẹ), chưa sửa 8, mỗi lỗi một commit + test (tests/test_ra_soat_19_11.py). Chi tiết, danh sách CHƯA CHẠY THẬT và câu hỏi cho bạn: docs/RA_SOAT_19_11.md.
 - 506 bài test đạt lúc rà soát; sau quyết định 19/11 09:03: **520 bài đạt** (trừ 2 test bản xem nhẹ, thêm 16). Đo lướt không đổi so với main. Chưa thử bằng chuột thật / DaVinci thật cho các sửa đổi này.
@@ -80,22 +83,22 @@ Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
 ## Trang Bước 3 In/Out: sóng âm + bảng quy tắc từng bin (đề bài 18/11, nhánh buoc3, ADR-0019) - CHỜ NGƯỜI DỰNG THỬ
 - **DEMO VÀ GIAO DIỆN BƯỚC 3 CHƯA ĐƯỢC ANH DUYỆT.** Anh miễn duyệt trước cho lượt này; Code tự làm demo (design/3_inout: index.html + 3_inout_demo.png 1440x900), rồi làm giao diện thật bám demo. Anh xem sau và có thể yêu cầu sửa bố cục.
 - Đã làm: trang Bước 3 riêng (cột trái clip theo bin có chấm cam/rỗng/xanh = đặt tay/có trong DaVinci/gợi ý; giữa trình phát proxy + sóng âm + thanh In/Out kéo tay + nút Ghi/Hoàn tác dùng lại ADR-0016; phải bảng quy tắc từng bin). Bước 2 vẫn xem clip nhưng không còn thanh In/Out. Phím: Space, I, O, mũi tên trái/phải (frame, Shift = 10), lên/xuống đổi clip, J sao; số KHÔNG xếp bin ở Bước 3.
-- Bảng quy tắc lưu theo project (plan["bin_rules"], plan["trad_trim_s"]); chưa sửa = gợi ý y hệt bản cũ (kiểm thử 31 tổ hợp), không có khóa mới trong file kế hoạch. Kiểm hợp lệ: số dương, min <= max. Sóng âm: ffmpeg đọc proxy (chỉ đọc), cache D:\VideoAI\data\cache	roly_wave\<project>\, nền, giới hạn 90 giây, không proxy thì báo "Chưa có proxy".
+- Bảng quy tắc lưu theo project (plan["bin_rules"], plan["trad_trim_s"]); chưa sửa = gợi ý y hệt bản cũ (kiểm thử 31 tổ hợp), không có khóa mới trong file kế hoạch. Kiểm hợp lệ: số dương, min <= max. Sóng âm: ffmpeg đọc proxy (chỉ đọc), cache D:\VideoAI\data\cache\troly_wave\<project>\, nền, giới hạn 90 giây, không proxy thì báo "Chưa có proxy".
 - Kiểm thử: 202 bài đạt (thêm 30: test_troly_rules_wave, test_troly_step3_web). Đã thử bằng bàn thử trình duyệt (giao diện + TrolyApi THẬT, Media Pool giả, proxy tự tạo): chọn clip, sóng âm, I/O/mũi tên/J/số, sửa bảng (số sai bị chặn), đổi bước 2 <-> 3 (trình phát chuyển chỗ); không lẹm mép ở 1440x900, 1100x700, 2560x1440 (4K 150%).
 - CHƯA thử: trong cửa sổ panel pywebview thật (chưa mở panel thật, chưa chụp màn hình panel thật), proxy thật ở F:\, DaVinci thật, ghi In/Out. PSC vẫn giống mặc định về số (chỉnh bảng nếu muốn khác).
 - Anh cần làm: mở panel, vào Bước 3, thử sóng âm + kéo mép + sửa bảng; xem demo design/3_inout và cho biết sửa bố cục gì.
 
 ## Bước 6 AI (18/11/2026, nhánh buoc6) - CHỜ ANH XEM, chưa có giao diện trong panel
 - Model OpenCLIP ViT-B/32 laion2B: D:\VideoAI\data\models\openclip_vitb32_laion2b\open_clip_model.safetensors (605 MB). Venv riêng: C:\VideoAI_ai_venv.
-- Chạy: `C:\VideoAI_ai_venv\Scripts\python.exe app	roly_ai.py all --project "<tên project>"` (embed | suggest | review; --stop để dừng, chạy lại làm tiếp).
-- Kết quả: D:\VideoAI\data	rolyi_suggest\<project>.json; trang xem D:\VideoAI\data	rolyi_review\<project>\index.html (mở bằng trình duyệt).
+- Chạy: `C:\VideoAI_ai_venv\Scripts\python.exe app\troly_ai.py all --project "<tên project>"` (embed | suggest | review; --stop để dừng, chạy lại làm tiếp).
+- Kết quả: D:\VideoAI\data\troly\ai_suggest\<project>.json; trang xem D:\VideoAI\data\troly\ai_review\<project>\index.html (mở bằng trình duyệt).
 - Đã chạy 4 project có cache thumbnail. Chỉ 1 project có đủ nhãn tay (324): gợi ý theo mô tả trùng 17% hạng 1, 58% trong 3 đầu => yếu, chỉ tham khảo. Học từ nhãn tay thử nhanh ~81%.
 - Một project không còn proxy nên thumbnail không ghép được tên clip.
 - Chưa làm: giao diện trong panel, học từ nhãn (few-shot), dùng giai đoạn/giờ quay để thu hẹp bin.
 
 ## Thống kê In/Out thật (18/11/2026) - anh ĐÃ DUYỆT bảng, đã áp làm mặc định
-- Đã đọc 2 project đã dựng (P1, P2; media online) bằng tools/inout_dump.py; sao lưu .drp ở D:\VideoAIackup\drp_20261118-102823 (15 MB). Đã mở lại đúng project gốc.
-- Số liệu: D:\VideoAI\data	roly\inout_stats\ (index.html, by_bin.csv, vs_rules.csv). Giải thích + bảng đề xuất: docs/adr/0021. Bảng giá trị ĐÃ ÁP vào BUILTIN_RULES (Nghi lễ 2,5–5, Chào bàn 3–4, Khách 2,5–4, Gia đình 3–4, Nhà trai đến 3–4,5, Cô dâu chú rể 2–3, Phỏng vấn 4–8,5). Bảng ghép tên bin giữa project vẫn chờ anh duyệt.
+- Đã đọc 2 project đã dựng (P1, P2; media online) bằng tools/inout_dump.py; sao lưu .drp ở D:\VideoAI\backup\drp_20261118-102823 (15 MB). Đã mở lại đúng project gốc.
+- Số liệu: D:\VideoAI\data\troly\inout_stats\ (index.html, by_bin.csv, vs_rules.csv). Giải thích + bảng đề xuất: docs/adr/0021. Bảng giá trị ĐÃ ÁP vào BUILTIN_RULES (Nghi lễ 2,5–5, Chào bàn 3–4, Khách 2,5–4, Gia đình 3–4, Nhà trai đến 3–4,5, Cô dâu chú rể 2–3, Phỏng vấn 4–8,5). Bảng ghép tên bin giữa project vẫn chờ anh duyệt.
 - Chưa tách Truyền thống/PSC (kế hoạch panel chưa chọn kiểu quay).
 
 ## Bước 6 AI nhúng vào panel (18/11/2026) - CHỜ ANH THỬ; demo + giao diện CHƯA được anh duyệt
