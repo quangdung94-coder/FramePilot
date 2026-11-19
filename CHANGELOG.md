@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 2026-11-19 – Nhiều camera, trang 1 (nhánh nhieu-camera-giao-dien, CHƯA gộp main, tag sao lưu truoc-nhieu-camera-ui)
+- Trang 1: thẻ máy A-D, đặt tên máy, chọn máy chuẩn, chỉnh đồng hồ bằng khoảnh khắc chung, độ lệch gõ tay, kiểm tra lệch, thanh thời gian mỗi máy một hàng, chip máy cạnh bin. ADR-0031. Không ghi gì vào DaVinci.
+- Thêm app/troly_cams.py, TrolyApi.cams_*, app/troly_web/cam.js + cam.css, tools/harness_cam.py; 22 bài test mới, 555 bài đạt. Chưa thử trên project nhiều máy thật.
+
 ## 2026-11-19 – Bước 2: phím giai đoạn đổi sang F1–F12 (nhánh doi-phim-giai-doan-f, CHƯA gộp main, tag sao lưu truoc-doi-phim-f)
 - F1–F12 chọn giai đoạn rồi chờ số bin con; Shift+số hết là phím giai đoạn. Đọc event.code, chặn mặc định F1/F5/F11/F12, cảnh báo trên giao diện khi quá 12 giai đoạn. ADR-0030.
 - Cập nhật nhãn (Media Pool, dòng nhắc phím, menu chuột phải), TRANG_THAI, ADR-0009. 533 bài test đạt (thêm 7). Chưa thử trên panel thật.

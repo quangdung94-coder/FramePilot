@@ -7,6 +7,7 @@
 <!-- Giao diện theo demo đã duyệt docs/03-design/troly_demo/*.dc.html (ADR-0010). Chức năng ở src/troly_api.py. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="cam.css">
 </head>
 <body>
 <div id="app">
@@ -47,7 +48,7 @@
 </header>
 
 <!-- ======================= BƯỚC 1: GIAI ĐOẠN ======================= -->
-<main class="page" id="page1">
+<main class="page one" id="page1">
   <aside class="col-left">
     <div class="row-between baseline">
       <h2>Giai đoạn trong ngày</h2>
@@ -60,7 +61,8 @@
       <button class="btn" id="suggestBtn" title="Chia lại giai đoạn theo các khoảng nghỉ quay dài nhất">Gợi ý lại</button>
     </div>
     <div class="flex1"></div>
-    <div class="note-box" id="camBox"></div>
+    <div class="later-box multi" id="syncBox"></div>
+    <div class="note-box multi">Giai đoạn chia theo <b style="color:var(--dim2)">giờ chung</b> (giờ máy đã cộng độ lệch). Một giai đoạn chứa clip của mọi máy.</div>
     <div class="note-box">Giờ quay lấy từ ngày giờ ghi trong mỗi file. Kéo hai đầu của từng khoảng màu trên thanh thời gian để chỉnh giờ bắt đầu và kết thúc. Bấm vào giai đoạn để sửa tên, giờ, bin con.</div>
   </aside>
 
@@ -68,7 +70,7 @@
     <div class="row-between end">
       <div class="title-block">
         <h1>Thanh thời gian buổi quay</h1>
-        <span class="dim13">Mỗi vạch là một file quay, đặt đúng theo giờ máy quay ghi lại</span>
+        <span class="dim13" id="tlSub">Mỗi hàng là một máy, mỗi vạch là một file, theo giờ chung</span>
       </div>
       <div class="inline8">
         <label for="from" class="lbl">Hiển thị từ</label>
@@ -78,9 +80,15 @@
       </div>
     </div>
 
+    <div class="v8" id="camSec">
+      <div class="row-between baseline" style="flex-wrap:wrap"><h2>Máy quay trong project</h2><span class="dim12">Trợ lý đọc dòng máy từ metadata. Bạn đặt tên: không để trống, không trùng.</span></div>
+      <div class="cam-cards" id="camCards"></div>
+      <div class="cam-grp" id="camGroups"></div>
+    </div>
+
     <div class="tl-card" id="tlCard">
       <div class="ruler" id="ruler"></div>
-      <div class="density" id="density"></div>
+      <div class="dens-wrap" id="density"></div>
       <div class="bands" id="bands"></div>
       <div class="tl-foot">
         <span id="gapText">Chưa đọc clip</span>
@@ -91,17 +99,30 @@
     <div class="v12">
       <h2>Bin sẽ tạo trong Media Pool</h2>
       <div class="bin-grid" id="binGrid"></div>
+      <span class="dim12 multi">Một bin cho mọi máy. Máy nào có clip trong bin thì hiện chữ cái màu cạnh tên bin.</span>
     </div>
 
     <div class="flex1"></div>
-    <div class="row-between center">
-      <button class="btn-link hidden" id="undoBtn1">Hoàn tác lần chuyển gần nhất</button>
+    <div class="row-between center sticky-bot">
+      <span class="inline12"><button class="btn-link multi" id="resetAll">Đặt lại độ lệch</button><button class="btn-link hidden" id="undoBtn1">Hoàn tác lần chuyển gần nhất</button></span>
       <div class="inline12">
         <button class="btn btn-lg" id="saveTpl">Lưu mẫu giờ cho đám sau</button>
         <button class="btn-accent btn-lg" id="applyBtn1">Tạo bin và sang bước phân loại</button>
       </div>
     </div>
   </section>
+
+  <!-- Phải: chỉnh đồng hồ máy (nhiều camera, ADR-0031). Một máy: chỉ hiện ô giải thích. -->
+  <aside class="col-right clock" id="clockCol">
+    <div class="multi" style="display:contents" id="clockMulti"></div>
+    <div class="one-only one-box">
+      <b>Project này chỉ có 1 máy</b>
+      <span>Không cần chỉnh đồng hồ, giờ máy chính là giờ chung. Thanh thời gian chỉ có một hàng.</span>
+      <span class="dim12">Khi bạn import thêm source của máy khác, phần chỉnh đồng hồ tự hiện ra ở đây.</span>
+    </div>
+    <div class="flex1"></div>
+    <span class="dim12">Chưa ghi gì vào DaVinci. Độ lệch chỉ lưu trong Trợ lý, file gốc không bị đổi tên hay sửa giờ.</span>
+  </aside>
 </main>
 
 <!-- ======================= BƯỚC 2: PHÂN LOẠI ======================= -->
@@ -405,6 +426,7 @@
 </div>
 </div>
 <script src="app.js"></script>
+<script src="cam.js"></script>
 <script src="player.js"></script>
 <script src="speech.js"></script>
 <script src="step3.js"></script>

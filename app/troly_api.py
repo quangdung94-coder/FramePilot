@@ -22,6 +22,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import troly_core as tc           # noqa: E402
+import troly_cams as cm           # noqa: E402
 import troly_resolve as tr        # noqa: E402
 import troly_thumbs as tt         # noqa: E402
 import troly_ai as ai             # noqa: E402
@@ -58,6 +59,7 @@ class TrolyApi(object):
         self._autoload = bool(self._plan.get("source_bin"))   # mở lại panel: tự nạp clip của bin nguồn đã dùng
         self._new_n, self._gone_n = 0, 0
         self._dup_keys = set()
+        self._cam_groups = []             # nhóm máy nhận từ clip đã đọc (ADR-0031), tính lại mỗi lần Đọc clip
         self._clips, self._by_uid, self._day0 = [], {}, None
         self._assign = {}
         self._bins = []
@@ -207,6 +209,7 @@ class TrolyApi(object):
                                          "count": len(by_bin.get(b, []))}
                                         for j, b in enumerate(s["bins"])]})
             clips = []
+            cam_cfg = self._cams_cfg()
             for c in self._clips:
                 m = tc.clip_minutes(c, self._day0, self._plan["offsets"]) if self._day0 else None
                 si = self._assign.get(c.uid)
@@ -222,7 +225,8 @@ class TrolyApi(object):
                               "manual": bool(tc.manual_of(self._plan, c)), "camera": c.camera, "src": c.t_src, "lut": c.lut or "", "bin_path": c.bin_path,
                               "thumb": c.uid in self._thumb_done and bool(self._thumb_done[c.uid][0]),
                               "in_s": in_s, "out_s": out_s, "io_src": io_src, "dv": dv, "fps": fps, "tc": c.tc or "", "sug": sug,
-                              "star": tc.is_starred(self._plan, c)})
+                              "star": tc.is_starred(self._plan, c),
+                              "cam_l": cam_cfg["map"].get(c.camera, ""), "raw_s": self._raw_s(c)})
             gap = None
             if self._day0 and self._clips:
                 gs = tc.gaps(self._clips, self._day0, self._plan["offsets"])
@@ -240,6 +244,7 @@ class TrolyApi(object):
                     "shoot_style": self._plan.get("shoot_style") or "",
                     "rules": self._rules_state(),
                     "stages": stages, "outside": outside, "clips": clips, "gap": gap,
+                    "cams": self._cams_view(cam_cfg, clips),
                     "cameras": [{"cam": k, "n": v, "off": self._plan["offsets"].get(k, 0)} for k, v in
                                 cams.most_common()],
                     "template": self._plan.get("template") or tc.DEFAULT_TEMPLATE,
@@ -498,6 +503,7 @@ class TrolyApi(object):
             self._suggest(self._plan.get("template"))
         kc = collections.Counter(tc.clip_key(c) for c in self._clips)
         self._dup_keys = {k for k, v in kc.items() if v > 1}            # hai clip khác nhau cùng khóa (vd. hai thẻ Sony cùng CLIP/C0001.MP4)
+        self._cams_refresh()
         keys = set(kc)
         prev = set(self._plan.get("seen") or [])
         self._new_n = len(keys - prev) if (same and prev) else 0       # clip MỚI kể từ lần đọc trước (chưa phân loại)
@@ -591,6 +597,186 @@ class TrolyApi(object):
                 self._plan["offsets"].pop(cam, None)
             self._save_soon()
             return self.state()
+
+    # ------------------------------------------------------------------ NHIỀU CAMERA, trang 1 (ADR-0031)
+    # Chỉ đổi kế hoạch của Trợ lý (plan["cams"], plan["offsets"]). KHÔNG ghi gì vào DaVinci, không đụng file gốc.
+    def _raw_s(self, c):
+        """Giây kể từ 0:00 của ngày quay theo ĐỒNG HỒ MÁY (chưa cộng độ lệch)."""
+        if not c.t_start or not self._day0:
+            return None
+        return (c.t_start - datetime.datetime.combine(self._day0, datetime.time())).total_seconds()
+
+    def _cams_cfg(self):
+        cfg = cm.clean_cfg(self._plan.get("cams"))
+        self._plan["cams"] = cfg
+        return cfg
+
+    def _cams_refresh(self):
+        """Sau Đọc clip: nhận nhóm máy, gán chữ cho nhóm mới, đồng bộ độ lệch hiệu lực vào plan['offsets']."""
+        with self._lock:
+            self._cam_groups = cm.describe_groups(self._clips, self._raw_s)
+            cfg = self._cams_cfg()
+            cm.ensure_groups(cfg, self._cam_groups)
+            self._cams_sync(cfg)
+
+    def _cams_sync(self, cfg):
+        """Ghi độ lệch hiệu lực (theo khóa nhóm) vào plan['offsets'), chỗ clip_minutes đọc. Chỉ đụng khóa nhóm khi đã có chỉnh đồng hồ
+        (shift) hoặc đã bấm gì ở trang này (managed), nên project 1 máy và lệch giờ cũ chạy y như trước."""
+        if not (cfg["shift"] or cfg.get("managed")):
+            return
+        keys = [g["key"] for g in self._cam_groups]
+        for k in keys:
+            self._plan["offsets"].pop(k, None)
+        self._plan["offsets"].update(cm.effective_offsets(cfg, keys))
+
+    def _cams_view(self, cfg, clips):
+        groups = self._cam_groups
+        if not groups:
+            return {"multi": False, "groups": [], "cards": [], "ref": cfg["ref"], "names": cfg["names"], "unassigned": [], "ambiguous": [], "moment": {}}
+        letters = cm.letters_in_use(cfg, groups)
+        span = {}
+        for c in clips:
+            L = c.get("cam_l")
+            if L and c["m0"] is not None:
+                a, b = span.get(L, (c["m0"], c["m1"]))
+                span[L] = (min(a, c["m0"]), max(b, c["m1"]))
+        cnt = collections.Counter(c.get("cam_l") for c in clips)
+        ref = cfg["ref"] if cfg["ref"] in letters else (letters[0] if letters else cfg["ref"])
+        cards = []
+        for L in letters:
+            gs = [g for g in groups if cfg["map"].get(g["key"]) == L]
+            sh = cfg["shift"].get(L)
+            sp = span.get(L)
+            cards.append({"letter": L, "name": cfg["names"][L], "n": cnt.get(L, 0),
+                          "model": " + ".join(dict.fromkeys(g["model"] for g in gs if g["model"])) or "Chưa rõ model",
+                          "serial": " + ".join(dict.fromkeys(g["serial"] for g in gs if g["serial"])),
+                          "span": "%s – %s" % (tc.fmt_min(sp[0], False), tc.fmt_min(sp[1], False)) if sp else "",
+                          "is_ref": L == ref, "set": sh is not None, "shift": sh or 0.0,
+                          "shift_txt": cm.fmt_offset(sh) if sh is not None else "",
+                          "keys": [g["key"] for g in gs]})
+        unassigned = [g["key"] for g in groups if not cfg["map"].get(g["key"])]
+        return {"multi": len(letters) > 1 or bool(unassigned),
+                "groups": [{"key": g["key"], "n": g["n"], "model": g["model"], "serial": g["serial"], "maker": g["maker"],
+                            "source": g["source"], "ambiguous": g["ambiguous"], "letter": cfg["map"].get(g["key"], "")} for g in groups],
+                "cards": cards, "ref": ref, "names": cfg["names"], "unassigned": unassigned,
+                "ambiguous": [g["key"] for g in groups if g["ambiguous"]],
+                "moment": cfg["moment"]}
+
+    def _cams_done(self, cfg, msg=None, kind="ok"):
+        cfg["managed"] = True
+        self._plan["cams"] = cfg
+        self._cams_sync(cfg)
+        self._recount()
+        self._save_soon()
+        st = self.state()
+        if msg:
+            st["cam_msg"] = {"kind": kind, "text": msg}
+        return st
+
+    def cams_assign(self, key, letter):
+        """Gán tay một nhóm máy vào chữ A-D (hoặc "" = chưa gán). Nhiều nhóm cùng một chữ = gộp thành một máy."""
+        with self._lock:
+            cfg = self._cams_cfg()
+            if not any(g["key"] == key for g in self._cam_groups) or letter not in tuple(cm.LETTERS) + ("",):
+                return {"error": "Không có nhóm máy hoặc chữ cái này."}
+            cfg["map"][key] = letter
+            return self._cams_done(cfg)
+
+    def cams_rename(self, letter, name):
+        with self._lock:
+            cfg = self._cams_cfg()
+            ok, v = cm.check_name(cfg, letter, name)
+            if not ok:
+                return {"error": v}
+            cfg["names"][letter] = v
+            return self._cams_done(cfg)
+
+    def cams_set_ref(self, letter):
+        with self._lock:
+            cfg = self._cams_cfg()
+            if letter not in cm.letters_in_use(cfg, self._cam_groups):
+                return {"error": "Máy %s chưa có clip nào." % letter}
+            cm.set_ref(cfg, letter)
+            return self._cams_done(cfg, "Giờ chung nay là giờ %s. Độ lệch của các máy đã chỉnh được tính lại." % cfg["names"][letter])
+
+    def _cams_put(self, cfg, letter, val, warn, moment=None, overlap=None):
+        if letter == cfg["ref"]:
+            return {"error": "Máy chuẩn không cần chỉnh: giờ chung chính là giờ máy này."}
+        if letter not in cm.letters_in_use(cfg, self._cam_groups):
+            return {"error": "Máy %s chưa có clip nào." % letter}
+        name = cfg["names"][letter]
+        if cfg["shift"].get(letter) == val:
+            return self._cams_done(cfg, "Độ lệch này đã được áp dụng cho %s rồi." % name, "warn")
+        if val:
+            cfg["shift"][letter] = float(val)
+        else:
+            cfg["shift"].pop(letter, None)
+        if moment:
+            cfg["moment"][letter] = moment
+        else:
+            cfg["moment"].pop(letter, None)
+        text = "Đã áp dụng %s cho %s." % (cm.fmt_offset(val), name)
+        kind = "ok"
+        if overlap is not None and overlap <= 0:
+            text, kind = "Đã áp dụng %s, nhưng sau khi chỉnh clip hai máy không chồng nhau. Có thể chọn nhầm khoảnh khắc." % cm.fmt_offset(val), "warn"
+        elif warn:
+            text, kind = "Đã áp dụng. " + warn, "warn"
+        return self._cams_done(cfg, text, kind)
+
+    def cams_apply(self, letter, text):
+        """Áp độ lệch gõ tay ±giờ:phút:giây cho máy letter (so với máy chuẩn)."""
+        with self._lock:
+            cfg = self._cams_cfg()
+            ok, v, warn = cm.parse_offset(text)
+            if not ok:
+                return {"error": v}
+            return self._cams_put(cfg, letter, v, warn)
+
+    def cams_moment(self, letter, uid_ref, pos_ref, uid_cam, pos_cam):
+        """Tính độ lệch từ MỘT KHOẢNH KHẮC CHUNG: clip của máy chuẩn ở giây pos_ref và clip của máy letter ở giây pos_cam là cùng một cảnh.
+        Chỉ trả số để giao diện hiện, chưa áp (áp bằng cams_apply_moment)."""
+        with self._lock:
+            cfg = self._cams_cfg()
+            r, x = self._by_uid.get(uid_ref), self._by_uid.get(uid_cam)
+            if r is None or x is None or self._raw_s(r) is None or self._raw_s(x) is None:
+                return {"error": "Chưa chọn đủ hai clip có giờ quay."}
+            if cfg["map"].get(r.camera) != cfg["ref"]:
+                return {"error": "Khung bên trái phải là clip của máy chuẩn (%s)." % cfg["names"][cfg["ref"]]}
+            if cfg["map"].get(x.camera) != letter:
+                return {"error": "Khung bên phải phải là clip của %s." % cfg["names"].get(letter, letter)}
+            try:
+                pr, px = float(pos_ref), float(pos_cam)
+            except (TypeError, ValueError):
+                return {"error": "Vị trí khung phải là số giây."}
+            v = cm.offset_from_moment(self._raw_s(r), pr, self._raw_s(x), px)
+            ov = cm.overlap_after(self._raw_s(r), r.dur or 0, self._raw_s(x), x.dur or 0, v)
+            return {"offset": v, "text": cm.fmt_offset(v), "overlap": ov,
+                    "ref_time": self._raw_s(r) + pr, "cam_time": self._raw_s(x) + px}
+
+    def cams_apply_moment(self, letter, uid_ref, pos_ref, uid_cam, pos_cam):
+        with self._lock:
+            m = self.cams_moment(letter, uid_ref, pos_ref, uid_cam, pos_cam)
+            if "error" in m:
+                return m
+            ok, v, warn = cm.parse_offset(m["text"])
+            if not ok:
+                return {"error": v}
+            cfg = self._cams_cfg()
+            r, x = self._by_uid[uid_ref], self._by_uid[uid_cam]
+            return self._cams_put(cfg, letter, v, warn, {"ref": [r.rel or r.name, float(pos_ref)], "cam": [x.rel or x.name, float(pos_cam)]}, m["overlap"])
+
+    def cams_reset(self, letter=None):
+        """Đặt lại độ lệch của một máy (hoặc mọi máy) về 0 (chưa chỉnh)."""
+        with self._lock:
+            cfg = self._cams_cfg()
+            if letter:
+                cfg["shift"].pop(letter, None)
+                cfg["moment"].pop(letter, None)
+                text = "Đã đặt lại độ lệch của %s về 0." % cfg["names"].get(letter, letter)
+            else:
+                cfg["shift"], cfg["moment"] = {}, {}
+                text = "Đã đặt lại độ lệch của mọi máy về 0."
+            return self._cams_done(cfg, text, "warn")
 
     def save_template(self, name):
         name = (name or "").strip()

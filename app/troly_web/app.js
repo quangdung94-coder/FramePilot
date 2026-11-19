@@ -101,6 +101,7 @@ function render(rebuildItems) {
   const p = INFO.parsed || {};
   const parts = [p.team ? p.team + " · " + p.name : p.name || INFO.project, p.date].filter(Boolean);
   if (S) parts.push(S.n + " file");
+  if (S && S.cams && S.cams.cards.length) parts.push(S.cams.cards.length + " máy");
   $("sub").textContent = parts.join(" · ");
   document.querySelectorAll(".step").forEach((a) => {
     const n = +a.dataset.page;
@@ -174,10 +175,7 @@ function renderPage1() {
         <div class="row-end"><button class="btn-del" data-act="del">Xóa giai đoạn</button><button class="btn" data-act="save" style="height:32px">Lưu</button></div>
       </div>` : ""}
     </div>`).join("");
-  // lệch giờ theo máy
-  const cams = S ? S.cameras : [];      // một máy thì lệch giờ không đổi gì (giai đoạn chỉnh tay): chỉ hiện khi >= 2 máy
-  $("camBox").innerHTML = cams.length > 1 ?`<b style="color:var(--dim2)">Lệch giờ theo máy (giây)</b>` + cams.map((c) =>
-    `<div class="cam-row"><span>${esc(c.cam)} · ${c.n} file</span><input class="inp" data-cam="${esc(c.cam)}" value="${c.off || 0}"></div>`).join("") : "";
+  renderCams();                          // nhiều camera (cam.js): thẻ máy, nhóm máy, cột chỉnh đồng hồ
   $("from").value = fmt(view[0]); $("to").value = fmt(view[1]);
   renderTimeline();
   renderBinGrid();
@@ -192,12 +190,7 @@ function renderTimeline() {
     h +=`<span style="left:${left.toFixed(3)}%">${fmt(t)}</span>`;
   }
   $("ruler").innerHTML = h;
-  let d = "";
-  if (S) for (const c of S.clips) {
-    if (c.m0 == null || c.m1 < view[0] || c.m0 > view[1]) continue;
-    d += `<i style="left:${pct(c.m0)}"></i>`;             // vạch mảnh 2 px như demo, đặt ở giờ bấm quay
-  }
-  $("density").innerHTML = d;
+  $("density").innerHTML = camRowsHtml();                // mỗi máy một hàng, vạch mảnh 2 px đặt ở giờ bấm quay (cam.js)
   $("bands").innerHTML = (S ? S.stages : []).map((s, i) => `
     <div class="band" data-i="${i}" style="left:${pct(s.start)};width:${((s.end - s.start) / span * 100).toFixed(3)}%;background:${s.color}26;border-color:${s.color}">
       <div class="h l" data-mode="start" style="background:${s.color}"></div><div class="h r" data-mode="end" style="background:${s.color}"></div>
@@ -212,7 +205,7 @@ function renderTimeline() {
 
 function renderBinGrid() {
   if (!S || !S.stages.length) { $("binGrid").innerHTML = `<div class="empty">Bấm "Đọc clip" để đọc giờ quay và chia giai đoạn.</div>`; return; }
-  let h = S.stages.map((s) => `<div class="bin-card">${folder(s.color, 20)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span></div>`).join("");
+  let h = S.stages.map((s) => `<div class="bin-card">${folder(s.color, 20)}<span class="t">${esc(s.bin)}</span>${camChipsOfStage(S.stages.indexOf(s))}<span class="dim12">${s.count}</span></div>`).join("");
   if (S.outside) h += `<div class="bin-card">${folder("#6A6A72", 20)}<span class="t" style="color:var(--dim)">Giữ nguyên chỗ cũ</span><span class="dim12">${S.outside}</span></div>`;
   $("binGrid").innerHTML = h;
 }
@@ -310,10 +303,6 @@ async function saveStage(i, card) {
   }
   api().set_stage(i, f).then((st) => { if (st.error) return status(st.error, "warn"); editIdx = null; setState(st); });
 }
-$("camBox").addEventListener("change", (e) => {
-  const c = e.target.dataset.cam; if (c === undefined) return;
-  api().set_offset(c, e.target.value).then(setState);
-});
 $("clearManual").onclick = async () => {
   if (await ask("Bỏ chọn tay", `Bỏ chọn tay của ${S.n_manual} clip? Các clip này quay về giai đoạn tính theo giờ quay.<br>(Nhãn bin con đã xếp vẫn giữ, chỉ có hiệu lực khi clip về đúng giai đoạn của nhãn.)`, "Bỏ chọn tay")) {
     setState(await api().clear_manual()); status("Đã bỏ chọn tay.", "ok");

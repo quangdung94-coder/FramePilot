@@ -118,6 +118,12 @@ def camera_key(props):
     return "%s %s" % (prefix, props.get("Resolution") or "")
 
 
+def _cam_meta(props):
+    """(hãng, model, serial) máy quay đọc từ metadata (ADR-0031); thiếu thì chuỗi rỗng."""
+    import troly_cams
+    return troly_cams.meta(props)
+
+
 def minutes_of(dt, day0):
     """Phút kể từ 0:00 của ngày day0 (date)."""
     base = datetime.datetime.combine(day0, datetime.time())
@@ -148,7 +154,7 @@ class Clip(object):
     """Một clip trong media pool, chỉ giữ những gì Trợ lý cần."""
 
     __slots__ = ("uid", "name", "path", "proxy", "lut", "dur", "fps", "frames", "t_start", "t_src", "camera",
-                 "bin_path", "clip_color", "rel", "mark_in", "mark_out", "tc")
+                 "bin_path", "clip_color", "rel", "mark_in", "mark_out", "tc", "cam_maker", "cam_model", "cam_serial")
 
     def __init__(self, **kw):
         for k in self.__slots__:
@@ -163,7 +169,8 @@ class Clip(object):
     def from_props(cls, uid, props, bin_path="", mark_in=None, mark_out=None):
         t, src = shoot_time(props)
         path = props.get("File Path") or ""
-        return cls(uid=uid, name=props.get("File Name") or props.get("Clip Name") or "", path=path,
+        maker, model, serial = _cam_meta(props)
+        return cls(cam_maker=maker, cam_model=model, cam_serial=serial, uid=uid, name=props.get("File Name") or props.get("Clip Name") or "", path=path,
                    proxy=props.get("Proxy Media Path") or "", lut=props.get("Input LUT") or "",
                    dur=clip_duration_s(props), fps=float(props.get("FPS") or 0) or None,
                    frames=int(float(props.get("Frames") or 0)), t_start=t, t_src=src, camera=camera_key(props),

@@ -2,6 +2,11 @@
 
 Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
 
+## Nhiều camera, trang 1 (nhánh nhieu-camera-giao-dien, 19/11/2026, CHƯA gộp main, tag sao lưu truoc-nhieu-camera-ui) - 555 test đạt
+- Đã làm trang 1 của giao diện nhiều camera (ADR-0031): thẻ máy A-D (nhận từ metadata, nhóm nhập nhằng để gán tay), đặt tên máy, máy chuẩn, chỉnh đồng hồ bằng khoảnh khắc chung hoặc gõ tay, thanh thời gian mỗi máy một hàng, chip máy ở bin, kiểm tra lệch (cảnh báo > 3 giờ, chặn > 12 giờ).
+- Đã thử bằng DaVinci GIẢ trong trình duyệt (tools/harness_cam.py) và so ảnh với demo; CHƯA thử trên project nhiều máy thật.
+- Còn: trang 2 (làn ngang theo máy, tô màu clip chỉ khi bấm Áp dụng) và trang 3 (In/Out mỗi máy). Mỗi trang dừng chờ người dựng thử.
+
 ## Sửa lỗi Bước 3 và Khung xem trước (nhánh sua-loi-p3pad-showimg, 19/11/2026) - 526 test đạt
 - Đã sửa 2 lỗi phát hiện qua review:
   1. `p3Pad` (app/troly_web/step3.js): đồng bộ giá trị đệm đã lưu từ kế hoạch lên ô nhập giao diện Bước 3 (`g.pad != null`). Trước đó mở lại panel luôn hiện 0.3 dù kế hoạch lưu số khác. Test: `tests/test_sua_loi_p3pad.py`.
