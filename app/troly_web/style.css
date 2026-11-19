@@ -525,7 +525,7 @@ button, input, select { font-family: inherit; }
 .dragging { opacity: .45; }
 .tl-lg { display: flex; gap: 18px; font-size: 12px; color: var(--dim2); align-items: center; padding-left: 54px; flex-wrap: wrap; }
 .tl-bot { display: flex; gap: 12px; align-items: flex-start; }
-.tl-ord { flex: 1; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.tl-ord { flex: 1; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; overflow-x: auto; }
 .tl-oh { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; margin-bottom: 6px; flex-wrap: wrap; }
 .tl-ctl2 { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .tl-lkb { width: 32px; height: 30px; border-radius: 6px; border: 1px solid var(--btn-line); background: var(--btn); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }

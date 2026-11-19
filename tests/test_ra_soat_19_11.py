@@ -352,6 +352,18 @@ class SpeechTimeouts(unittest.TestCase):
         self.assertTrue(all(isinstance(t, (int, float)) and t > 0 for t in seen), seen)
 
 
+class Step5NarrowOverlap(unittest.TestCase):
+    def test_bang_khoi_buoc5_khong_de_sang_the_ben_canh_khi_cua_so_hep(self):
+        """Lỗi (Nhẹ, lẹm mép): cửa sổ 1100 px (cỡ nhỏ nhất), hàng của bảng 'Thứ tự trong cụm' rộng hơn thẻ -> nút Bật/Tắt tiếng đè lên
+        thẻ 'Chưa đạt mục tiêu'. Thẻ phải tự cuộn ngang (chụp màn hình pywebview thật 1100x680, 150%)."""
+        import re
+        with open(os.path.join(HERE, "..", "app", "troly_web", "style.css"), encoding="utf-8") as f:
+            css = f.read()
+        m = re.search(r"\.tl-ord\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(m)
+        self.assertRegex(m.group(1), r"overflow-x\s*:\s*auto")
+
+
 # --------------------------------------------------------------------------- hai cửa sổ FramePilot cùng một project
 class SingleInstance(unittest.TestCase):
     def test_cua_so_thu_hai_cung_project_bi_chan(self):
