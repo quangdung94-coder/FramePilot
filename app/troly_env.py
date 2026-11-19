@@ -64,6 +64,35 @@ def connect_resolve():
     return resolve
 
 
+def instance_lock(data_root, project):
+    """Mỗi project chỉ MỘT cửa sổ FramePilot: hai cửa sổ cùng project giữ hai bản kế hoạch trong bộ nhớ và ghi đè nhau (mất nhãn/sao).
+    Khóa một byte của <data_root>\\troly\\locks\\<project>.lock (msvcrt.locking). Trả file đang giữ khóa (giữ đến hết đời tiến trình,
+    tiến trình chết thì Windows tự nhả), hoặc None nếu cửa sổ khác đang giữ. Không khóa được vì lý do khác (ổ chỉ đọc...) thì cho chạy."""
+    import troly_core as tc
+    d = os.path.join(data_root, "troly", "locks")
+    try:
+        os.makedirs(d, exist_ok=True)
+        f = open(os.path.join(d, tc._safe(project) + ".lock"), "a+b")
+    except OSError:
+        return _NoLock()
+    try:
+        import msvcrt
+    except ImportError:                                                       # không phải Windows
+        return f
+    try:
+        f.seek(0)
+        msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        return f
+    except OSError:
+        f.close()
+        return None
+
+
+class _NoLock(object):
+    def close(self):
+        pass
+
+
 _JOB = None
 
 

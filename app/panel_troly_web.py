@@ -72,6 +72,10 @@ def main():
         fail("Không đọc được config.json (data_root).")
     if not a.project:
         fail("Hãy mở Trợ lý từ menu Workspace > Scripts của DaVinci (hoặc chạy với --project).")
+    lock = troly_env.instance_lock(data_root, a.project)        # giữ đến khi đóng cửa sổ (biến cục bộ sống tới hết main)
+    if lock is None:
+        fail("FramePilot đang mở cho project \"%s\" ở một cửa sổ khác. Hãy dùng cửa sổ đó (hai cửa sổ cùng project sẽ ghi đè nhãn của nhau)."
+             % a.project)
 
     holder = {}
 
