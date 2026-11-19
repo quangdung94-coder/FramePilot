@@ -7,3 +7,13 @@ projects/*.json
 *.bak
 *.corrupt-*
 *.log
+# rà soát 19/11: video, âm thanh, kho dữ liệu không bao giờ lên Git
+*.mp4
+*.MP4
+*.mov
+*.MOV
+*.mxf
+*.wav
+*.sqlite
+*.npz
+*.lock
