@@ -24,7 +24,9 @@ class Ten(unittest.TestCase):
 
     def test_cua_so_pywebview_va_taskbar(self):
         p = rd("app", "panel_troly_web.py")
-        self.assertIn('"FramePilot - " + a.project', p)                                        # tiêu đề cửa sổ
+        self.assertIn("troly_env.window_title(a.project)", p)                                  # tiêu đề cửa sổ (S3 19/11: dùng chung với đoạn tìm cửa sổ cũ)
+        import troly_env
+        self.assertEqual(troly_env.window_title("X"), "FramePilot - X")
         self.assertIn('APP_ID = "FramePilot"', p)                                              # nhóm riêng trên taskbar (không gộp với python.exe)
         self.assertIn("SetCurrentProcessExplicitAppUserModelID(APP_ID)", p)
         self.assertIn("win.events.shown += lambda: set_window_icon(win)", p)
