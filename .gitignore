@@ -17,3 +17,5 @@ projects/*.json
 *.sqlite
 *.npz
 *.lock
+# học từ project cũ: file cấu hình local có TÊN KHÁCH THẬT, không bao giờ commit
+hoc_tu_cu.local.json
