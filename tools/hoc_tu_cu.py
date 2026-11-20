@@ -121,7 +121,12 @@ def stage_resolve(todo, local, ddir, state, keep_tmp):
     orig = cur.GetName() if cur else None
     log("Project đang mở: %s" % ("(có)" if orig else "(không)"))
     if cur and not pm.SaveProject():
-        sys.exit("SaveProject project đang mở lỗi, dừng (không đụng gì).")
+        time.sleep(2)
+        if not pm.SaveProject():
+            print("\nDaVinci không cho tool tự lưu project đang mở (hay gặp khi project mới/chưa lưu lần nào).")
+            print("Anh bấm Ctrl+S trong DaVinci để lưu tay (hoặc bỏ qua nếu project đó không quan trọng).")
+            if input("Xong thì gõ Y rồi Enter để chạy tiếp, phím khác để thoát (chưa đụng gì): ").strip().lower() != "y":
+                sys.exit("Đã dừng, chưa làm gì.")
     made = []
     try:
         for code in todo:
