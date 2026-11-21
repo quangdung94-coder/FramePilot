@@ -1,6 +1,19 @@
 # Trạng thái FramePilot, trước đây "Trợ lý File Quay" (cập nhật 19/11/2026)
 
-Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước.
+Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước. Agent khác (Antigravity): đọc AGENTS.md và docs/VIEC_TIEP_THEO.md.
+
+## Ghi tạm khi không có Notion (Claude đồng bộ sang Notion khi người dùng nói "đồng bộ", rồi dọn khối này)
+Mẫu một dòng: `- 21/11 | Nhóm A-E | việc ngắn | Chờ anh thử / Đang làm / Xong | commit abc1234`
+(chưa có dòng nào)
+
+## Tool học từ 5 project cũ (20/11/2026) - CHỜ ANH CHẠY
+- tools/hoc_tu_cu.py (+ hoc_tu_cu_phan_tich.py). Lệnh: `& C:\VideoAI_venv\Scripts\python.exe tools\hoc_tu_cu.py` (gõ Y để chạy; --thu LV_B --mau-toi-da 20 để thử nhỏ). Cần mở DaVinci, cắm đủ HDD/SSD. Kết quả: D:\VideoAI\data\hoc_tu_cu	ong_hop.json. Chưa chạy thật.
+
+## B7 Space ở Bước 2 (19/11/2026) - CHỜ ANH THỬ, CHƯA commit
+- Space phát/dừng clip đang chọn nếu có proxy; chưa có proxy thì báo lý do trên thanh trạng thái (trước đó im lặng). Chặn keyup Space. 577 test đạt. Chưa có ảnh chụp chữ rút gọn. Muốn phát khi không có proxy phải mở rộng máy chủ phát sang file gốc: chưa làm, chờ anh quyết.
+
+## Lỗi Tự phân loại AI Bước 2 xếp 0 clip (19/11/2026) - CHỜ ANH THỬ, CHƯA commit
+- Gốc: proxy của project 2026.10.25.PHK_Baoluan&KimNga rỗng nên AI chỉ nhúng ảnh mồ côi, không ghép được clip. Nay báo rõ lý do (hộp Gợi ý AI + thanh trạng thái), không ghi nhãn. Test mới tests/test_troly_ai_khong_ghep.py, 574 test đạt. Chưa chụp cửa sổ panel thật. Theo ý anh đã BỎ ràng buộc proxy: AI ghép ảnh theo danh sách clip panel ghi (clips.json), proxy rỗng vẫn chạy (thử thật: xếp 73 clip nhóm 01). Anh chỉ cần bấm Tự phân loại lại. Notion: dòng chuyển Chờ anh thử, không tự đặt Xong.
 
 ## Bước 1 chọn mốc giai đoạn bằng thumbnail (nhánh nhieu-camera-giao-dien, 19/11/2026, CHƯA gộp main, ADR-0033) - 570+ test đạt
 - Tab "1 · Giai đoạn" thành màn hình chọn mốc theo demo design/trang1_chon_moc: bấm clip rồi F1…F9 = mốc ĐẦU, Shift+F = mốc CUỐI; luật chặn đầu sau cuối; nhiều máy thì giai đoạn liền nhau, 1 máy vẫn có khoảng trống; cây Media bin thật; lưới thumbnail; thông tin clip. Tạo bin giữ nguyên logic cũ.

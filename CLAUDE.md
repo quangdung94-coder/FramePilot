@@ -1,5 +1,7 @@
 # FramePilot, trước 18/11/2026 tên là "Trợ lý File Quay" (panel DaVinci Resolve)
 
+(Agent khác như Antigravity: đọc `AGENTS.md` ở thư mục gốc trước, rồi `docs/VIEC_TIEP_THEO.md`.)
+
 Thư mục này là dự án ĐỘC LẬP, tách từ repo VideoAI cũ ngày 17/11/2026. Mọi thứ cần biết nằm trong 2 file:
 CLAUDE.md (file này: mục tiêu, quy tắc, cấu trúc) và TRANG_THAI.md (đã làm gì, đang dở gì, làm gì tiếp).
 KHÔNG cần đọc repo VideoAI cũ, Notion cũ hay các phiên chat cũ.
