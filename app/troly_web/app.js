@@ -200,14 +200,20 @@ function renderPage1() {
 function stageCard(s, i) {
   const mk = (what, h, label) => `<div class="mk${h ? (h.auto ? " auto" : "") : " none"}"><span class="kb">${label}</span><span>${what}</span><span class="nm" title="${h && h.auto ? "Tự suy ra từ khoảng giờ; bấm clip rồi F để đặt mốc" : ""}">${h ? esc(h.name) + (h.auto ? " (tự động)" : "") : "chưa chọn"}</span></div>`;
   const chipHtml = s.incomplete ? `<span class="chip" style="color:#E0A030">thiếu mốc</span>` : `<span class="chip">${s.count} file</span>`;
+  const subRows = (s.bins || []).map((b) => `<div class="p1-sub"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span>${b.key ? `<span class="k">${b.key}</span>` : ""}</div>`).join("");
+  const editRows = (s.bins || []).filter((b) => b.name !== "Khác").map((b) => `<div class="p1-bin-row"><input class="inp" data-bin-inp="1" value="${esc(b.name)}"><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`).join("");
   return `<div class="stage p1${editIdx === i ? " open" : ""}" data-i="${i}">
     <div class="stage-row"><div class="stage-bar" style="background:${s.color}"></div><div class="stage-txt">
       <div class="inline8" style="justify-content:space-between"><span class="stage-name" title="Bấm đúp để đổi tên giai đoạn">${esc(s.name)}</span>${chipHtml}</div>
       <span class="dim12">${esc(s.range)}</span>
-      <div class="lines">${mk("đầu", s.head, "F" + (i + 1))}${mk("cuối", s.tail, "⇧F" + (i + 1))}</div></div></div>
+      <div class="lines">${mk("đầu", s.head, "F" + (i + 1))}${mk("cuối", s.tail, "⇧F" + (i + 1))}</div>
+      ${editIdx !== i && subRows ? `<div class="p1-subs">${subRows}</div>` : ""}</div></div>
     ${editIdx === i ? `<div class="stage-edit">
       <label class="full">Tên giai đoạn<input class="inp" data-f="name" value="${esc(s.name)}"></label>
-      <label class="full">Bin con (cách nhau dấu phẩy, phím 1–9 theo thứ tự)<input class="inp" data-f="bins" value="${esc(s.bins.filter((b) => b.name !== "Khác").map((b) => b.name).join(", "))}"></label>
+      <div class="full"><span class="lbl">Bin con (phím 1–9 theo thứ tự)</span>
+        <div class="p1-bin-rows">${editRows}</div>
+        <button type="button" class="btn-link" data-act="add-bin" style="margin-top:4px;font-size:12px">+ Thêm bin con</button>
+      </div>
       <div class="row-end"><button class="btn-del" data-act="del">Xóa giai đoạn</button><button class="btn" data-act="save" style="height:32px">Lưu</button></div>
     </div>` : ""}</div>`;
 }
@@ -343,20 +349,20 @@ $("g1").addEventListener("click", (e) => {
   t.classList.add("picked"); renderMeta(); renderTimeline();
 });
 
-/* thông tin clip */
+/* thông tin clip (thanh thu nhỏ sát dưới lưới Source: 6 mục cần thiết về file) */
 function renderMeta() {
   const el = $("meta"), c = selUid ? clip1(selUid) : null;
-  if (!c) { el.innerHTML = `<div class="empty-m">Bấm một clip trong lưới để xem thông tin, rồi bấm F1, F2… để đặt làm mốc.</div><div class="add-slot">Chừa chỗ: sau này có thể thêm trường khác.</div>`; return; }
+  if (!c) { el.innerHTML = `<span class="dim12">Bấm một clip trong lưới để xem thông tin file, rồi bấm F1, F2… để đặt làm mốc.</span>`; return; }
   const m = marksOf(c.uid), mach = machOf(c.mk);
   const durS = c.m1 != null && c.m0 != null ? (c.m1 - c.m0) * 60 : c.dur;
-  const when = axisTl()
-    ? `<div class="mrow"><span class="l">Vị trí trên timeline</span><span class="v big">${fmtA(c.m0)}</span><span class="dim12">dài ${durTxt(durS)} · ${fmtA(c.m0)} – ${fmtA(c.m1)}</span></div>
-       <div class="mrow"><span class="l">Giờ quay ghi trong file</span><span class="v">${esc(c.time)}</span></div>`
-    : `<div class="mrow"><span class="l">Giờ quay</span><span class="v big">${esc(c.time)}</span><span class="dim12">dài ${durTxt(durS)} · ${fmt(c.m0)} – ${fmt(c.m1)}</span></div>`;
-  el.innerHTML = `<div class="mrow"><span class="l">Tên file</span><span class="v">${esc(c.name)}</span></div>${when}
-    <div class="mrow"><span class="l">Máy</span><span class="v">${c.mk ? chip(c.mk) + esc(mach ? mach.name : "") : "—"}</span></div>
-    <div class="mrow"><span class="l">Đang là mốc</span><span class="v" style="flex-wrap:wrap">${m.length ? m.map((x) => `<span class="kb" style="color:#18181B;background:${S.stages[x.i].color};border-color:${S.stages[x.i].color}">${esc(S.stages[x.i].name)} · ${x.t}</span>`).join("") : '<span class="dim12">chưa</span>'}</span></div>
-    <div class="add-slot">Chừa chỗ: sau này có thể thêm trường khác.</div>`;
+  const markTxt = m.length ? m.map((x) => `${esc(S.stages[x.i].name)} (${x.t})`).join(", ") : "chưa";
+  el.innerHTML =
+    `<span class="mi"><span class="ml">File:</span><span class="mv">${esc(c.name)}</span></span>` +
+    `<span class="mi"><span class="ml">Giờ quay:</span><span class="mv">${esc(c.time)}</span></span>` +
+    `<span class="mi"><span class="ml">Dài:</span><span class="mv">${durTxt(durS)}</span></span>` +
+    `<span class="mi"><span class="ml">FPS / TC:</span><span class="mv">${Math.round(c.fps || 25)}fps · ${esc(c.tc || "--:--:--:--")}</span></span>` +
+    `<span class="mi"><span class="ml">LUT:</span><span class="mv">${esc(c.lut || "Không")}</span></span>` +
+    `<span class="mi"><span class="ml">Máy / Mốc:</span><span class="mv">${c.mk ? esc(mach ? mach.name : c.mk) : "1 máy"} · ${markTxt}</span></span>`;
 }
 function renderKeys() {
   const n = S ? Math.min(S.stages.length, 9) : 0;
@@ -394,6 +400,15 @@ $("stageList").addEventListener("click", async (e) => {
   const card = e.target.closest(".stage"); if (!card) return;
   const i = +card.dataset.i, act = e.target.dataset.act;
   if (act === "save") return saveStage(i, card);
+  if (act === "add-bin") {
+    const box = card.querySelector(".p1-bin-rows");
+    if (box) {
+      box.insertAdjacentHTML("beforeend", `<div class="p1-bin-row"><input class="inp" data-bin-inp="1" placeholder="Tên bin con"><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`);
+      const last = box.querySelector(".p1-bin-row:last-child input"); if (last) last.focus();
+    }
+    return;
+  }
+  if (act === "del-bin") { const r = e.target.closest(".p1-bin-row"); if (r) r.remove(); return; }
   if (act === "del") return ask("Xóa giai đoạn", `Xóa giai đoạn "${esc(S.stages[i].name)}" khỏi kế hoạch?<br>(Chỉ xóa trong Trợ lý, không đụng DaVinci. Nhãn đã ghi vẫn giữ.)`, "Xóa").then((ok) => {
     if (ok) { editIdx = null; api().del_stage(i).then(setState); }
   });
@@ -411,12 +426,12 @@ $("stageList").addEventListener("click", async (e) => {
   editIdx = editIdx === i ? null : i; renderPage1();
 });
 $("stageList").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && e.target.dataset.f) saveStage(+e.target.closest(".stage").dataset.i, e.target.closest(".stage"));
+  if (e.key === "Enter" && (e.target.dataset.f || e.target.dataset.binInp)) saveStage(+e.target.closest(".stage").dataset.i, e.target.closest(".stage"));
 });
 async function saveStage(i, card) {
   const f = {};
   card.querySelectorAll("[data-f]").forEach((el) => { f[el.dataset.f] = el.value; });
-  f.bins = f.bins.split(",").map((x) => x.trim()).filter(Boolean);
+  f.bins = [...card.querySelectorAll("[data-bin-inp]")].map((el) => el.value.trim()).filter(Boolean);
   const old = S.stages[i].name;
   if (f.name !== undefined && f.name.trim() !== old) {            // đổi tên qua đường có kiểm tên (chỉ trong kế hoạch của panel)
     if (!(await doRename("stage", i, old, f.name))) return;
