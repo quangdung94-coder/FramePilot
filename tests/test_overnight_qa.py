@@ -130,6 +130,51 @@ class TestOvernightQAReporterAndWatchdog(unittest.TestCase):
         self.assertIn("HANDLE_LEAK", cats)
         self.assertIn("VRAM_LEAK", cats)
 
+    def test_heavy_source_suppresses_decode_slow_api_only(self):
+        from tools.overnight_qa.scenarios import SuiteContext
+
+        class FakeCDP:
+            def drain_diagnostics(self):
+                return {
+                    "js_exceptions": [],
+                    "console_errors": [],
+                    "network_errors": [],
+                    "log_errors": [],
+                    "ring": [],
+                    "api_errors": [{"fn": "move", "ms": 10, "args": "[]", "error": "THROW: real bug"}],
+                    "slow_calls": [
+                        {"fn": "wave", "ms": 22000, "args": "[]"},
+                        {"fn": "toggle_star", "ms": 22000, "args": "[]"},
+                    ],
+                }
+
+            def screenshot(self, _path):
+                return False
+
+        tmp = tempfile.mkdtemp(prefix="qa_heavy_")
+        try:
+            bugs = BugCollector(tmp, project_name="FP_TEST_3CAM", anonymize=True)
+            ctx = SuiteContext(
+                cdp=FakeCDP(),
+                bugs=bugs,
+                run_dir=tmp,
+                mode="readonly",
+                seed=1,
+                cycle=1,
+                replay_base_cmd="cmd",
+                project_tag="FP_TEST_3CAM",
+                heavy_source=True,
+            )
+            ctx.flush_passive_errors("smoke_e2e", "step")
+            titles = [b["title"] for b in bugs.sorted_bugs()]
+            # wave (decode API) must NOT be reported as a bug when heavy_source=True
+            self.assertFalse(any("wave" in t for t in titles))
+            # toggle_star (non-decode API) and real API THROW must STILL be caught!
+            self.assertTrue(any("toggle_star" in t for t in titles))
+            self.assertTrue(any("move" in t for t in titles))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

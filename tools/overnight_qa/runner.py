@@ -35,6 +35,7 @@ from tools.overnight_qa.safety import (
     SandboxEnv,
     load_real_config,
     probe_resolve_active_project,
+    switch_resolve_project,
     verify_write_guard,
 )
 from tools.overnight_qa.scenarios import SUITE_REGISTRY, SuiteContext
@@ -93,7 +94,9 @@ def main():
     ap.add_argument("--exe", default=DEFAULT_EXE, help="Đường dẫn tới FramePilot.exe")
     ap.add_argument("--mode", default="readonly", choices=("readonly", "sandbox_write"), help="Chế độ an toàn (mặc định: readonly)")
     ap.add_argument("--sandbox-prefix", default=DEFAULT_SANDBOX_PREFIX, help="Tiền tố bắt buộc của tên project khi chạy sandbox_write")
-    ap.add_argument("--project", default="", help="Tên project (mặc định: tự đọc project đang mở trong DaVinci)")
+    ap.add_argument("--project", default="", help="Tên 1 project (mặc định: tự đọc project đang mở trong DaVinci)")
+    ap.add_argument("--projects", default="", help="Danh sách nhiều project xoay vòng, cách nhau bằng dấu phẩy (vd: FP_TEST_01,FP_TEST_3CAM)")
+    ap.add_argument("--heavy-source", action="store_true", help="Bật chế độ nguồn 4K nặng chưa proxy (nới timeout, không báo oan lỗi chậm)")
     ap.add_argument("--bin", default="", help="Đường dẫn bin cần nạp (mặc định: tự chọn bin đầu tiên có clip)")
     ap.add_argument("--timeline", default="", help="Tên timeline nguồn (tùy chọn)")
     ap.add_argument("--suites", default="smoke_e2e,ai_gpu,chaos_race", help="Danh sách bài test cách nhau bằng dấu phẩy")
@@ -113,17 +116,23 @@ def main():
     real_cfg, real_cfg_path = load_real_config(a.exe)
     print(f"[QA] Đọc cấu hình gốc: {real_cfg_path or '(không thấy)'}")
 
-    # 1. Detect active DaVinci Resolve project
+    # 1. Detect active DaVinci Resolve project & build project list
     active_proj, bins, resolve_err = probe_resolve_active_project(real_cfg)
     if resolve_err:
         print(f"[CẢNH BÁO] Kết nối DaVinci: {resolve_err}")
-    project_name = a.project or active_proj
-    if not project_name:
-        sys.exit("[LỖI] Không xác định được tên project đang mở trong DaVinci. Hãy mở DaVinci + mở project test, hoặc truyền --project.")
+    if a.projects:
+        project_list = [p.strip() for p in a.projects.split(",") if p.strip()]
+    else:
+        single = a.project or active_proj
+        project_list = [single] if single else []
+    if not project_list:
+        sys.exit("[LỖI] Không xác định được tên project đang mở trong DaVinci. Hãy mở DaVinci + mở project test, hoặc truyền --project / --projects.")
+    project_name = project_list[0]
 
-    # 2. Enforce strict write safety guard
+    # 2. Enforce strict write safety guard on EVERY project in list
     try:
-        verify_write_guard(a.mode, project_name, required_prefix=a.sandbox_prefix)
+        for pname in project_list:
+            verify_write_guard(a.mode, pname, required_prefix=a.sandbox_prefix)
     except SafetyError as e:
         sys.exit(f"[AN TOÀN] {e}")
 
@@ -151,6 +160,7 @@ def main():
     replay_base = f"& C:\\VideoAI_venv\\Scripts\\python.exe -m tools.overnight_qa.runner --mode {a.mode}"
     print(f"[QA] Run ID     : {run_id}")
     print(f"[QA] Mode       : {a.mode} | Seed: {seed} | Models linked: {sandbox.models_linked}")
+    print(f"[QA] Projects   : {', '.join(project_list)} | Heavy-source: {a.heavy_source} (tự nhận diện khi thiếu proxy)")
     print(f"[QA] Report dir : {run_dir}")
 
     proc = None
@@ -161,6 +171,10 @@ def main():
     try:
         if a.check_only:
             print("[QA] Chạy kiểm chứng nhanh (--check-only)...")
+            if len(project_list) > 1 or (active_proj and project_name != active_proj):
+                ok_sw, err_sw = switch_resolve_project(project_name)
+                if not ok_sw:
+                    sys.exit(f"[LỖI] Không chuyển được sang project '{project_name}': {err_sw}")
             proc, cdp = launch_exe_with_cdp(a.exe, project_name, proc_env, a.cdp_port)
             watchdog.set_target_pid(proc.pid)
             time.sleep(2.5)
@@ -181,20 +195,37 @@ def main():
             elif cycle > a.cycles:
                 break
 
-            print(f"\n========== VÒNG {cycle} (seed={seed}) ==========")
+            cur_proj = project_list[(cycle - 1) % len(project_list)]
+            proj_tag = cur_proj if len(project_list) > 1 else ""
+            print(f"\n========== VÒNG {cycle} | Project: {cur_proj} (seed={seed}) ==========")
+            if len(project_list) > 1 or (active_proj and cur_proj != active_proj):
+                ok_sw, err_sw = switch_resolve_project(cur_proj)
+                if not ok_sw:
+                    bugs.record_bug(
+                        category="RESOLVE_SWITCH_ERROR",
+                        severity="CRITICAL",
+                        title=f"Không chuyển được DaVinci sang project '{cur_proj}': {err_sw}",
+                        detail=err_sw,
+                        suite=f"{proj_tag}:switch" if proj_tag else "switch",
+                        cycle=cycle,
+                    )
+                    time.sleep(3.0)
+                    continue
+                time.sleep(2.0)
+
             # Fresh launch each cycle so we also verify cold-start, persistence & zombie cleanup
             try:
-                proc, cdp = launch_exe_with_cdp(a.exe, project_name, proc_env, a.cdp_port)
+                proc, cdp = launch_exe_with_cdp(a.exe, cur_proj, proc_env, a.cdp_port)
                 watchdog.set_target_pid(proc.pid)
             except Exception as e:
                 bugs.record_bug(
                     category="LAUNCH_CRASH",
                     severity="CRITICAL",
-                    title=f"Không mở được FramePilot.exe / CDP ở vòng {cycle}: {str(e)[:120]}",
+                    title=f"Không mở được FramePilot.exe / CDP ở vòng {cycle} ({cur_proj}): {str(e)[:110]}",
                     detail=str(e),
-                    suite="startup",
+                    suite=f"{proj_tag}:startup" if proj_tag else "startup",
                     cycle=cycle,
-                    replay_cmd=f"{replay_base} --check-only",
+                    replay_cmd=f"{replay_base} --project \"{cur_proj}\" --check-only",
                 )
                 time.sleep(3.0)
                 continue
@@ -206,35 +237,40 @@ def main():
                 mode=a.mode,
                 seed=seed,
                 cycle=cycle,
-                replay_base_cmd=replay_base,
+                replay_base_cmd=f"{replay_base} --project \"{cur_proj}\"" + (" --heavy-source" if a.heavy_source else ""),
                 bin_path=a.bin,
                 timeline=a.timeline,
                 fp_pid=proc.pid,
+                project_tag=proj_tag,
+                heavy_source=a.heavy_source,
             )
 
             for sname in suites:
                 if end_deadline is not None and time.time() >= end_deadline:
                     break
                 t0 = time.time()
-                print(f"  -> Đang chạy suite '{sname}'...")
+                tagged = f"{proj_tag}:{sname}" if proj_tag else sname
+                print(f"  -> Đang chạy suite '{tagged}'...")
                 try:
                     note = SUITE_REGISTRY[sname](ctx)
-                    bugs.record_suite(sname, cycle, True, time.time() - t0, note=str(note or "OK"))
-                    print(f"     [PASS] {sname} ({time.time()-t0:.1f}s): {note}")
+                    if ctx.heavy_source and "4K" not in str(note):
+                        note = f"{note} [nguồn nặng/chưa proxy]"
+                    bugs.record_suite(tagged, cycle, True, time.time() - t0, note=str(note or "OK"))
+                    print(f"     [PASS] {tagged} ({time.time()-t0:.1f}s): {note}")
                 except Exception as e:
                     shot = ctx.snap(f"{sname}_fail") if cdp else ""
                     bugs.record_bug(
                         category="SUITE_FAILURE",
                         severity="CRITICAL" if proc.poll() is not None else "HIGH",
-                        title=f"Bài test '{sname}' thất bại: {str(e)[:120]}",
+                        title=f"Bài test '{tagged}' thất bại: {str(e)[:120]}",
                         detail=str(e),
-                        suite=sname,
+                        suite=tagged,
                         cycle=cycle,
                         screenshot=shot,
                         replay_cmd=ctx.replay_cmd(sname),
                     )
-                    bugs.record_suite(sname, cycle, False, time.time() - t0, note=str(e)[:160])
-                    print(f"     [FAIL] {sname} ({time.time()-t0:.1f}s): {e}")
+                    bugs.record_suite(tagged, cycle, False, time.time() - t0, note=str(e)[:160])
+                    print(f"     [FAIL] {tagged} ({time.time()-t0:.1f}s): {e}")
                     # If exe crashed, break inner loop so next cycle relaunches cleanly
                     if proc.poll() is not None:
                         break

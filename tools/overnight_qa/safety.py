@@ -73,6 +73,29 @@ def probe_resolve_active_project(real_cfg: dict):
         return "", [], str(e)
 
 
+def switch_resolve_project(target_project: str):
+    """Switch active DaVinci Resolve project to target_project via ProjectManager.LoadProject."""
+    if not target_project:
+        return False, "Tên project trống"
+    if APP_DIR not in sys.path:
+        sys.path.insert(0, APP_DIR)
+    try:
+        import troly_env
+        resolve = troly_env.connect_resolve()
+        pm = resolve.GetProjectManager()
+        if not pm:
+            return False, "Không lấy được ProjectManager từ DaVinci Resolve"
+        cur = pm.GetCurrentProject()
+        if cur and (cur.GetName() or "") == target_project:
+            return True, ""
+        loaded = pm.LoadProject(target_project)
+        if not loaded:
+            return False, f"DaVinci không mở được project '{target_project}' (kiểm tra lại tên chính xác trong Project Manager)."
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 def verify_write_guard(mode: str, project_name: str, required_prefix: str = DEFAULT_SANDBOX_PREFIX):
     """Enforce strict project-name guard when mode == 'sandbox_write'."""
     if mode not in ("readonly", "sandbox_write"):

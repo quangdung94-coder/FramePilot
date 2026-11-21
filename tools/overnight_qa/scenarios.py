@@ -17,6 +17,21 @@ from .reporter import BugCollector
 from .watchdog import snapshot_fp_workers
 
 
+HEAVY_DECODE_APIS = {
+    "load",
+    "big",
+    "play_info",
+    "frames_open",
+    "wave",
+    "keyframes",
+    "want_thumbs",
+    "inout_suggest_start",
+    "audio_events",
+    "ai_run",
+    "speech_start",
+}
+
+
 class SuiteContext:
     def __init__(
         self,
@@ -30,6 +45,8 @@ class SuiteContext:
         bin_path: str = "",
         timeline: str = "",
         fp_pid: int = 0,
+        project_tag: str = "",
+        heavy_source: bool = False,
     ):
         self.cdp = cdp
         self.bugs = bugs
@@ -41,9 +58,15 @@ class SuiteContext:
         self.bin_path = bin_path
         self.timeline = timeline
         self.fp_pid = fp_pid
+        self.project_tag = project_tag
+        self.heavy_source = heavy_source
+        self.perf_notes = []
         self.shot_dir = os.path.join(run_dir, "screenshots")
         os.makedirs(self.shot_dir, exist_ok=True)
         self._shot_idx = 0
+
+    def _tag_suite(self, suite: str) -> str:
+        return f"{self.project_tag}:{suite}" if self.project_tag else suite
 
     def snap(self, tag: str) -> str:
         self._shot_idx += 1
@@ -116,12 +139,16 @@ class SuiteContext:
                 replay_cmd=self.replay_cmd(suite),
             )
         for e in diag.get("slow_calls") or []:
+            fn_name = str(e.get("fn", ""))
+            if self.heavy_source and fn_name in HEAVY_DECODE_APIS:
+                self.perf_notes.append(f"{fn_name}={e.get('ms')}ms (nguồn 4K nặng chưa proxy - bỏ qua cảnh báo chậm)")
+                continue
             self.bugs.record_bug(
                 category="SLOW_API",
                 severity="LOW",
-                title=f"API {e.get('fn')} chậm bất thường ({e.get('ms')} ms)",
+                title=f"API {fn_name} chậm bất thường ({e.get('ms')} ms)",
                 detail=json.dumps(e, ensure_ascii=False),
-                suite=suite,
+                suite=self._tag_suite(suite),
                 cycle=self.cycle,
                 ring=ring,
                 replay_cmd=self.replay_cmd(suite),
@@ -131,6 +158,8 @@ class SuiteContext:
 
 def wait_until_ready_and_load(ctx: SuiteContext, suite: str, timeout: float = 90.0):
     """Wait for pywebviewready + INFO, select a bin with clips, click Load, wait for S.n > 0."""
+    if ctx.heavy_source:
+        timeout = max(timeout, 150.0)
     deadline = time.time() + 30.0
     while time.time() < deadline:
         ok = ctx.cdp.eval_js(
@@ -185,6 +214,14 @@ def wait_until_ready_and_load(ctx: SuiteContext, suite: str, timeout: float = 90
         ) or {}
         if st.get("n", 0) > 0 and not st.get("waiting"):
             time.sleep(1.0)
+            # Auto-detect heavy/unproxied project (<50% clips have proxy) so 4K 10-bit decode never false-alarms
+            if not ctx.heavy_source:
+                proxy_ratio = ctx.cdp.eval_js(
+                    "(() => { const cs = (S && S.clips) || []; if (!cs.length) return 1; return cs.filter(c => c.has_proxy || c.proxy).length / cs.length; })()",
+                    await_promise=False,
+                )
+                if isinstance(proxy_ratio, (int, float)) and proxy_ratio < 0.5:
+                    ctx.heavy_source = True
             ctx.flush_passive_errors(suite, "after_load")
             return int(st["n"])
         time.sleep(0.6)
@@ -416,7 +453,7 @@ def run_ai_gpu(ctx: SuiteContext):
             ctx.cdp.eval_js(
                 f"window.pywebview.api.audio_events({json.dumps(first_uid)})",
                 await_promise=True,
-                timeout=45.0,
+                timeout=90.0 if ctx.heavy_source else 45.0,
             )
         except Exception as e:
             ctx.bugs.record_bug(
