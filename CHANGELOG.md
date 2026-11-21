@@ -1,6 +1,10 @@
 # Nhật ký thay đổi
 
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **Tinh chỉnh Page 2, 3, 4 theo 4 ảnh phản hồi (`index.html`, `style.css`, `app.js`, `step3.js`, `speech.js`):**
+  - Page 2 & Page 3: Cây bin dùng mũi tên `▾`/`▸` cho phép thu gọn/mở riêng từng bin mẹ tùy ý, đồng thời khi mở bin dưới thì các bin đã mở ở trên **không bị đóng lại** (không khóa cứng phải xổ hết toàn bộ).
+  - Page 3: Trả bảng *Quy tắc gợi ý từng bin* về dạng bảng dọc thẳng hàng từ trên xuống (1 dòng 1 bin), và ẩn hộp *Kiểu quay (PSC / Truyền thống)* thừa vì đã chọn trong Setting.
+  - Page 4: Thêm bộ lọc theo **Bin con** (`#lnSub`) và nút **`Chỉ clip sao ★`** (`#lnStarOnly`), xác nhận gắn sao `★`/`In-Out` từ Page 4 đồng bộ ngay sang Page 2 & 3; thêm trình phát video/thumbnail (`#lnPlayBtn` / `Space`) + **Sóng âm** (`#lnWaveCv`) ngay trên thanh In/Out, bấm câu chữ nhảy thẳng tới đoạn đó nghe kiểm tra.
 - **Tổng rà soát & đồng bộ toàn bộ Page 1–5 theo 8 ảnh thật (`troly_env.py`, `troly_core.py`, `troly_api.py`, `index.html`, `style.css`, `app.js`, `ai.js`, `step3.js`, `speech.js`, `step5.js`):**
   - Page 1: ẩn dòng chú thích giờ quay mặc định, nâng nút `Lưu mẫu cho đám sau` to ngang `Tạo bin`, tích hợp tùy chọn đường dẫn lưu file mẫu (`templates.json`) trong cả modal Lưu mẫu và Setting bánh răng `⚙`.
   - Page 2 & 3: giữ nguyên toàn bộ các bin mẹ/con đang mở (không tự đóng nhóm trên khi chọn nhóm khác giống DaVinci), bỏ chú thích thừa của hộp AI / Page 3; sửa sạch các chỗ sót nhãn `(J)` -> `(P)` ở Bước 3 và Bước 4.

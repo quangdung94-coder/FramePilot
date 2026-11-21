@@ -65,11 +65,14 @@ function renderPage3() {
   // Thu gọn / mở danh sách clip (P3.fold, nhớ khi đổi clip hoặc đổi bước). Cả giai đoạn: mặc định THU GỌN (chỉ hiện các bin con); bin: mặc định mở.
   const folded = (key, dflt) => (P3.fold[key] === undefined ? dflt : P3.fold[key]);
   const ar = (on, fold) => `<span class="p3-ar" data-ar="1" title="${on && !fold ? "Thu gọn danh sách clip" : "Mở danh sách clip"}">${on && !fold ? "▾" : "▸"}</span>`;
+  if (!P3.openStages) P3.openStages = new Set();
+  if (!P3.touchedStages) P3.touchedStages = new Set();
+  if (gStage !== null && gStage >= 0 && !P3.touchedStages.has(gStage)) P3.openStages.add(gStage);
   let h = S.stages.map((s, i) => {
     const curStage = i === gStage;
-    const open = true;
+    const open = P3.openStages.has(i);
     const fs = folded("s:" + i, true);
-    let r = `<div class="pool-stage"><div class="pool-row${curStage && gSub === null ? " on" : ""}${curStage && gSub !== null ? " parent" : ""}" data-stage="${i}">${ar(curStage && gSub === null, fs)}${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span>${cnt(s.uids)}</div>`;
+    let r = `<div class="pool-stage"><div class="pool-row${curStage && gSub === null ? " on" : ""}${curStage && gSub !== null ? " parent" : ""}" data-stage="${i}"><span class="p3-ar" data-ar="1" data-stage-ar="1" title="${open ? "Thu gọn giai đoạn" : "Mở giai đoạn"}">${open ? "▾" : "▸"}</span>${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span>${cnt(s.uids)}</div>`;
     if (open) {
       r += `<div class="pool-subs">`;
       if (curStage && gSub === null && !fs) r += clipsHtml();
@@ -109,10 +112,29 @@ function p3RowClick(si, sub, onArrow) {                         // bấm dòng: 
 }
 $("p3List").addEventListener("click", (e) => {
   const cl = e.target.closest(".p3-clip"); if (cl) { moveCur(+cl.dataset.i); $("p3List").focus(); return; }
+  const stageAr = e.target.closest("[data-stage-ar]");
+  if (stageAr) {
+    const pr = e.target.closest(".pool-row");
+    if (pr) {
+      const si = +pr.dataset.stage;
+      if (!P3.openStages) P3.openStages = new Set();
+      if (!P3.touchedStages) P3.touchedStages = new Set();
+      P3.touchedStages.add(si);
+      if (P3.openStages.has(si)) P3.openStages.delete(si); else P3.openStages.add(si);
+      P3.sig = ""; renderPage3();
+      return;
+    }
+  }
   const onAr = !!e.target.closest(".p3-ar");
   const sn = e.target.closest(".sub-none"); if (sn) return p3RowClick(+sn.dataset.stage, NONE, onAr);
   const sb = e.target.closest(".sub"); if (sb) return p3RowClick(+sb.dataset.stage, sb.dataset.bin, onAr);
-  const pr = e.target.closest(".pool-row"); if (pr) return p3RowClick(+pr.dataset.stage, null, onAr);
+  const pr = e.target.closest(".pool-row");
+  if (pr) {
+    const si = +pr.dataset.stage;
+    if (!P3.openStages) P3.openStages = new Set();
+    if (si >= 0) P3.openStages.add(si);
+    return p3RowClick(si, null, onAr);
+  }
 });
 $("p3OnlyStar").addEventListener("change", () => { P3.onlyStar = $("p3OnlyStar").checked; $("onlyStar").checked = P3.onlyStar; renderPage2(true); renderPage3(); });
 $("p3ViewText").onclick = () => { P3.view = "text"; $("p3ViewText").classList.add("on"); $("p3ViewThumb").classList.remove("on"); P3.sig = ""; renderPage3(); };

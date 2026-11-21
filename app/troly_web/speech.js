@@ -2,8 +2,8 @@
    Python (troly_api.speech_*). Dùng chung $, api, S, esc, status, setState, page từ app.js. Chữ chép lời chỉ hiện trên màn hình. */
 "use strict";
 
-const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", onlyKey: false, min20: false, find: "",
-  detail: null, edit: null, run: null, lastRefresh: 0, timer: null };
+const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", sub: "all", onlyStar: false, onlyKey: false, min20: false, find: "",
+  detail: null, edit: null, run: null, lastRefresh: 0, timer: null, vid: null, mediaUid: null };
 const mmss = (s) => Math.floor((s || 0) / 60) + ":" + String(Math.round((s || 0) % 60)).padStart(2, "0");
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -17,7 +17,18 @@ function addTc(tc, sec, fps) {
   return pad2(Math.floor(t / 3600) % 24) + ":" + pad2(Math.floor(t / 60) % 60) + ":" + pad2(t % 60) + ":" + pad2(f);
 }
 const stageOf = (r) => (r.stage === null || r.stage === undefined ? -1 : r.stage);
-const inStage = (r) => LN.stage === "all" || stageOf(r) === +LN.stage;
+function clipMeta(uid) { return (window.S && S.clips) ? S.clips.find((c) => c.uid === uid) : null; }
+const inStage = (r) => {
+  if (LN.stage !== "all" && stageOf(r) !== +LN.stage) return false;
+  const cm = clipMeta(r.uid);
+  if (LN.onlyStar && !(cm ? cm.star : r.star)) return false;
+  if (LN.sub !== "all") {
+    const lb = cm ? (cm.label || "") : "";
+    if (LN.sub === "__none__") { if (lb) return false; }
+    else if (lb !== LN.sub) return false;
+  }
+  return true;
+};
 
 /* ------------------------------------------------------------------ nạp dữ liệu */
 async function lnRefresh() {
@@ -64,8 +75,20 @@ function renderSpeech() {
   const html = opts.join("");
   if (sel.dataset.sig !== html) { sel.innerHTML = html; sel.dataset.sig = html; }
   sel.value = String(LN.stage);
+  const subSel = $("lnSub");
+  if (subSel) {
+    const bins = [];
+    const srcStages = LN.stage === "all" ? stages : (stages[+LN.stage] ? [stages[+LN.stage]] : []);
+    srcStages.forEach((s) => (s.bins || []).forEach((b) => { if (!bins.includes(b.name)) bins.push(b.name); }));
+    const sHtml = ['<option value="all">Tất cả bin con</option>', '<option value="__none__">Chưa xếp bin con</option>']
+      .concat(bins.map((b) => `<option value="${esc(b)}">${esc(b)}</option>`)).join("");
+    if (subSel.dataset.sig !== sHtml) { subSel.innerHTML = sHtml; subSel.dataset.sig = sHtml; }
+    if (LN.sub !== "all" && LN.sub !== "__none__" && !bins.includes(LN.sub)) LN.sub = "all";
+    subSel.value = LN.sub;
+  }
   const st = stages[+LN.stage];
   $("lnTitle").textContent = LN.stage === "all" ? "Lời nói · Cả project" : (st ? `Lời nói · ${st.name} · ${st.range || ""}` : "Lời nói · Ngoài mọi giai đoạn");
+  if ($("lnStarOnly")) $("lnStarOnly").setAttribute("aria-pressed", LN.onlyStar);
   $("lnKey").setAttribute("aria-pressed", LN.onlyKey); $("lnMin").setAttribute("aria-pressed", LN.min20);
   renderSummary(); renderStore(); renderRows(); renderRight();
 }
@@ -125,24 +148,66 @@ function editSpan() {
   return sp ? { in_s: sp.in_s, out_s: sp.out_s, src: sp.src, dirty: false } : null;
 }
 
+function lnEnsureMedia(r) {
+  const lt = $("lnThumb");
+  if (!lt || !r) return;
+  if (LN.mediaUid === r.uid) return;
+  LN.mediaUid = r.uid;
+  const src = thumbs[r.uid];
+  lt.innerHTML = src ? `<img src="${src}" draggable="false">` : "";
+  lt.classList.remove("hidden");
+  $("lnPlayBtn").textContent = "▶";
+  $("lnTime").textContent = `0:00 / ${mmss(r.dur)}`;
+  $("lnPlayNote").textContent = "";
+  if (LN.vid) { try { LN.vid.pause(); LN.vid.removeAttribute("src"); LN.vid.load(); } catch (e) {} LN.vid = null; }
+  if (!src && typeof api === "function") {
+    api().want_thumbs([r.uid]).then((ready) => {
+      if (ready && ready[r.uid]) { thumbs[r.uid] = ready[r.uid]; if (LN.sel === r.uid && lt && !lt.querySelector("img")) lt.insertAdjacentHTML("afterbegin", `<img src="${ready[r.uid]}" draggable="false">`); }
+    });
+  }
+  if (typeof api === "function") {
+    api().play_info(r.uid).then((pi) => {
+      if (LN.sel !== r.uid) return;
+      if (!pi || pi.error) { $("lnPlayNote").textContent = (pi && pi.error) || ""; return; }
+      const v = document.createElement("video");
+      v.preload = "metadata"; v.playsInline = true; v.src = pi.url; v.style.opacity = "0";
+      v.addEventListener("loadeddata", () => { if (LN.sel === r.uid) v.style.opacity = "1"; });
+      v.addEventListener("play", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "❚❚"; });
+      v.addEventListener("pause", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "▶"; });
+      v.addEventListener("timeupdate", () => {
+        if (LN.sel !== r.uid) return;
+        const dur = v.duration || r.dur || 1;
+        $("lnTime").textContent = `${mmss(v.currentTime)} / ${mmss(dur)}`;
+        $("lnWHead").style.left = Math.min(100, (v.currentTime / dur) * 100).toFixed(2) + "%";
+      });
+      v.addEventListener("error", () => { $("lnPlayNote").textContent = "Không giải mã được video trực tiếp"; });
+      lt.appendChild(v); LN.vid = v;
+    });
+    api().wave(r.uid).then((w) => {
+      if (LN.sel !== r.uid) return;
+      if (w && w.pending) { setTimeout(() => { if (LN.sel === r.uid) { LN.mediaUid = null; lnEnsureMedia(r); } }, 450); return; }
+      const cv = $("lnWaveCv"); if (!cv || !w || !w.peaks) return;
+      const g = cv.getContext("2d"), W = cv.width = cv.clientWidth || 320, H = cv.height = cv.clientHeight || 42;
+      g.clearRect(0, 0, W, H); g.fillStyle = "#5B9BF5";
+      const pk = w.peaks, n = pk.length;
+      for (let i = 0; i < W; i += 2) {
+        const v = pk[Math.min(n - 1, Math.floor(i / W * n))] / 100;
+        const h = Math.max(2, v * (H - 4));
+        g.fillRect(i, (H - h) / 2, 1.5, h);
+      }
+    });
+  }
+}
+
 function renderRight() {
   const r = curRow(), d = LN.detail;
   if (!r) {
     $("lnName").textContent = "Chọn một clip"; $("lnMeta").textContent = ""; $("lnBar").innerHTML = ""; $("lnDurEnd").textContent = "";
     if ($("lnThumb")) { $("lnThumb").innerHTML = ""; $("lnThumb").classList.add("hidden"); }
+    LN.mediaUid = null;
     $("lnSugg").classList.add("hidden"); $("lnLines").innerHTML = ""; renderExportBtns(); return;
   }
-  const lt = $("lnThumb");
-  if (lt) {
-    const src = thumbs[r.uid];
-    if (src) { lt.innerHTML = `<img src="${src}" draggable="false">`; lt.classList.remove("hidden"); }
-    else {
-      lt.innerHTML = ""; lt.classList.add("hidden");
-      if (typeof api === "function") api().want_thumbs([r.uid]).then((ready) => {
-        if (ready && ready[r.uid]) { thumbs[r.uid] = ready[r.uid]; if (LN.sel === r.uid) renderRight(); }
-      });
-    }
-  }
+  lnEnsureMedia(r);
   const fps = (d && d.fps) || r.fps || 25;
   $("lnName").textContent = r.name;
   $("lnMeta").innerHTML = `${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · <button class="btn-link ln-lang" id="lnLangBtn" title="Bấm để đổi ngôn ngữ của clip này (vi ⇄ en); lần chép lại sẽ giữ lựa chọn của bạn">${esc(r.silent ? "–" : (r.lang || "–"))}</button>`;
@@ -169,7 +234,7 @@ function renderRight() {
   $("lnLines").innerHTML = !d ? '<span class="dim13" style="padding:8px">Đang tải...</span>'
     : lines.length ? lines.map((l) => {
       const inside = e && l.t0 >= e.in_s - 0.01 && l.t1 <= e.out_s + 0.01;
-      return `<div class="ln-line${l.keys.length && !l.why.length ? " key" : ""}${inside ? " in" : ""}${l.why.length ? " bad" : ""}"><span class="t">${fmtSec(l.t0)}</span><span class="x">${esc(l.text)}${l.why.length ? " · nghi sai" : ""}</span></div>`;
+      return `<div class="ln-line${l.keys.length && !l.why.length ? " key" : ""}${inside ? " in" : ""}${l.why.length ? " bad" : ""}" data-t="${l.t0}"><span class="t">${fmtSec(l.t0)}</span><span class="x">${esc(l.text)}${l.why.length ? " · nghi sai" : ""}</span></div>`;
     }).join("")
     : `<span class="dim13" style="padding:8px">${r.silent ? "Clip này không có tiếng nói, chỉ có tiếng nền." : "Có tiếng nói nhưng Whisper không ra chữ."}</span>`;
   $("lnStar").textContent = ((d ? d.star : r.star) ? "Bỏ sao (P)" : "Gắn sao (P)");
@@ -203,11 +268,41 @@ $("lnRun").onclick = async () => {
 };
 $("lnStage").onchange = (e) => {
   LN.stage = e.target.value;
+  LN.sub = "all";
   const f = LN.rows.find(inStage);
   LN.sel = f ? f.uid : null; LN.detail = null; LN.edit = null;
   renderSpeech();
   if (LN.sel) lnLoadDetail(LN.sel);
 };
+if ($("lnSub")) $("lnSub").onchange = (e) => {
+  LN.sub = e.target.value;
+  const f = LN.rows.find(inStage);
+  LN.sel = f ? f.uid : null; LN.detail = null; LN.edit = null;
+  renderSpeech();
+  if (LN.sel) lnLoadDetail(LN.sel);
+};
+if ($("lnStarOnly")) $("lnStarOnly").onclick = () => {
+  LN.onlyStar = !LN.onlyStar;
+  const f = LN.rows.find(inStage);
+  LN.sel = f ? f.uid : null; LN.detail = null; LN.edit = null;
+  renderSpeech();
+  if (LN.sel) lnLoadDetail(LN.sel);
+};
+if ($("lnPlayBtn")) $("lnPlayBtn").onclick = () => {
+  if (!LN.vid) return;
+  if (LN.vid.paused) LN.vid.play().catch(() => {}); else LN.vid.pause();
+};
+if ($("lnWaveBox")) $("lnWaveBox").addEventListener("mousemove", (ev) => {
+  const r = curRow(); if (!r || !LN.vid || ev.buttons) return;
+  const rect = $("lnWaveBox").getBoundingClientRect(), dur = LN.vid.duration || r.dur || 1;
+  const t = Math.max(0, Math.min(dur, (ev.clientX - rect.left) / rect.width * dur));
+  LN.vid.currentTime = t;
+});
+$("lnLines").addEventListener("click", (ev) => {
+  const ln = ev.target.closest(".ln-line"); if (!ln || !LN.vid) return;
+  LN.vid.currentTime = +ln.dataset.t || 0;
+  LN.vid.play().catch(() => {});
+});
 $("lnKey").onclick = () => { LN.onlyKey = !LN.onlyKey; lnRefresh(); };
 $("lnMin").onclick = () => { LN.min20 = !LN.min20; lnRefresh(); };
 $("lnFind").oninput = (e) => { clearTimeout(LN.timer); LN.find = e.target.value; LN.timer = setTimeout(lnRefresh, 250); };
@@ -268,6 +363,7 @@ $("lnBar").addEventListener("mousedown", (ev) => {
 
 function lnKey(e) {
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.code === "Space") { e.preventDefault(); if (LN.vid) { if (LN.vid.paused) LN.vid.play().catch(() => {}); else LN.vid.pause(); } return; }
   if (e.ctrlKey && e.code === "KeyA") { e.preventDefault(); LN.pick = new Set(LN.rows.filter(inStage).map((r) => r.uid)); renderRows(); renderExportBtns(); return; }
   if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleStar(); return; }
   const dir = { ArrowUp: -1, ArrowDown: 1 }[e.key];

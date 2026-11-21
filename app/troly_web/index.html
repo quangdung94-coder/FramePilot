@@ -246,7 +246,7 @@
           <label class="chk"><input type="checkbox" id="p3KeepManual" checked> Giữ nguyên clip bạn đã đặt tay (viền cam)</label>
           <span class="p3-gymsg" id="p3SugMsg" role="status"></span>
         </div>
-        <div class="p3-box">
+        <div class="p3-box hidden" id="trStyleBox">
           <b id="trStyleName">Kiểu quay: chưa chọn</b>
           <span id="trStyleText" class="hidden"></span>
           <div class="tr-row" id="tradRow">Truyền thống:
@@ -283,7 +283,9 @@
       <button class="btn" id="anRun" title="Chép lời cả bin, rồi làm sẵn thumbnail cho mọi clip">Phân tích cả project</button>
     </div>
     <div class="ln-filters">
-      <select id="lnStage" class="sel" title="Giai đoạn"></select>
+      <select id="lnStage" class="sel" title="Giai đoạn (bin mẹ)"></select>
+      <select id="lnSub" class="sel" title="Bin con"><option value="all">Tất cả bin con</option></select>
+      <button class="pill" id="lnStarOnly" aria-pressed="false">Chỉ clip sao ★</button>
       <button class="pill" id="lnKey" aria-pressed="false">Chỉ clip có cụm key</button>
       <button class="pill" id="lnMin" aria-pressed="false">Tiếng nói từ 20 giây</button>
       <label for="lnFind" class="lbl" style="margin-left:6px">Tìm chữ</label>
@@ -307,11 +309,17 @@
       <h2 id="lnName">Chọn một clip</h2>
       <span class="dim12" id="lnMeta"></span>
     </div>
+    <div class="ln-thumb hidden" id="lnThumb"></div>
+    <div class="ln-ctl inline8" id="lnCtl">
+      <button class="btn pl-play" id="lnPlayBtn" type="button" title="Phát / Dừng nghe kiểm tra (Space)">▶</button>
+      <span class="dim12" id="lnTime">0:00 / 0:00</span>
+      <span class="dim12 flex1" id="lnPlayNote" style="text-align:right"></span>
+    </div>
     <div class="v6">
+      <div class="ln-wave" id="lnWaveBox"><canvas id="lnWaveCv"></canvas><div class="ln-whead" id="lnWHead"></div></div>
       <div class="ln-bar big" id="lnBar"></div>
       <div class="row-between dim12" style="font-size:11px"><span>0:00</span><span id="lnDurEnd"></span></div>
     </div>
-    <div class="ln-thumb hidden" id="lnThumb"></div>
     <div class="ln-sugg hidden" id="lnSugg">
       <span class="dim12" id="lnSuggTitle">Đoạn gợi ý, giờ theo timecode của file gốc</span>
       <div class="row-between" style="font-size:13px"><b class="ln-tc" id="lnIn"></b><span class="dim2" id="lnHold"></span><b class="ln-tc" id="lnOut"></b></div>

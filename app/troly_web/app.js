@@ -576,12 +576,14 @@ function renderPage2(rebuild) {
   const nk = s ? s.bins.filter((b) => b.key).length : 0;
   renderPage2b(s, nk, rebuild);
 }
-/* cột MEDIA POOL: luôn giữ toàn bộ bin mẹ và bin con mở giống DaVinci (không tự đóng nhóm trên) */
-const p2Closed = new Set();
+/* cột MEDIA POOL: thu gọn/mở bin mẹ tùy ý bằng mũi tên ▸/▾; khi mở bin khác thì bin phía trên KHÔNG tự đóng */
+const p2Open = new Set();
+const p2Touched = new Set();
 function renderPool() {
+  if (gStage !== null && gStage >= 0 && !p2Touched.has(gStage)) p2Open.add(gStage);
   let h = S.stages.map((s, i) => {
-    const open = !p2Closed.has(i);
-    return `<div class="pool-stage"><div class="pool-row${i === gStage && gSub === null ? " on" : ""}${i === gStage && gSub !== null ? " parent" : ""}" data-stage="${i}" title="Bấm để xem cả giai đoạn. Bấm đúp để đổi tên.">${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span>${i < MAX_F ? `<span class="k" title="F${i + 1}: chuyển clip sang giai đoạn này">F${i + 1}</span>` : ""}</div>` +
+    const open = p2Open.has(i) || i === poolOpen;
+    return `<div class="pool-stage"><div class="pool-row${i === gStage && gSub === null ? " on" : ""}${i === gStage && gSub !== null ? " parent" : ""}" data-stage="${i}" title="Bấm để xem cả giai đoạn. Bấm ▾/▸ để thu gọn/mở."><span class="p2-ar" data-ar="1">${open ? "▾" : "▸"}</span>${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span>${i < MAX_F ? `<span class="k" title="F${i + 1}: chuyển clip sang giai đoạn này">F${i + 1}</span>` : ""}</div>` +
       (open ? `<div class="pool-subs"><div class="sub-none${i === gStage && gSub === NONE ? " on" : ""}" data-stage="${i}"><span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span><span class="dim12">${s.none.length}</span></div>${s.bins.map((b) => `<div class="sub${i === gStage && gSub === b.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(b.name)}"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span><span class="dim12">${b.count}</span>${b.key ? `<span class="k">${b.key}</span>` : ""}</div>`).join("")}
         ${i === gStage ? `<button class="sub-add" id="subAdd">+ Bin mới</button>` : ""}</div>` : "") + `</div>`;
   }).join("");
@@ -693,8 +695,18 @@ function keyBin(k) { const s = stageObj(); const b = s && s.bins.find((x) => x.k
 
 $("pool").addEventListener("click", (e) => {
   const row = e.target.closest(".pool-row");
-  // BẤM bin chỉ để XEM (như mở thư mục trong Windows): không gọi api().label / move, nhãn và giai đoạn không đổi.
-  if (row) { viewBin(+row.dataset.stage, null); return; }
+  if (row) {
+    const si = +row.dataset.stage;
+    if (e.target.closest("[data-ar]")) {
+      p2Touched.add(si);
+      if (p2Open.has(si)) p2Open.delete(si); else p2Open.add(si);
+      renderPool();
+      return;
+    }
+    if (si >= 0) p2Open.add(si);
+    viewBin(si, null);
+    return;
+  }
   const none = e.target.closest(".sub-none");
   if (none) { viewBin(+none.dataset.stage, NONE); return; }
   const sub = e.target.closest(".sub");

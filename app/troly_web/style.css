@@ -901,15 +901,17 @@ button, input, select { font-family: inherit; }
 #page1 .meta-bar .mi { display: inline-flex; align-items: center; gap: 5px; }
 #page1 .meta-bar .ml { color: var(--dim); font-size: 11px; }
 #page1 .meta-bar .mv { color: var(--text); font-weight: 500; }
-/* ---- Page 3: gom bảng quy tắc thành thẻ ngang gọn ---- */
-.p3-col-rule .rt, .p3-col-rule .rt tbody { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
-.p3-col-rule .rt thead { display: none; }
-.p3-col-rule .rt tr { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
-.p3-col-rule .rt td { padding: 0; border: 0; }
-.p3-col-rule .rt .num { width: 42px; height: 24px; font-size: 12px; }
-/* ---- Page 4: thumbnail cột phải ---- */
-.ln-thumb { width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #0E0E11; border: 1px solid var(--line); flex-shrink: 0; }
-.ln-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* ---- Page 3: bảng quy tắc sổ dọc gọn từ trên xuống ---- */
+.p3-col-rule .rt { width: 100%; border-collapse: collapse; }
+.p3-col-rule .rt th, .p3-col-rule .rt td { padding: 4px 4px; }
+/* ---- Page 4: thumbnail/video + sóng âm cột phải ---- */
+.ln-thumb { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #0E0E11; border: 1px solid var(--line); flex-shrink: 0; }
+.ln-thumb img, .ln-thumb video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+.ln-thumb video { position: absolute; inset: 0; }
+.ln-wave { position: relative; height: 42px; border-radius: 6px; background: #141418; border: 1px solid var(--line); overflow: hidden; cursor: pointer; }
+.ln-wave canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ln-whead { position: absolute; top: 0; bottom: 0; width: 2px; background: #EF4444; pointer-events: none; left: 0; }
+.p2-ar { display: inline-flex; width: 14px; justify-content: center; color: var(--dim); font-size: 11px; flex-shrink: 0; }
 /* ---- Page 5: Zoom timeline mượt ---- */
 #d5Tl { overflow-x: auto; }
 #d5Tl .tl-lane { min-width: var(--d5-w, 100%); }
