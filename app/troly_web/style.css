@@ -863,6 +863,7 @@ button, input, select { font-family: inherit; }
 .mc-other-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; background: var(--bg); }
 .mc-oname { font-weight: 500; }
 .thumb-scrub { position: absolute; top: 0; bottom: 0; width: 2px; background: #EF4444; pointer-events: none; display: none; box-shadow: 0 0 4px rgba(0,0,0,.8); z-index: 4; }
+.btn-gear { width: 38px; height: 38px; padding: 0; font-size: 17px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 #page1 .src-line { display: block; }
 #page1 .src-line.warn { color: #F2C14E; }
 #page1 .src-line.ok { color: #7FD6A8; }

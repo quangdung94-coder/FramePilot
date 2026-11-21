@@ -8,6 +8,7 @@ Mẫu một dòng: `- 21/11 | Nhóm A-E | việc ngắn | Chờ anh thử / Đan
 - 21/11 | Nhóm B | Tải & tích hợp SigLIP ViT-B/16 vào troly_ai.py (chạy GPU RTX 3060 offline, tách cache embed, fallback OpenCLIP) | Chờ anh thử | commit (cập nhật sau)
 - 21/11 | Nhóm A | Nhiều camera Trang 2 (lọc máy + làn ngang) & Trang 3 (Các máy khác lúc này + công tắc gợi ý theo giờ chung mặc định TẮT) | Chờ anh thử | commit (cập nhật sau)
 - 21/11 | Nhóm B | Hover Scrub Page 2 (rê chuột không cần giữ trên #preview, #plSeek và trực tiếp trên từng thumbnail lưới #grid) | Chờ anh thử | commit (cập nhật sau)
+- 21/11 | Nhóm B | Nút Cài đặt bánh răng (⚙) tùy chọn thư mục chứa Cache và thư mục mặc định file SRT trong config.json | Chờ anh thử | commit (cập nhật sau)
 
 ## Tool học từ 5 project cũ (20/11/2026) - CHỜ ANH CHẠY
 - tools/hoc_tu_cu.py (+ hoc_tu_cu_phan_tich.py). Lệnh: `& C:\VideoAI_venv\Scripts\python.exe tools\hoc_tu_cu.py` (gõ Y để chạy; --thu LV_B --mau-toi-da 20 để thử nhỏ). Cần mở DaVinci, cắm đủ HDD/SSD. Kết quả: `D:\VideoAI\data\hoc_tu_cu\tong_hop.json`. Chưa chạy thật.

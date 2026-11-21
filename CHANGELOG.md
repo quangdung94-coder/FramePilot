@@ -1,6 +1,7 @@
 # Nhật ký thay đổi
 
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **Cài đặt Cache & SRT (`troly_env.py`, `troly_api.py`, `index.html`, `app.js`):** Thêm nút bánh răng `⚙` trên thanh trên cùng để tùy chọn thư mục chứa Cache (thumbnail, sóng âm, keyframe, khung RAM) và thư mục mặc định xuất/chứa file SRT cho toàn bộ panel (lưu vào `config.json`, chặn lưu nhầm vào thư mục git).
 - **Giai đoạn 1 (`troly_vision_io.py`, `troly_core.py`, `troly_api.py`, `app.js`, `player.js`, `index.html`, `style.css`):**
   - Kiểm chứng 30 clip thật của LV_A: 88.5% bỏ >1s đầu (trung vị 1.42s), 63.3% đoạn giữ êm/nét hơn đoạn bỏ.
   - Tích hợp phân tích Hình ảnh (Laplacian Sharpness + Farneback Optical Flow) và Silero VAD vào `compute_sug` / `inout_suggest_start` (chỉ gợi ý, không ghi DaVinci).

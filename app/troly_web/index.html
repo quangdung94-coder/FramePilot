@@ -45,6 +45,7 @@
       <button class="seg-off" disabled title="Sắp có">Tầng 2 · Đọc kỹ</button>
     </div>
   </div>
+  <button class="btn btn-gear" id="btnSettings" title="Cài đặt thư mục Cache &amp; file SRT" aria-label="Cài đặt">⚙</button>
 </header>
 
 <!-- ======================= BƯỚC 1: CHỌN MỐC GIAI ĐOẠN BẰNG THUMBNAIL (ADR-0033, theo design/trang1_chon_moc) ======================= -->
@@ -388,6 +389,37 @@
     <div class="row-end">
       <button class="btn btn-lg" id="mNo">Hủy</button>
       <button class="btn-accent btn-lg" id="mYes">Đồng ý</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hộp Cài đặt thư mục Cache & SRT -->
+<div class="modal hidden" id="settingsModal">
+  <div class="modal-box" style="width:520px;max-width:94vw">
+    <h2>Cài đặt thư mục Cache &amp; SRT</h2>
+    <div class="v12" style="margin:12px 0">
+      <div class="v6">
+        <label class="lbl" for="setCacheInp">Thư mục chứa Cache (thumbnail, sóng âm, keyframe, khung RAM):</label>
+        <div class="inline8">
+          <input id="setCacheInp" class="inp flex1" placeholder="Mặc định theo data_root">
+          <button class="btn" id="setPickCache" type="button">Chọn...</button>
+        </div>
+      </div>
+      <div class="v6">
+        <label class="lbl" for="setSrtInp">Thư mục mặc định xuất / chứa file SRT (để trống = hỏi mỗi lần xuất):</label>
+        <div class="inline8">
+          <input id="setSrtInp" class="inp flex1" placeholder="Hỏi khi xuất SRT">
+          <button class="btn" id="setPickSrt" type="button">Chọn...</button>
+        </div>
+      </div>
+      <div class="dim12" id="setNote">Thay đổi có hiệu lực ngay với các lượt tạo cache / xuất SRT mới.</div>
+    </div>
+    <div class="row-between center">
+      <button class="btn-link" id="setReset" type="button">Khôi phục mặc định</button>
+      <div class="inline8">
+        <button class="btn btn-lg" id="setCancel" type="button">Đóng</button>
+        <button class="btn-accent btn-lg" id="setSave" type="button">Lưu cài đặt</button>
+      </div>
     </div>
   </div>
 </div>

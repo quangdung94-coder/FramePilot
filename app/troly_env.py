@@ -31,6 +31,31 @@ def data_root():
     return config().get("data_root")
 
 
+def cache_root():
+    """Nơi chứa cache (thumbnail, sóng âm, keyframe, khung RAM). Mặc định trùng data_root nếu chưa cấu hình riêng."""
+    return config().get("cache_root") or data_root()
+
+
+def srt_root():
+    """Thư mục mặc định xuất / chứa file SRT của toàn bộ panel (rỗng = mỗi lần xuất sẽ hỏi)."""
+    return config().get("srt_root") or ""
+
+
+def save_config(patch):
+    """Cập nhật một phần config.json qua file tạm (giữ nguyên các mục khác)."""
+    p = config_path()
+    cur = config()
+    cur.update(patch or {})
+    parent = os.path.dirname(os.path.abspath(p))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    tmp = p + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(cur, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, p)
+    return cur
+
+
 def window_title(project):
     """Tiêu đề cửa sổ FramePilot của một project (dùng để tạo cửa sổ và để cửa sổ thứ hai tìm lại cửa sổ cũ)."""
     return "FramePilot - " + project

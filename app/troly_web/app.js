@@ -1061,3 +1061,38 @@ $("styleSel").onchange = async (e) => {
     if (sel.size) showCur();
   });
 })();
+
+/* ---- Hộp Cài đặt (bánh răng): tùy chọn thư mục Cache & SRT ---- */
+(function initSettingsModal() {
+  const modal = $("settingsModal"), btn = $("btnSettings");
+  if (!modal || !btn) return;
+  let defDataRoot = "";
+  btn.onclick = async () => {
+    const r = await api().settings_get();
+    defDataRoot = (r && r.data_root) || "";
+    $("setCacheInp").value = (r && r.cache_root) || defDataRoot;
+    $("setSrtInp").value = (r && r.srt_root) || "";
+    modal.classList.remove("hidden");
+  };
+  $("setCancel").onclick = () => modal.classList.add("hidden");
+  $("setPickCache").onclick = async () => {
+    const r = await api().settings_pick_dir();
+    if (r && r.dir) $("setCacheInp").value = r.dir;
+    else if (r && r.error) status(r.error, "warn");
+  };
+  $("setPickSrt").onclick = async () => {
+    const r = await api().settings_pick_dir();
+    if (r && r.dir) $("setSrtInp").value = r.dir;
+    else if (r && r.error) status(r.error, "warn");
+  };
+  $("setReset").onclick = () => {
+    $("setCacheInp").value = defDataRoot;
+    $("setSrtInp").value = "";
+  };
+  $("setSave").onclick = async () => {
+    const r = await api().settings_save($("setCacheInp").value, $("setSrtInp").value);
+    if (r && r.error) return status(r.error, "warn");
+    modal.classList.add("hidden");
+    status("Đã lưu cài đặt thư mục Cache & SRT.", "ok");
+  };
+})();

@@ -31,6 +31,7 @@ import troly_tl as ttl            # noqa: E402
 import troly_lut as tl            # noqa: E402
 import troly_kf as tkf            # noqa: E402
 import troly_vision_io as tvio    # noqa: E402
+import troly_env as te            # noqa: E402
 
 AI_AUTO_BY = "ai_auto"                 # dấu riêng của nhãn do AI tự xếp (Việc 3, ADR-0023)
 AI_AUTO_DEFAULT = 0.5
@@ -73,7 +74,9 @@ class TrolyApi(object):
         self._lock = threading.RLock()
         self._q = queue.Queue()
         self._worker = tr.TrolyWorker(project, self._q, resolve_factory=resolve_factory)
-        self._thumbs = tt.ThumbMaker(os.path.join(data_root, "cache", "troly_thumbs", tc._safe(project)),
+        cfg_cache = te.config().get("cache_root")
+        self._cache_root = (cfg_cache if (cfg_cache and data_root == te.data_root()) else data_root)
+        self._thumbs = tt.ThumbMaker(os.path.join(self._cache_root, "cache", "troly_thumbs", tc._safe(project)),
                                      workers=thumb_workers)
         self._thumb_done = {}             # uid -> (đường dẫn jpg | None, ghi chú)
         self._inflight = set()
@@ -392,7 +395,7 @@ class TrolyApi(object):
     def _wave_maker(self):
         if getattr(self, "_wave", None) is None:
             import troly_wave as tw
-            self._wave = tw.WaveMaker(os.path.join(self._root, "cache", "troly_wave", tc._safe(self._project)))
+            self._wave = tw.WaveMaker(os.path.join(self._cache_root, "cache", "troly_wave", tc._safe(self._project)))
         return self._wave
 
     def wave(self, uid):
@@ -1720,7 +1723,7 @@ class TrolyApi(object):
     def _frame_store(self):
         import troly_frames as tf
         if getattr(self, "_frames", None) is None:
-            self._frames = tf.FrameStore(os.path.join(self._root, "cache", "troly_frames", tc._safe(self._project)), self._thumbs.ffmpeg, lut_copy=tt.local_lut)
+            self._frames = tf.FrameStore(os.path.join(self._cache_root, "cache", "troly_frames", tc._safe(self._project)), self._thumbs.ffmpeg, lut_copy=tt.local_lut)
             self._play_server().frames = self._frames
         return self._frames
 
@@ -1772,7 +1775,7 @@ class TrolyApi(object):
         src = c.proxy
         if not src or not os.path.isfile(src) or not tp.inside(src, [self._proxy_root]):
             return {"error": "Chưa có proxy"}
-        kf = tkf.get(src, os.path.join(self._root, "cache", "troly_kf", tc._safe(self._project)), tkf.ffprobe_path(self._thumbs.ffmpeg))
+        kf = tkf.get(src, os.path.join(self._cache_root, "cache", "troly_kf", tc._safe(self._project)), tkf.ffprobe_path(self._thumbs.ffmpeg))
         return {"kf": kf} if kf else {"error": "Không đọc được keyframe"}
 
     def lut_cube(self, uid):
@@ -2368,6 +2371,8 @@ class TrolyApi(object):
         if scope not in ("stages", "selection", "clip"):
             return {"error": "Kiểu xuất không hợp lệ."}
         if not dest:
+            dest = te.srt_root()
+        if not dest:
             fn = getattr(self, "pick_dir_fn", None)
             if fn is None:
                 return {"error": "Không mở được hộp chọn thư mục ở chế độ này."}
@@ -2541,6 +2546,42 @@ class TrolyApi(object):
     def analyze_state(self):
         with self._lock:
             return {"running": self._analyze is not None, "phase": self._analyze.phase if self._analyze else "idle"}
+
+    # ------------------------------------------------------------------ Cài đặt chung (bánh răng)
+    def settings_get(self):
+        """Trả cài đặt thư mục chứa cache và thư mục chứa file SRT hiện tại."""
+        return {
+            "data_root": self._root or "",
+            "cache_root": self._cache_root or self._root or "",
+            "srt_root": te.srt_root() or "",
+        }
+
+    def settings_pick_dir(self):
+        """Mở hộp thoại chọn thư mục trên Windows."""
+        fn = getattr(self, "pick_dir_fn", None)
+        if fn is None:
+            return {"error": "Không mở được hộp chọn thư mục ở chế độ này."}
+        d = fn()
+        return {"dir": d} if d else {"cancel": True}
+
+    def settings_save(self, cache_root="", srt_root=""):
+        """Lưu tùy chọn nơi chứa cache và nơi chứa file SRT vào config.json (không ghi vào thư mục git)."""
+        repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).lower()
+        c_dir = (cache_root or "").strip()
+        s_dir = (srt_root or "").strip()
+        for label, d in (("Thư mục cache", c_dir), ("Thư mục SRT", s_dir)):
+            if not d:
+                continue
+            ab = os.path.abspath(d).lower()
+            if ab == repo or ab.startswith(repo + os.sep):
+                return {"error": f"{label} không được nằm trong thư mục mã nguồn của FramePilot."}
+        te.save_config({"cache_root": c_dir, "srt_root": s_dir})
+        with self._lock:
+            self._cache_root = c_dir or self._root
+            self._thumbs.root = os.path.join(self._cache_root, "cache", "troly_thumbs", tc._safe(self._project))
+            if getattr(self, "_wave", None) is not None:
+                self._wave.root = os.path.join(self._cache_root, "cache", "troly_wave", tc._safe(self._project))
+        return {"ok": True, "cache_root": self._cache_root, "srt_root": s_dir}
 
     def close(self):
         if self._play is not None:
