@@ -138,7 +138,9 @@
 
     box.querySelectorAll(".mc-apply-sug").forEach((btn) => {
       btn.onclick = async () => {
-        const st = await api().set_inout(btn.dataset.uid, +btn.dataset.in, +btn.dataset.out);
+        const r = await api().set_inout(btn.dataset.uid, +btn.dataset.in, +btn.dataset.out);
+        if (r && r.error) { if (typeof status === "function") status(r.error, "warn"); return; }
+        const st = await api().state();
         if (st && !st.error && typeof setState === "function") setState(st);
         if (typeof status === "function") status("Đã đặt In/Out theo giờ chung vào kế hoạch (chưa ghi DaVinci).", "ok");
       };

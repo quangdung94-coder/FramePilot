@@ -162,7 +162,8 @@ function p3SugMsg(text, kind) { const m = $("p3SugMsg"); m.textContent = text ||
 function p3SugSummary() {                                       // kết quả lần chạy, đọc từ chính trạng thái hiện có
   const st = S.clips.filter((c) => c.star && c.sug && c.sug.src !== "live");
   const sp = st.filter((c) => c.sug.src === "speech").length;
-  return { total: st.length, speech: sp, rule: st.length - sp };
+  const vis = st.filter((c) => c.sug.src === "vision").length;
+  return { total: st.length, speech: sp, vision: vis, rule: st.length - sp - vis };
 }
 function p3SumPaint() {
   const el = $("p3Sum"), g = S && S.inout_sug; if (!el || !g) return;
@@ -184,7 +185,10 @@ async function p3SugFinish() {                                  // lần chạy 
   P3.sugRun = false;
   try { setState(await api().state()); } catch (e) { p3SugMsg("Chạy xong nhưng không nạp lại được trạng thái: " + e, "err"); return; }
   const x = p3SugSummary();
-  const msg = `Đã gợi ý cho ${x.total} clip sao: ${x.speech} theo lời nói, ${x.rule} theo quy tắc bin. Màu xanh, chưa ghi gì vào DaVinci.`;
+  const parts = [`${x.speech} theo lời nói`];
+  if (x.vision) parts.push(`${x.vision} theo hình ảnh`);
+  parts.push(`${x.rule} theo quy tắc bin`);
+  const msg = `Đã gợi ý cho ${x.total} clip sao: ${parts.join(", ")}. Màu xanh, chưa ghi gì vào DaVinci.`;
   p3SugMsg(msg, "ok");
   status(msg + " Bấm A để nhận từng clip.", "ok");
 }
@@ -229,7 +233,7 @@ async function p3Accept() {
 $("p3Accept").onclick = p3Accept;
 document.addEventListener("keydown", (e) => {                   // A chỉ có tác dụng ở Bước 3 (Bước 2: A = nhận gợi ý AI xếp bin); event.code, bỏ qua khi gõ chữ
   if (page !== 3 || e.code !== "KeyA" || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
-  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable || !$("modal").classList.contains("hidden")) return;
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable || !$("modal").classList.contains("hidden") || ($("settingsModal") && !$("settingsModal").classList.contains("hidden"))) return;
   e.preventDefault(); e.stopPropagation(); p3Accept();
 }, true);
 
@@ -262,7 +266,8 @@ function p3TxPaint() {
   const e = 0.05;
   list.innerHTML = lines.map((l, i) => {
     const inside = a != null && l.t0 >= a - e && l.t1 <= b + e;
-    return `<div class="p3-ln${inside ? (manual ? " in" : " in sg") : ""}" data-i="${i}"><span class="tc">${p3mmss(l.t0)}</span><span class="tt" title="${esc(l.text)}">${esc(l.text)}</span></div>`;
+    const bad = l.why && l.why.length;
+    return `<div class="p3-ln${inside ? (manual ? " in" : " in sg") : ""}${bad ? " bad" : ""}" data-i="${i}"><span class="tc">${p3mmss(l.t0)}</span><span class="tt" title="${esc(l.text)}">${esc(l.text)}${bad ? ' <em style="color:var(--link);font-style:normal;font-size:11px">· nghi sai</em>' : ""}</span></div>`;
   }).join("");
   P3.tx.now = -2; p3TxNow();
 }
@@ -300,7 +305,17 @@ $("p3TxList").addEventListener("click", async (e) => {
 document.addEventListener("mousedown", (e) => { if (e.shiftKey && e.target.closest("#p3TxList")) e.preventDefault(); }, true);   // Shift + bấm: không bôi chọn chữ
 
 /* ---- clip đang chọn: tiêu đề, hộp thông tin (nguồn gợi ý, đặt tay, giữ lại), sóng âm, chữ ---- */
-const P3_SRC = { speech: "theo lời nói", rule: "theo quy tắc bin", live: "tức thời theo quy tắc bin (chưa chạy gợi ý)" };
+const P3_SRC = { speech: "theo lời nói", vision: "theo hình ảnh (nét & êm)", rule: "theo quy tắc bin", live: "tức thời theo quy tắc bin (chưa chạy gợi ý)" };
+window.p3SelectUid = function (uid) {
+  if (!S || !S.clips) return;
+  const c = S.clips.find((x) => x.uid === uid);
+  if (!c) return;
+  const si = c.stage != null ? c.stage : -1;
+  const sub = si >= 0 ? (c.label || NONE) : null;
+  if (si !== gStage || sub !== gSub) p3View(si, sub);
+  const idx = items.findIndex((x) => x.uid === uid);
+  if (idx >= 0) moveCur(idx);
+};
 function renderPage3Cur(c) {
   if (!$("page3")) return;
   if (!c) { $("p3Name").textContent = "Chọn một clip"; $("p3Meta").textContent = ""; $("p3Tag").textContent = ""; $("p3Cur").innerHTML = "<span>Chưa chọn clip.</span>"; waveReset(null); p3TxLoad(null); return; }

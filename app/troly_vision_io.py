@@ -144,7 +144,7 @@ def analyze_proxy_vad(proxy_path, dur, pad=0.35):
             "ffmpeg", "-y", "-i", proxy_path,
             "-vn", "-ac", "1", "-ar", "16000", "-f", "wav", tmp_wav,
         ]
-        p = troly_proc.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
+        p = troly_proc.chay_an(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
         if p.returncode != 0 or not os.path.exists(tmp_wav) or os.path.getsize(tmp_wav) < 1024:
             return []
 

@@ -1469,7 +1469,7 @@ class TrolyApi(object):
         c = self._by_uid.get(uid)
         if not c:
             return {}
-        _, p, note = self._thumbs.make(uid, c.path, c.proxy, c.lut, c.dur, width=640)
+        _, p, note = self._thumbs.make(uid, c.path, c.proxy, self._effective_lut(c), c.dur, width=640)
         return {"src": _data_uri(p) if p else None, "note": note}
 
     # ------------------------------------------------------------------ BƯỚC 3: GỢI Ý In/Out CHO CLIP SAO (ADR-0024)
@@ -1520,7 +1520,7 @@ class TrolyApi(object):
                 return {"error": "Chưa có clip. Hãy bấm 'Đọc clip' trước."}
             todo = [(c, self._label_in_stage(c, self._assign.get(c.uid))) for c in self._clips if tc.is_starred(self._plan, c)]
             if not todo:
-                return {"error": "Chưa có clip nào gắn sao ★. Gắn sao (phím J) ở Bước 2 trước."}
+                return {"error": "Chưa có clip nào gắn sao ★. Gắn sao (phím P) ở Bước 2 trước."}
             kept = 0
             if keep_manual:
                 rest = [(c, lb) for c, lb in todo if not tc.manual_inout(self._plan, c)]
@@ -1539,7 +1539,8 @@ class TrolyApi(object):
                     _has, lines = self._speech_lines_for(c)
                     vis = None
                     msrc, _is_p, _merr = self._media_src(c)
-                    if not lines and msrc:
+                    is_trad = (self._plan.get("shoot_style") or "") == "traditional"
+                    if not lines and msrc and not is_trad:
                         lb_low = (lb or "").lower()
                         if any(k in lb_low for k in ("phỏng vấn", "phong van", "lễ", "gia tiên", "phát biểu", "vows")):
                             lines = tvio.analyze_proxy_vad(msrc, c.dur)
@@ -1594,7 +1595,7 @@ class TrolyApi(object):
             r = tc.set_manual_inout(self._plan, c, v["in_s"], v["out_s"])
             if not r:
                 return {"error": "Gợi ý không hợp lệ."}
-            tc.sug_note(self._plan, c, lb, (v["in_s"], v["out_s"], "speech" if v["src"] == "speech" else "rule"), r[0], r[1], "accept")
+            tc.sug_note(self._plan, c, lb, (v["in_s"], v["out_s"], v["src"] if v["src"] in ("speech", "vision") else "rule"), r[0], r[1], "accept")
             self._save_now()
             return {"ok": True, "in_s": r[0], "out_s": r[1], "src": v["src"], "stats": self._sug_state()}
 
@@ -1607,7 +1608,7 @@ class TrolyApi(object):
         lb = self._label_in_stage(c, self._assign.get(c.uid))
         v = self._sug_view(c, lb)
         if v:
-            tc.sug_note(self._plan, c, lb, (v["in_s"], v["out_s"], "speech" if v["src"] == "speech" else "rule"), a, b, "edit")
+            tc.sug_note(self._plan, c, lb, (v["in_s"], v["out_s"], v["src"] if v["src"] in ("speech", "vision") else "rule"), a, b, "edit")
 
     # ------------------------------------------------------------------ In/Out (ADR-0016)
     def set_inout(self, uid, in_s, out_s):
@@ -1928,7 +1929,7 @@ class TrolyApi(object):
                 return {"error": "Trợ lý đang bận hoặc chưa có clip."}
             starred = [c for c in self._clips if tc.is_starred(self._plan, c)]
             if not starred:
-                return {"error": "Chưa có clip nào được gắn sao ★. Hãy bấm phím J để gắn sao."}
+                return {"error": "Chưa có clip nào được gắn sao ★. Hãy bấm phím P để gắn sao."}
             # Sắp xếp đúng theo giai đoạn và giờ quay
             starred.sort(key=lambda c: (self._assign.get(c.uid) if self._assign.get(c.uid) is not None else 999,
                                         c.t_start or datetime.datetime.min))
@@ -2422,6 +2423,9 @@ class TrolyApi(object):
             if c is None:
                 return {"error": "Không thấy clip."}
             d = self._plan.setdefault("inout", {})
+            ds = self._plan.get("inouts")
+            if isinstance(ds, dict):
+                ds.pop(c.rel, None)
             if in_s is None or out_s is None:
                 d.pop(c.rel, None)
             else:

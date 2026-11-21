@@ -1,13 +1,16 @@
 /* Bảng màu, cỡ chữ, bo góc lấy từ demo docs/03-design/troly_demo (ADR-0010). Bố cục co giãn theo cửa sổ
    (demo cố định 1440x900) để không lẹm mép ở mọi tỉ lệ màn hình. */
 :root {
-  --bg: #18181B; --bar: #1F1F23; --line: #2E2E34; --card: #222226; --btn: #26262B; --btn-line: #3A3A42;
-  --text: #E7E7EA; --dim: #A1A1AA; --dim2: #C4C4CC; --tick: #8A8A94; --accent: #F2A33A; --accent-text: #18181B;
-  --link: #F2B256; --right: #1C1C20;
+  --bg: #141417; --bar: #1B1B1F; --line: #2E2E35; --card: #242429; --btn: #242429; --btn-line: #3E3E48;
+  --text: #ECECEF; --fg: #ECECEF; --dim: #A1A1AA; --dim2: #C4C4CC; --tick: #8A8A94; --accent: #F2A33A; --accent-text: #18181B;
+  --link: #F2B256; --right: #1B1B1F;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
-  font-family: Inter, "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 13px; overflow: hidden; }
+#plTime, #ioIn, #ioOut, #ioDur, #lnIn, #lnOut, #lnTime, #d5Res, .tl-sc .sc-io, .tl-sc .sc-len, .p3-ln .tc, .ln-line .t, .tl-inp, .num {
+  font-variant-numeric: tabular-nums;
+}
 #app { height: 100vh; display: flex; flex-direction: column; }
 h1 { margin: 0; font-size: 22px; font-weight: 700; }
 h1.h20 { font-size: 20px; }
@@ -33,17 +36,17 @@ button, input, select { font-family: inherit; }
 .v12 { display: flex; flex-direction: column; gap: 12px; }
 .title-block { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 
-/* ---- thanh trên ---- */
-.top { height: 64px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 0 24px; background: var(--bar); border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.logo { width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; background: var(--accent); display: flex;
+/* ---- thanh trên (52px gọn chuẩn DaVinci) ---- */
+.top { height: 52px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 0 18px; background: var(--bar); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.logo { width: 28px; height: 28px; flex-shrink: 0; border-radius: 7px; background: var(--accent); display: flex;
   align-items: center; justify-content: center; }
 .brand-text { display: flex; flex-direction: column; min-width: 0; }
-.brand-title { font-size: 15px; font-weight: 700; }
-.brand-sub { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.steps { display: flex; gap: 6px; flex-shrink: 0; }
-.step { text-decoration: none; padding: 10px 16px; border-radius: 8px; color: var(--dim2); font-size: 13px;
+.brand-title { font-size: 14px; font-weight: 700; }
+.brand-sub { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.steps { display: flex; gap: 4px; flex-shrink: 0; background: var(--bg); padding: 3px; border-radius: 9px; border: 1px solid var(--line); }
+.step { text-decoration: none; padding: 6px 13px; border-radius: 6px; color: var(--dim2); font-size: 13px;
   font-weight: 500; }
 .step:hover { background: var(--btn); }
 .step.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
@@ -56,27 +59,27 @@ button, input, select { font-family: inherit; }
 .seg-off:disabled { opacity: .55; }
 
 /* ---- nút, ô nhập ---- */
-.btn { height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--btn-line); background: var(--btn);
-  color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
-.btn:hover { background: #2E2E34; }
+.btn { height: 34px; padding: 0 14px; border-radius: 7px; border: 1px solid var(--btn-line); background: var(--btn);
+  color: var(--text); font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: #2E2E36; }
 .btn:disabled, .btn-accent:disabled { opacity: .45; cursor: default; }
-.btn-accent { height: 40px; padding: 0 24px; border-radius: 10px; border: 0; background: var(--accent);
-  color: var(--accent-text); font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-accent { height: 36px; padding: 0 18px; border-radius: 8px; border: 0; background: var(--accent);
+  color: var(--accent-text); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .btn-accent:hover { background: #F5B45C; }
-.btn-lg { height: 48px; border-radius: 10px; font-size: 14px; padding: 0 20px; }
-.btn-accent.btn-lg { padding: 0 24px; }
-.btn-44 { height: 44px; border-radius: 10px; font-size: 13px; padding: 0 10px; min-width: 0; }
+.btn-lg { height: 42px; border-radius: 8px; font-size: 13px; padding: 0 18px; }
+.btn-accent.btn-lg { padding: 0 20px; }
+.btn-44 { height: 40px; border-radius: 8px; font-size: 13px; padding: 0 10px; min-width: 0; }
 .sel.flex1 { max-width: none; }
-.btn-dashed { height: 44px; border-radius: 10px; border: 1px dashed #4A4A52; background: transparent;
-  color: var(--dim2); font-size: 13px; cursor: pointer; flex-shrink: 0; }
+.btn-dashed { height: 38px; border-radius: 8px; border: 1px dashed #4A4A52; background: transparent;
+  color: var(--dim2); font-size: 12px; cursor: pointer; flex-shrink: 0; }
 .btn-dashed:hover { border-color: var(--accent); color: var(--text); }
 .btn-link { background: none; border: 0; color: var(--link); font-size: 12px; cursor: pointer; padding: 4px; }
-.inp { height: 36px; border-radius: 8px; border: 1px solid var(--btn-line); background: var(--card); color: var(--text);
+.inp { height: 34px; border-radius: 7px; border: 1px solid var(--btn-line); background: var(--card); color: var(--text);
   font-size: 13px; padding: 0 8px; }
 .inp.center { text-align: center; }
 .inp:focus, .sel:focus { outline: 1px solid var(--accent); }
-.sel { height: 40px; border-radius: 8px; border: 1px solid var(--btn-line); background: var(--card); color: var(--text);
-  font-size: 13px; padding: 0 8px; max-width: 300px; min-width: 0; }
+.sel { height: 34px; border-radius: 7px; border: 1px solid var(--btn-line); background: var(--card); color: var(--text);
+  font-size: 12px; padding: 0 8px; max-width: 300px; min-width: 0; }
 
 /* ---- trang ---- */
 .page { flex: 1; display: flex; min-height: 0; }
@@ -210,9 +213,8 @@ button, input, select { font-family: inherit; }
 .card.starred.cur { border-color: #F2A33A; }
 .btn-star { background: #2A2418; color: #F2A33A; border: 1px solid #664A1C; }
 .btn-star.active { background: #F2A33A; color: #18181B; font-weight: 600; border: 1px solid #F2A33A; }
-.card-foot { padding: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.card-foot { gap: 6px; }
-.card-foot .f { font-size: 11.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.card-foot { padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.card-foot .f { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   min-width: 0; flex-shrink: 1; }
 .tag { font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 999px; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; max-width: 62%; flex-shrink: 0; }
@@ -659,8 +661,7 @@ button, input, select { font-family: inherit; }
 .p3-clips { padding-left: 0; }
 .p3-clips .p3-clip { gap: 6px; padding: 7px 6px; }
 .p3-ln.in.sg { background: rgba(91,155,245,.14); border-left-color: #5B9BF5; }
-#stageHost3 .preview { max-width: 444px; margin: 0 auto; }          /* như demo: khung xem 444x250, chừa chỗ cho khung chữ */
-#stageHost3 .preview { width: clamp(500px, 48vw, 760px); height: auto; max-width: 100%; aspect-ratio: 16 / 9; margin: 0 auto; }
+#stageHost3 .preview { width: clamp(444px, 46vw, 720px); height: auto; max-width: 100%; aspect-ratio: 16 / 9; margin: 0 auto; }
 
 /* Truyền thống: cắt đầu / đuôi theo bin (ADR-0025) */
 .rt.trad .num { width: 54px; }
@@ -682,11 +683,9 @@ button, input, select { font-family: inherit; }
 .p3-gymsg.ok { color: #A9CF62; }
 .p3-gymsg.err { color: #F28B82; font-weight: 600; }
 /* Điểm 1: mũi tên thu gọn / mở trong cây */
-.p3-ar { width: 14px; flex-shrink: 0; text-align: center; font-size: 12px; color: var(--dim2); cursor: pointer; user-select: none; }
-.p3-ar:hover { color: var(--text); }
-.p3-tree .sub .p3-ar, .p3-tree .sub-none .p3-ar { margin-left: -6px; margin-right: -4px; }
-.p3-ar { font-size: 15px; width: 16px; color: var(--text); opacity: .75; }
+.p3-ar { width: 16px; flex-shrink: 0; text-align: center; font-size: 13px; color: var(--text); opacity: .75; cursor: pointer; user-select: none; }
 .p3-ar:hover { opacity: 1; }
+.p3-tree .sub .p3-ar, .p3-tree .sub-none .p3-ar { margin-left: -6px; margin-right: -4px; }
 
 /* ===== Đêm #1: Tự phân loại chạy luôn ở Bước 2 (demo Design canvas, bảng "Bước 2 - Tự phân loại") ===== */
 .ai-box { border: 1.5px solid var(--accent); background: #2A2218; border-radius: 12px; padding: 12px 14px; }
@@ -829,10 +828,12 @@ button, input, select { font-family: inherit; }
 #page1 .todo-box b { color: var(--dim2); }
 #page1 .col-left.p1 .go { margin-top: auto; }
 @media (max-width: 1250px) {
-#page1 .col-left.p1 { width: 262px; padding: 14px; }
+#page1 .col-left.p1 { width: 276px; padding: 14px; }
+#page1 .col-left.p1 .row-between h2 { font-size: 15px; }
+#page1 #stageCount { display: none; }
 #page1 .media { grid-template-columns: 160px minmax(0,1fr) 176px; }
 #page1 .top { padding: 0 14px; gap: 8px; }
-#page1 .step { padding: 8px 9px; font-size: 12px; }
+#page1 .step { padding: 6px 9px; font-size: 12px; }
 #page1 .brand-sub { max-width: 150px; }
 #page1 .col-main.p1 { padding: 12px 14px; }
 #page1 .g1 { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
@@ -845,11 +846,6 @@ button, input, select { font-family: inherit; }
 #page1 .stage.p1 .chip { align-self: flex-start; }
 #page1 .tl-card.low .ruler, #page1 .tl-card.low .dens-wrap, #page1 .tl-card.low .bands { margin: 0 18px; }
 #page1 .tl-card.low .ruler { margin-bottom: 0; }
-@media (max-width: 1250px) {
-#page1 .col-left.p1 { width: 284px; }
-#page1 .col-left.p1 .row-between h2 { font-size: 15px; }
-#page1 #stCount { display: none; }
-}
 #page1 .pane-b.g1 { position: relative; }
 #page1 .stage.p1 .stage-txt { gap: 1px; }
 #page1 .col-main.p1 { min-width: 0; }

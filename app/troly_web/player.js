@@ -171,13 +171,16 @@ function plSeek(t, opt) {                                       // opt.fast: đa
   }
   plPump();
 }
-function plNudge(frames) {                                     // mũi tên: chỉnh từng frame
+function plNudge(frames) {                                     // mũi tên: chỉnh từng frame trên khúc đang chọn
   const c = curClip(); if (!c || !PL.vid) return;
   const d = frames * plStep();
-  if (PL.edge && c.in_s != null) {
-    let [a, b] = [c.in_s, c.out_s];
+  const spans = plSpans(c);
+  if (PL.edge && spans.length) {
+    const idx = Math.max(0, Math.min(PL.spanIdx, spans.length - 1));
+    let [a, b] = spans[idx];
     if (PL.edge === "in") a = Math.min(a + d, b - plStep()); else b = Math.max(b + d, a + plStep());
-    c.in_s = a; c.out_s = b; c.io_src = "manual"; plRenderIo(c);      // cập nhật ngay (giữ phím không mất frame), rồi lưu
+    spans[idx] = [a, b];
+    c.inouts = spans; c.in_s = spans[0][0]; c.out_s = spans[0][1]; c.io_src = "manual"; plRenderIo(c);
     plSet(a, b); plSeek(PL.edge === "in" ? a : b);
   } else plSeek(PL.vid.currentTime + d);
 }
@@ -194,11 +197,16 @@ $("ioBar").addEventListener("mousedown", (ev) => {
   if (!h) { plDragScrub(ev, $("ioBar")); return; }
   ev.preventDefault();
   const which = h.dataset.h; PL.edge = which;
-  let a = c.in_s != null ? c.in_s : (c.sug ? c.sug.in_s : 0), b = c.out_s != null ? c.out_s : (c.sug ? c.sug.out_s : dur);
+  const spans = plSpans(c);
+  const actIdx = Math.max(0, Math.min(PL.spanIdx, spans.length - 1));
+  let a = spans.length ? spans[actIdx][0] : (c.sug ? c.sug.in_s : 0);
+  let b = spans.length ? spans[actIdx][1] : (c.sug ? c.sug.out_s : dur);
   const move = (m) => {
     const t = tAt(m.clientX), s = plStep();
     if (which === "in") a = Math.min(t, b - s); else b = Math.max(t, a + s);
-    c.in_s = a; c.out_s = b; c.io_src = "manual"; plRenderIo(c);
+    if (spans.length) { spans[actIdx] = [a, b]; c.inouts = spans; c.in_s = spans[0][0]; c.out_s = spans[0][1]; }
+    else { c.in_s = a; c.out_s = b; }
+    c.io_src = "manual"; plRenderIo(c);
     plSeek(which === "in" ? a : b, { fast: true });
   };
   const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); plSet(a, b); plSeek(which === "in" ? a : b); };
@@ -574,16 +582,16 @@ plAttachHoverScrub($("plSeek"));
     }
   };
   grid.addEventListener("mousemove", (e) => {
-    if (page !== 2 || e.buttons) return;
+    if (page !== 2 || e.buttons || e.ctrlKey || e.shiftKey) return;
     const th = e.target.closest(".thumb"), card = e.target.closest(".card");
     if (!th || !card) { line.style.display = "none"; return; }
     if (curCard !== card) {
       clearTimeout(hoverTimer);
       curCard = card; curThumb = th;
       const idx = +card.dataset.i;
-      if (idx !== cur) {
+      if (idx !== cur && sel.size <= 1) {
         hoverTimer = setTimeout(() => {
-          if (curCard === card && typeof moveCur === "function") { moveCur(idx); flush(); }
+          if (curCard === card && sel.size <= 1 && typeof moveCur === "function") { moveCur(idx); flush(); }
         }, 120);
       }
     }
@@ -637,10 +645,10 @@ document.addEventListener("mousedown", (e) => {               // bấm ra ngoài
 document.addEventListener("keydown", (e) => {
   if (page !== 2 && page !== 3) return;
   if (e.target && e.target.closest && e.target.closest("#p3List")) PL.focus = false;
-  if (!$("modal").classList.contains("hidden")) return;
+  if (!$("modal").classList.contains("hidden") || ($("settingsModal") && !$("settingsModal").classList.contains("hidden"))) return;
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" || e.target.isContentEditable) return;
   if (e.ctrlKey || e.altKey || e.metaKey) return;
-  if (e.code === "Space") { e.preventDefault(); e.stopPropagation(); plJkl("k"); plToggle(); return; }
+  if (e.code === "Space") { e.preventDefault(); e.stopPropagation(); clearInterval(PL.jklTimer); PL.jklTimer = 0; PL.jklRate = 0; plToggle(); return; }
   if (e.code === "KeyJ") { e.preventDefault(); e.stopPropagation(); plJkl("j"); return; }
   if (e.code === "KeyK") { e.preventDefault(); e.stopPropagation(); plJkl("k"); return; }
   if (e.code === "KeyL") { e.preventDefault(); e.stopPropagation(); plJkl("l"); return; }
@@ -648,7 +656,7 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "KeyO") { e.preventDefault(); e.stopPropagation(); plMark("out", e.shiftKey); return; }
   if ((e.code === "Delete" || e.code === "Backspace") && PL.focus) {
     const c = curClip(), spans = plSpans(c);
-    if (spans.length > 1) {
+    if (spans.length >= 1) {
       e.preventDefault(); e.stopPropagation();
       spans.splice(Math.max(0, Math.min(PL.spanIdx, spans.length - 1)), 1);
       PL.spanIdx = Math.max(0, PL.spanIdx - 1);

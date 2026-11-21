@@ -129,8 +129,8 @@ function render(rebuildItems) {
   $("page4").classList.toggle("hidden", page !== 4);
   $("page5").classList.toggle("hidden", page !== 5);
   const hasMoves = S && S.moves.length;
-  $("undoBtn1").classList.add("hidden");
-  $("undoBtn2").classList.add("hidden");
+  $("undoBtn1").classList.toggle("hidden", !hasMoves);
+  $("undoBtn2").classList.toggle("hidden", !hasMoves);
   if (S && $("styleSel").value !== (S.shoot_style || "") && document.activeElement !== $("styleSel")) $("styleSel").value = S.shoot_style || "";
   if (S) {
     $("tplSel").innerHTML = `<option value=""${S.template ? "" : " selected"}>Chọn mẫu sự kiện…</option>` + S.templates.map((t) => `<option${t === S.template ? " selected" : ""}>${esc(t)}</option>`).join("");
@@ -370,8 +370,7 @@ function renderMeta() {
 }
 function renderKeys() {
   const n = S ? Math.min(S.stages.length, 9) : 0;
-  $("keybar").innerHTML = `<span>Bấm clip → <b>F1…F${n || 1}</b> = mốc <b>ĐẦU</b> · <b>Shift+F1…</b> = mốc <b>CUỐI</b> · Esc bỏ chọn</span>
-    <span class="alt">Phương án phụ, chưa làm: bấm F1 hai lần thay Shift+F1.</span>`;
+  $("keybar").innerHTML = `<span>Bấm clip → <b>F1…F${n || 1}</b> = mốc <b>ĐẦU</b> · <b>Shift+F1…</b> = mốc <b>CUỐI</b> · Esc bỏ chọn</span>`;
 }
 
 /* phím F1..F9 (đọc bằng event.code): đặt mốc đầu; Shift+F = mốc cuối */
@@ -915,6 +914,10 @@ document.addEventListener("keydown", (e) => {
   if (F_BLOCK.has(e.code) && !e.ctrlKey && !e.altKey && !e.metaKey) e.preventDefault();   // không để F1/F5/F11/F12 làm việc của trình duyệt
   if (!$("modal").classList.contains("hidden")) {
     if (e.key === "Escape") $("mNo").click(); else if (e.key === "Enter") $("mYes").click();
+    return;
+  }
+  if ($("settingsModal") && !$("settingsModal").classList.contains("hidden")) {
+    if (e.key === "Escape") $("settingsModal").classList.add("hidden");
     return;
   }
   if (e.ctrlKey && !e.altKey && !e.metaKey && e.code === "KeyZ") {

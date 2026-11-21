@@ -1,5 +1,15 @@
 # Nhật ký thay đổi
 
+## 2026-11-21 – Tổng kiểm tra & Sửa lỗi Nhóm A/B/C + Nâng cấp giao diện Mục 5, CHỜ ANH THỬ
+- **Sửa lỗi chức năng (Nhóm A):**
+  - `player.js`: sửa lỗi bấm `Space` không dừng được video đang phát (do `plJkl("k")` tạm dừng trước khi `plToggle()` chạy); sửa `plNudge` và kéo mép `ioBar` trên nhiều khúc `Shift+I/O` lấy đúng khúc đang chọn (`plCurRange()`) thay vì ghi đè khúc đầu.
+  - `troly_vision_io.py` & `troly_api.py`: đổi `troly_proc.run` -> `troly_proc.chay_an` để chạy VAD không crash `inout_suggest_start`; `big()` dùng `_effective_lut(c)` áp LUT theo tiền tố; `speech_set_inout` xóa `inouts` cũ khi về 1 khúc; không cho gợi ý Hình ảnh 3.5s đè kiểu quay `Truyền thống`.
+  - `troly_dur.py`, `step5.js`, `step3.js`: bổ sung `stage_name` và `name` vào `items` của `dur_state()` và thêm `p3SelectUid(uid)` để xổ khúc clip Page 5 hiện đúng tên và bấm nhảy thẳng sang Bước 3.
+  - `speech.js`, `app.js`, `multicam.js`, `troly_ai.py`: tách `pollWave` để Page 4 không tạo lại `<video>` liên tục khi sóng âm đang chờ; hiện nút `undoBtn1/2` khi có lịch sử chuyển; `mc-apply-sug` nạp lại `api().state()` đầy đủ; `AiJob.available()` nhận diện thêm SigLIP; chặn phím nền & hỗ trợ `Esc` đóng `#settingsModal`.
+- **Đồng bộ giao diện & phím tắt (Nhóm B & C + Mục 5):**
+  - Bổ sung `J-K-L`, `←/→` từng frame và `Delete` (xóa được cả khúc đơn) đồng nhất trên Page 2, 3, 4; gắn nhãn `nghi sai` (HALLU) cho câu Whisper ở Page 3; giữ vùng chọn nhiều clip khi hover lưới Page 2.
+  - Sửa các chỗ sót `phím J` -> `phím P` và bỏ dòng ghi chú thừa Page 1; chuẩn hóa `style.css` & `index.html` theo bảng màu 3 lớp DaVinci (`Segoe UI`, `tabular-nums`, thanh đầu `52px`, sửa `--fg`, xóa selector trùng). Thêm phác thảo `design/framepilot_v2_demo.html`.
+
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
 - **Cải tiến Page 5 (`5 · Thời lượng`) (`index.html`, `style.css`, `step5.js`):**
   - Thêm nút **`Vừa khung`** (phím tắt **`Shift + Z`** giống DaVinci) để phóng timeline vừa khít theo tổng độ dài clip đang có, tăng mức Zoom tối đa lên `2000%` và hỗ trợ `Alt / Shift + Lăn chuột` để cuộn ngang.

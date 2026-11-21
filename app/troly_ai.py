@@ -366,7 +366,7 @@ def run_suggest(project, data_root, proxy_root):
                       "top": [{"bin": bins[j], "score": round(float(p[j]), 4)} for j in order],
                       "scores": [round(float(x), 4) for x in p],
                       "label": lab.get(stem_key)})
-    out = {"project_tag": project[:10], "model": "OpenCLIP %s laion2b_s34b_b79k" % MODEL_ARCH, "bins": bins,
+    out = {"project_tag": project[:10], "model": ("SigLIP %s" % SIGLIP_ARCH if has_siglip(data_root) else "OpenCLIP %s laion2b_s34b_b79k" % MODEL_ARCH), "bins": bins,
            "prompts": {b: prompts_for(b) for b in bins}, "count": len(items), "items": items,
            "eval": evaluate(items, bins)}
     d = os.path.join(data_root, "troly", "ai_suggest")
@@ -552,7 +552,7 @@ class AiJob(object):
         self._proc = None
 
     def available(self):
-        return os.path.isfile(self.python) and os.path.isfile(model_path(self.root))
+        return os.path.isfile(self.python) and (has_siglip(self.root) or os.path.isfile(model_path(self.root)))
 
     def running(self):
         return self._proc is not None and self._proc.poll() is None

@@ -164,10 +164,11 @@ function d5PaintOrder(v) {
     const own = b.speed.own ? "" : (c.speed_own || (D5.v.tl.clusters.find((x) => x.stage === b.cluster) || {}).speed_own ? "" : "");
     const raTxt = Math.abs(b.take_src - b.dur) >= 0.5 ? `<span class="tl-ra">→ ${d5mm(b.dur)}</span>` : "";
     const exp = D5.openBins.has(k);
-    const subItems = exp ? (v.items || []).filter((it) => it.stage === b.stage && (it.bin || "(chưa xếp)") === b.bin) : [];
+    const subItems = exp ? (v.items || []).filter((it) => (it.stage_name || (S && S.stages[it.stage] && S.stages[it.stage].name)) === b.stage && (it.bin || "(chưa xếp)") === b.bin) : [];
     const subHtml = exp ? `<div class="tl-subclips">${subItems.length ? subItems.map((it) => {
-      const durIt = it.len != null ? it.len : Math.max(0, (it.out_s || 0) - (it.in_s || 0));
-      return `<div class="tl-sc" data-jump-uid="${esc(it.uid)}" title="Bấm để mở clip này ở Bước 3"><b>${esc(it.name || it.uid)}</b><span class="sc-io">${d5mm(it.in_s || 0)} → ${d5mm(it.out_s || 0)}</span><span class="sc-len">${d5mm(durIt)}</span></div>`;
+      const durIt = it.dur != null ? it.dur : Math.max(0, (it.out_s || 0) - (it.in_s || 0));
+      const clName = it.name || (S && S.clips && (S.clips.find((x) => x.uid === it.uid) || {}).name) || it.uid;
+      return `<div class="tl-sc" data-jump-uid="${esc(it.uid)}" title="Bấm để mở clip này ở Bước 3"><b>${esc(clName)}</b><span class="sc-io">${d5mm(it.in_s || 0)} → ${d5mm(it.out_s || 0)}</span><span class="sc-len">${d5mm(durIt)}</span></div>`;
     }).join("") : '<div class="dim12">Không có clip nào trong khối này.</div>'}</div>` : "";
     return `<div class="tl-tb${b.key === D5.hl ? " hl" : ""}${b.cluster !== b.stage ? " foreign" : ""}" data-row="${esc(k)}" data-idx="${idx}">
       <span class="tl-c0">${idx + 1}</span><span class="tl-cg tl-grip" data-rowgrab="${esc(k)}" title="Kéo để đổi thứ tự">${SVG_GRIP}</span>
@@ -485,7 +486,8 @@ document.addEventListener("keydown", (e) => {
     else if (e.altKey || e.shiftKey) { e.preventDefault(); tl.scrollLeft += e.deltaY; }
   }, { passive: false });
   document.addEventListener("keydown", (e) => {
-    if (typeof page !== "undefined" && page === 5 && e.shiftKey && e.code === "KeyZ" && !e.ctrlKey && !e.altKey && !/INPUT|TEXTAREA/.test((e.target && e.target.tagName) || "")) {
+    if (!$("modal").classList.contains("hidden") || ($("settingsModal") && !$("settingsModal").classList.contains("hidden"))) return;
+    if (typeof page !== "undefined" && page === 5 && e.shiftKey && e.code === "KeyZ" && !e.ctrlKey && !e.altKey && !/INPUT|SELECT|TEXTAREA/.test((e.target && e.target.tagName) || "") && !e.target.isContentEditable) {
       e.preventDefault();
       fitView();
     }

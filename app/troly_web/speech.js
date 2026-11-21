@@ -3,7 +3,7 @@
 "use strict";
 
 const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", sub: "all", onlyStar: false, onlyKey: false, min20: false, hideBad: false, find: "",
-  detail: null, edit: null, run: null, lastRefresh: 0, timer: null, vid: null, mediaUid: null, spanIdx: 0, newSpan: false, hoverT: null };
+  detail: null, edit: null, run: null, lastRefresh: 0, timer: null, vid: null, mediaUid: null, spanIdx: 0, newSpan: false, hoverT: null, jklRate: 0, jklTimer: 0 };
 const mmss = (s) => Math.floor((s || 0) / 60) + ":" + String(Math.round((s || 0) % 60)).padStart(2, "0");
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -55,7 +55,7 @@ async function lnLoadDetail(uid) {
 }
 
 function lnSelect(uid) {
-  LN.sel = uid; LN.detail = null; LN.edit = null; LN.spanIdx = 0; LN.newSpan = false; LN.hoverT = null;
+  LN.sel = uid; LN.detail = null; LN.edit = null; LN.spanIdx = 0; LN.newSpan = false; LN.hoverT = null; LN.jklRate = 0; clearInterval(LN.jklTimer);
   renderRows(); renderRight(); lnLoadDetail(uid);
 }
 
@@ -205,19 +205,25 @@ function lnEnsureMedia(r) {
         if (cl) lutAttachEl(cl, v, lt);
       }
     });
-    api().wave(r.uid).then((w) => {
-      if (LN.sel !== r.uid) return;
-      if (w && w.pending) { setTimeout(() => { if (LN.sel === r.uid) { LN.mediaUid = null; lnEnsureMedia(r); } }, 450); return; }
-      const cv = $("lnWaveCv"); if (!cv || !w || !w.peaks) return;
+    const drawWave = (peaks) => {
+      const cv = $("lnWaveCv"); if (!cv || !peaks) return;
       const g = cv.getContext("2d"), W = cv.width = cv.clientWidth || 320, H = cv.height = cv.clientHeight || 42;
       g.clearRect(0, 0, W, H); g.fillStyle = "#5B9BF5";
-      const pk = w.peaks, n = pk.length;
+      const n = peaks.length;
       for (let i = 0; i < W; i += 2) {
-        const v = pk[Math.min(n - 1, Math.floor(i / W * n))] / 100;
+        const v = peaks[Math.min(n - 1, Math.floor(i / W * n))] / 100;
         const h = Math.max(2, v * (H - 4));
         g.fillRect(i, (H - h) / 2, 1.5, h);
       }
-    });
+    };
+    const pollWave = (n) => {
+      api().wave(r.uid).then((w) => {
+        if (LN.sel !== r.uid) return;
+        if (w && w.pending && n < 120) { setTimeout(() => { if (LN.sel === r.uid) pollWave(n + 1); }, 500); return; }
+        if (w && w.peaks) drawWave(w.peaks);
+      });
+    };
+    pollWave(0);
   }
 }
 
@@ -328,26 +334,26 @@ if ($("lnPlayBtn")) $("lnPlayBtn").onclick = () => {
   if (!LN.vid) return;
   if (LN.vid.paused) LN.vid.play().catch(() => {}); else LN.vid.pause();
 };
-if ($("lnWaveBox")) {
-  $("lnWaveBox").addEventListener("mousemove", (ev) => {
-    const r = curRow(); if (!r || ev.buttons) return;
-    const rect = $("lnWaveBox").getBoundingClientRect(), dur = (LN.vid && LN.vid.duration) || r.dur || 1;
-    const t = Math.max(0, Math.min(dur, (ev.clientX - rect.left) / rect.width * dur));
+function lnAttachHover(box) {
+  if (!box) return;
+  let pend = false, lx = 0;
+  const flush = () => {
+    pend = false;
+    const r = curRow(); if (!r) return;
+    const rect = box.getBoundingClientRect(), dur = (LN.vid && LN.vid.duration) || r.dur || 1;
+    const t = Math.max(0, Math.min(dur, (lx - rect.left) / Math.max(1, rect.width) * dur));
     LN.hoverT = t;
-    if (LN.vid) LN.vid.currentTime = t;
+    if (LN.vid && !LN.vid.seeking) LN.vid.currentTime = t;
+  };
+  box.addEventListener("mousemove", (ev) => {
+    if (ev.buttons) return;
+    lx = ev.clientX;
+    if (!pend) { pend = true; requestAnimationFrame(flush); }
   });
-  $("lnWaveBox").addEventListener("mouseleave", () => { LN.hoverT = null; });
+  box.addEventListener("mouseleave", () => { LN.hoverT = null; });
 }
-if ($("lnBar")) {
-  $("lnBar").addEventListener("mousemove", (ev) => {
-    const r = curRow(); if (!r || ev.buttons) return;
-    const rect = $("lnBar").getBoundingClientRect(), dur = (LN.vid && LN.vid.duration) || r.dur || 1;
-    const t = Math.max(0, Math.min(dur, (ev.clientX - rect.left) / rect.width * dur));
-    LN.hoverT = t;
-    if (LN.vid) LN.vid.currentTime = t;
-  });
-  $("lnBar").addEventListener("mouseleave", () => { LN.hoverT = null; });
-}
+lnAttachHover($("lnWaveBox"));
+lnAttachHover($("lnBar"));
 $("lnLines").addEventListener("click", (ev) => {
   const ln = ev.target.closest(".ln-line"); if (!ln || !LN.vid) return;
   LN.vid.currentTime = +ln.dataset.t || 0;
@@ -498,15 +504,20 @@ $("lnBar").addEventListener("mousedown", (ev) => {
 
 function lnKey(e) {
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
-  if (e.code === "Space") { e.preventDefault(); if (LN.vid) { if (LN.vid.paused) LN.vid.play().catch(() => {}); else LN.vid.pause(); } return; }
-  if (e.ctrlKey && e.code === "KeyA") { e.preventDefault(); LN.pick = new Set(LN.rows.filter(inStage).map((r) => r.uid)); renderRows(); renderExportBtns(); return; }
+  if (!$("modal").classList.contains("hidden") || ($("settingsModal") && !$("settingsModal").classList.contains("hidden"))) return;
   if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleStar(); return; }
+  if (e.code === "Space") { e.preventDefault(); LN.jklRate = 0; clearInterval(LN.jklTimer); if (LN.vid) { if (LN.vid.paused) LN.vid.play().catch(() => {}); else LN.vid.pause(); } return; }
+  if (e.ctrlKey && e.code === "KeyA") { e.preventDefault(); LN.pick = new Set(LN.rows.filter(inStage).map((r) => r.uid)); renderRows(); renderExportBtns(); return; }
   if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+    if (e.code === "KeyJ" && LN.vid) { e.preventDefault(); clearInterval(LN.jklTimer); LN.jklRate = (LN.jklRate >= 0 ? -1 : Math.max(-4, LN.jklRate * 2)); if (!LN.vid.paused) LN.vid.pause(); LN.jklTimer = setInterval(() => { if (!LN.vid || LN.jklRate >= 0) { clearInterval(LN.jklTimer); return; } LN.vid.currentTime = Math.max(0, LN.vid.currentTime + LN.jklRate * 0.08); if (LN.vid.currentTime <= 0) { LN.jklRate = 0; clearInterval(LN.jklTimer); } }, 80); return; }
+    if (e.code === "KeyK" && LN.vid) { e.preventDefault(); LN.jklRate = 0; clearInterval(LN.jklTimer); if (!LN.vid.paused) LN.vid.pause(); return; }
+    if (e.code === "KeyL" && LN.vid) { e.preventDefault(); clearInterval(LN.jklTimer); LN.jklRate = (LN.jklRate <= 0 ? 1 : Math.min(4, LN.jklRate * 2)); LN.vid.playbackRate = LN.jklRate; if (LN.vid.paused) LN.vid.play().catch(() => {}); return; }
+    if ((e.code === "ArrowLeft" || e.code === "ArrowRight") && LN.vid) { e.preventDefault(); const r = curRow(), st = 1 / ((r && r.fps) || 25); LN.vid.currentTime = Math.max(0, LN.vid.currentTime + (e.code === "ArrowLeft" ? -1 : 1) * st * (e.shiftKey ? 10 : 1)); return; }
     if (e.code === "KeyI") { e.preventDefault(); lnMark("in", e.shiftKey); return; }
     if (e.code === "KeyO") { e.preventDefault(); lnMark("out", e.shiftKey); return; }
     if (e.code === "Delete" || e.code === "Backspace") {
       const r = curRow(), spans = lnSpans(r);
-      if (r && spans.length > 1) {
+      if (r && spans.length >= 1) {
         e.preventDefault();
         spans.splice(Math.max(0, Math.min(LN.spanIdx, spans.length - 1)), 1);
         LN.spanIdx = Math.max(0, LN.spanIdx - 1);

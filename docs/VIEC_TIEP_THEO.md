@@ -24,6 +24,9 @@ Ai làm xong việc gì thì sửa file này (xem `AGENTS.md` mục 5). Đầu m
   - Giai đoạn 1: Gợi ý In/Out bằng Hình ảnh (độ nét + độ rung, bỏ ~1.3s đầu) + VAD (`troly_vision_io.py`), thanh Zoom ảnh Page 1/2, Hover Scrub không cần giữ chuột, cụm `J-K-L` tua / `I-O` tại con trỏ chuột (cả Bước 2 & 3), `P` gắn sao ★, quét chuột chọn nhiều clip.
   - Giai đoạn 2: SigLIP (`ViT-B-16-SigLIP`) đã tải về `D:\VideoAI\data\models\siglip_vitb16` và nối vào `troly_ai.py` (đã thử chạy GPU thật, chờ anh bấm Tự phân loại trên project thật).
   - Giai đoạn 3: Nhiều camera Trang 2 (làn ngang + lọc máy) & Trang 3 (Các máy khác lúc này + công tắc giờ chung mặc định TẮT) trong `multicam.js` — mới kiểm thử tự động, CHƯA thử trên DaVinci + pywebview thật.
+- **21/11 (Tổng kiểm tra + sửa nhóm A/B/C & nâng cấp giao diện Mục 5, 594 test đạt):**
+  - Nhóm A: Sửa `Space` không dừng được video (`player.js`), sửa `troly_proc.chay_an` trong `troly_vision_io.py`, sửa xổ khúc clip Page 5 + `p3SelectUid` (`troly_dur.py`, `step5.js`, `step3.js`), sửa nhiều khúc `Shift+I/O` (`player.js`, `troly_api.py`), sửa `big()` dùng `_effective_lut`, sửa `undoBtn1/2` ẩn vĩnh viễn, sửa `lnEnsureMedia` tải lại video khi wave pending, sửa `multicam.js` `mc-apply-sug`, chặn phím nền khi mở `#settingsModal`.
+  - Nhóm B & C + Mục 5: Đồng bộ phím `J-K-L` / `←→` / `Delete` (xóa được cả khúc đơn) ở Page 2–3–4, sửa chữ `phím J` -> `phím P`, bỏ font Google Fonts ngoài, thống nhất bảng màu 3 lớp DaVinci + `Segoe UI` + `tabular-nums`, dọn CSS trùng/biến `--fg` (`design/framepilot_v2_demo.html`). Chờ anh mở panel thật thử tay.
 - B7: Space phát/dừng clip ở Bước 2 (đã commit d93de1f). Phát khi không có proxy cần mở rộng máy chủ phát sang file gốc: chưa làm, chờ quyết.
 - Tự phân loại AI Bước 2 xếp 0 clip: đã sửa (bỏ ràng buộc proxy), chờ người dùng bấm Tự phân loại lại.
 - Bước 1 chọn mốc với NHIỀU máy THẬT trên panel pywebview: mới thử bằng DaVinci giả.

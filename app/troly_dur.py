@@ -368,7 +368,7 @@ def build(plan, clips, assign, stages, tl_fps=None):
                 out = cut["in_s"] + e["use"] * pp                       # In/Out GỐC: Slow giữ nguyên điểm vào, độ dài gốc = RA x hệ số
                 if c.dur:
                     out = min(out, float(c.dur))
-                items.append({"uid": c.uid, "stage": si, "bin": b["name"], "key": b["key"], "track": b["track"], "in_s": round(cut["in_s"], 2),
+                items.append({"uid": c.uid, "name": c.name, "stage": si, "stage_name": r["name"], "bin": b["name"], "key": b["key"], "track": b["track"], "in_s": round(cut["in_s"], 2),
                               "out_s": round(out, 2), "p": round(pp, 4), "src_dur": round(out - cut["in_s"], 2),
                               "dur": round((out - cut["in_s"]) / pp, 2), "t": c.t_start, "fixed": cut["fixed"]})
             if b["edited"] and b["n_starred"] and b["natural_s"] > b["max"] + 1e-9:
@@ -404,7 +404,7 @@ def build(plan, clips, assign, stages, tl_fps=None):
     for it in items:
         it.pop("t", None)
     if not starred:
-        warnings.append({"kind": "no_star", "text": "Chưa có clip nào gắn sao ★. Gắn sao (phím J) ở Bước 2 trước."})
+        warnings.append({"kind": "no_star", "text": "Chưa có clip nào gắn sao ★. Gắn sao (phím P) ở Bước 2 trước."})
     if excluded:
         warnings.append({"kind": "excluded", "text": "%d clip có sao nằm ngoài mọi giai đoạn nên không đưa lên timeline." % excluded})
     lo, hi = SUGGEST_RANGE_MIN
@@ -578,7 +578,7 @@ def advise(plan, clips, assign, stages, r):
     out = {"state": r["state"], "reasons": [], "rebalance": None, "lower": None, "step3": None, "unslow": None, "fit": None, "title": titles[r["state"]]}
     st = r["state"]
     if st == "no_star":
-        out["reasons"].append("Chưa có clip sao ★. Gắn sao (phím J) ở Bước 2 hoặc Bước 3 rồi quay lại.")
+        out["reasons"].append("Chưa có clip sao ★. Gắn sao (phím P) ở Bước 2 hoặc Bước 3 rồi quay lại.")
         return out
     if st == "ok":
         out["reasons"].append("Hiện Tại %s trên mục tiêu %s. Có thể đưa lên Timeline mới." % (mmss(r["total_s"]), mmss(r["target_s"])))
