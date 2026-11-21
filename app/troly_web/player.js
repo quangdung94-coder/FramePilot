@@ -529,15 +529,15 @@ const plSeekRelease = () => { if (!SK.drag) return; SK.drag = false; if (PL.vid)
 $("plSeek").addEventListener("change", plSeekRelease);
 document.addEventListener("mouseup", plSeekRelease);
 $("plRate").addEventListener("change", () => { if (PL.vid) PL.vid.playbackRate = +$("plRate").value; });
-document.addEventListener("mousedown", (e) => {               // bấm ra ngoài cột phải: mũi tên lại đi chuyển clip
-  if (!e.target.closest(".col-right, .p3-center")) { PL.focus = false; PL.edge = null; }
+document.addEventListener("mousedown", (e) => {               // bấm ra ngoài khung phát / sóng âm: 4 phím mũi tên lại di chuyển giữa các clip
+  if (!e.target.closest(".col-right, #stageHost3, #waveBox, #ioBar")) { PL.focus = false; PL.edge = null; }
   else if (!e.target.closest(".h")) { /* giữ PL.edge để mũi tên vẫn chỉnh mép đang chọn */ }
 }, true);
 
 /* ---- phím: Space, I, O, mũi tên (chỉ khi con trỏ ở cột phải / vừa chọn mép) - capture để chạy trước phím lưới ---- */
 document.addEventListener("keydown", (e) => {
   if (page !== 2 && page !== 3) return;
-  if (page === 3 && !PL.focus && PL.vid && !(e.target.closest && e.target.closest(".p3-right"))) PL.focus = true;      // Bước 3: ←/→ luôn chỉnh frame
+  if (e.target && e.target.closest && e.target.closest("#p3List")) PL.focus = false;
   if (!$("modal").classList.contains("hidden")) return;
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" || e.target.isContentEditable) return;
   if (e.ctrlKey || e.altKey || e.metaKey) return;

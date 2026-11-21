@@ -873,7 +873,7 @@ button, input, select { font-family: inherit; }
 .p3-vsw { display: inline-flex; background: var(--btn); border: 1px solid var(--btn-line); border-radius: 6px; padding: 2px; gap: 2px; }
 .p3-vsw button { border: 0; background: transparent; color: var(--dim); font-size: 11px; padding: 2px 7px; border-radius: 4px; cursor: pointer; }
 .p3-vsw button.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
-.p3-clips.thumbs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px 2px 6px 10px; }
+.p3-clips.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 6px; padding: 6px 2px 6px 10px; }
 .p3-clip.thumb-mode { flex-direction: column; align-items: stretch; padding: 4px; gap: 4px; border: 1.5px solid var(--line); border-radius: 6px; background: var(--card); height: auto; }
 .p3-clip.thumb-mode.cur { border-color: var(--accent); background: #262018; }
 .p3-clip.thumb-mode .p3-th { position: relative; aspect-ratio: 16/9; border-radius: 4px; overflow: hidden; background: #101014; }
@@ -881,6 +881,10 @@ button, input, select { font-family: inherit; }
 .p3-clip.thumb-mode .dot { position: absolute; top: 4px; right: 4px; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
 .p3-clip.thumb-mode .p3-tf { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 11px; }
 .p3-clip.thumb-mode .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#page3 .p3-left { width: clamp(320px, 26vw, 440px); }
+.p3-bottom-panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 4px; align-items: start; }
+.p3-bcol { display: flex; flex-direction: column; gap: 8px; background: var(--right); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+@media (max-width: 1250px) { .p3-bottom-panels { grid-template-columns: 1fr; } }
 #page1 .src-line { display: block; }
 #page1 .src-line.warn { color: #F2C14E; }
 #page1 .src-line.ok { color: #7FD6A8; }

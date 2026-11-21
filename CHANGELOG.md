@@ -1,6 +1,7 @@
 # Nhật ký thay đổi
 
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **Page 3 Bố cục 2 cột & 4 phím mũi tên (`index.html`, `style.css`, `app.js`, `player.js`):** Dời khối thông tin clip, bảng quy tắc từng bin và Tự phân loại In/Out từ cột phải xuống dưới sóng âm thành 3 cột ngang; mở rộng cột trái (`clamp(320px, 26vw, 440px)`) cho lưới Thumbnail 2–3 cột; đổi tên nút chuyển thành `List | Thumbnail` kèm icon giống DaVinci; bật 4 phím mũi tên (`↑`, `↓`, `←`, `→`) di chuyển giữa các source trong `#p3List` (bấm vào video/sóng âm thì `←`/`→` lại chỉnh từng frame).
 - **Page 3 Thumbnail (`index.html`, `style.css`, `step3.js`):** Thêm nút chuyển `Chữ | Ảnh` ở cột trái Bước 3 để xem lưới 2 cột thumbnail nhỏ kèm chấm trạng thái In/Out; cho phép xuống dòng gọn ở `.p3-keys`, `.p3-txh` để không bị cắt chữ mép phải.
 - **Không phụ thuộc proxy & Sửa lẹm chữ cột phải (`troly_api.py`, `player.js`, `style.css`):**
   - Bỏ `margin-top: -8px` ở `.player`, bật `flex-wrap` và co gọn thanh `.top` ở màn vừa để hết tràn viền/lẹm nửa chữ dưới khung xem trước.

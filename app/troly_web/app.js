@@ -873,10 +873,23 @@ document.addEventListener("keydown", (e) => {
   if (page === 1) { if (e.key === "Escape") { if (selUid) { selUid = null; renderGrid1(); renderMeta(); renderTimeline(); } return; } key1(e); return; }
   if (e.key === "Escape") { $("ctx").classList.add("hidden"); if (pending) { cancelPending(); status("Đã thôi chờ bin con (clip giữ nguyên giai đoạn mới).", "info"); } return; }
   if (page === 4) { lnKey(e); return; }
-  if (page === 3) {                                                  // Bước 3: chỉ J, ↑/↓ đổi clip, Enter; số KHÔNG xếp bin ở đây
+  if (page === 3) {                                                  // Bước 3: P sao, 4 phím mũi tên di chuyển source, Enter; số KHÔNG xếp bin ở đây
     if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.code === "KeyP" && !e.shiftKey) { e.preventDefault(); toggleStar(); return; }
-    if (e.code === "ArrowUp" || e.code === "ArrowDown") { e.preventDefault(); moveCur(cur + (e.code === "ArrowUp" ? -1 : 1)); return; }
+    if (e.code === "ArrowUp" || e.code === "ArrowDown" || e.code === "ArrowLeft" || e.code === "ArrowRight") {
+      e.preventDefault();
+      let step = (e.code === "ArrowLeft" || e.code === "ArrowUp") ? -1 : 1;
+      if (e.code === "ArrowUp" || e.code === "ArrowDown") {
+        const tg = document.querySelector("#p3List .p3-clips.thumbs");
+        if (tg) {
+          const cards = tg.querySelectorAll(".p3-clip"), cw = cards.length ? cards[0].offsetWidth : 0;
+          const p3c = cw > 0 ? Math.max(1, Math.floor((tg.clientWidth + 6) / (cw + 6))) : 1;
+          step *= p3c;
+        }
+      }
+      moveCur(cur + step);
+      return;
+    }
     if (e.code === "Enter") { e.preventDefault(); reveal(); }
     return;
   }
