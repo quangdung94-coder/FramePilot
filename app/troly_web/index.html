@@ -186,7 +186,13 @@
 <!-- ======================= BƯỚC 3: IN / OUT (trang riêng, ADR-0019; bố cục theo design/3_inout) ======================= -->
 <main class="page hidden" id="page3">
   <aside class="p3-left">
-    <span class="caps">CLIP CÓ SAO THEO BIN</span>
+    <div class="row-between center">
+      <span class="caps">CLIP CÓ SAO THEO BIN</span>
+      <div class="p3-vsw" role="group" aria-label="Kiểu hiển thị clip">
+        <button type="button" class="on" id="p3ViewText" title="Hiển thị danh sách chữ">Chữ</button>
+        <button type="button" id="p3ViewThumb" title="Hiển thị thumbnail nhỏ">Ảnh</button>
+      </div>
+    </div>
     <span class="dim12">Cây giống Bước 2. Chỉ hiện clip đã gắn sao để đặt In/Out kỹ.</span>
     <label class="p3-tg"><input type="checkbox" id="p3OnlyStar" checked><span class="sw"><i></i></span>Chỉ hiện clip có sao</label>
     <div class="p3-list p3-tree" id="p3List" tabindex="0"></div>

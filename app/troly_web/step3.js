@@ -38,8 +38,25 @@ function renderPage3() {
   if (gStage === null && S.stages.length) { gStage = 0; gSub = null; renderPage2(true); return; }
   const star = new Set(S.clips.filter((c) => c.star).map((c) => c.uid));
   const cnt = (uids) => `<span class="n"><b>${uids.filter((u) => star.has(u)).length}</b> / ${uids.length}</span>`;
+  const isThumb = P3.view === "thumb";
   const clipsHtml = () => {
     if (!items.length) return `<div class="p3-empty">${S.n ? ($("onlyStar").checked ? "Chưa có clip sao ★ trong mục này." : "Không có clip.") : 'Bấm "Đọc clip" ở bước 1 trước.'}</div>`;
+    if (isThumb) {
+      const miss = items.filter((c) => !thumbs[c.uid]).map((c) => c.uid);
+      if (miss.length && typeof api === "function") {
+        api().want_thumbs(miss.slice(0, 40)).then((ready) => {
+          let got = 0;
+          for (const u in ready || {}) if (ready[u]) { thumbs[u] = ready[u]; got++; }
+          if (got) { P3.sig = ""; renderPage3(); }
+        });
+      }
+      return `<div class="p3-clips thumbs">` + items.map((c, i) => {
+        const k = p3Keep(c), src = thumbs[c.uid];
+        return `<div class="p3-clip thumb-mode${i === cur ? " cur" : ""}${c.star ? "" : " off"}" data-i="${i}" title="${esc(c.name)} (${c.time})">` +
+          `<div class="p3-th">${src ? `<img src="${src}" draggable="false">` : ""}<i class="dot ${p3Dot(c)}"></i></div>` +
+          `<div class="p3-tf"><span class="t">${esc(c.name)}</span><span class="kp">${k == null ? "" : durTxt(k)}</span></div></div>`;
+      }).join("") + `</div>`;
+    }
     return `<div class="p3-clips">` + items.map((c, i) => {
       const k = p3Keep(c);
       return `<div class="p3-clip${i === cur ? " cur" : ""}${c.star ? "" : " off"}" data-i="${i}"><span class="st">${c.star ? "★" : ""}</span><i class="dot ${p3Dot(c)}"></i><span class="t" title="${esc(c.name)}">${esc(c.name)}</span><span class="tm">${c.time}</span><span class="kp">${k == null ? "" : durTxt(k)}</span></div>`;
@@ -97,6 +114,8 @@ $("p3List").addEventListener("click", (e) => {
   const pr = e.target.closest(".pool-row"); if (pr) return p3RowClick(+pr.dataset.stage, null, onAr);
 });
 $("p3OnlyStar").addEventListener("change", () => { P3.onlyStar = $("p3OnlyStar").checked; $("onlyStar").checked = P3.onlyStar; renderPage2(true); renderPage3(); });
+$("p3ViewText").onclick = () => { P3.view = "text"; $("p3ViewText").classList.add("on"); $("p3ViewThumb").classList.remove("on"); P3.sig = ""; renderPage3(); };
+$("p3ViewThumb").onclick = () => { P3.view = "thumb"; $("p3ViewThumb").classList.add("on"); $("p3ViewText").classList.remove("on"); P3.sig = ""; renderPage3(); };
 $("p3Star").onclick = () => toggleStar();
 
 /* ---- nút "Gợi ý In/Out cho clip sao" (chạy nền, hai mức, không tự ghi vào DaVinci) ---- */

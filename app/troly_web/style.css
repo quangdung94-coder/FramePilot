@@ -868,6 +868,19 @@ button, input, select { font-family: inherit; }
 .mc-oname { font-weight: 500; }
 .thumb-scrub { position: absolute; top: 0; bottom: 0; width: 2px; background: #EF4444; pointer-events: none; display: none; box-shadow: 0 0 4px rgba(0,0,0,.8); z-index: 4; }
 .btn-gear { width: 38px; height: 38px; padding: 0; font-size: 17px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.p3-center { overflow-x: hidden; }
+.p3-keys, .p3-txh { flex-wrap: wrap; }
+.p3-vsw { display: inline-flex; background: var(--btn); border: 1px solid var(--btn-line); border-radius: 6px; padding: 2px; gap: 2px; }
+.p3-vsw button { border: 0; background: transparent; color: var(--dim); font-size: 11px; padding: 2px 7px; border-radius: 4px; cursor: pointer; }
+.p3-vsw button.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.p3-clips.thumbs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px 2px 6px 10px; }
+.p3-clip.thumb-mode { flex-direction: column; align-items: stretch; padding: 4px; gap: 4px; border: 1.5px solid var(--line); border-radius: 6px; background: var(--card); height: auto; }
+.p3-clip.thumb-mode.cur { border-color: var(--accent); background: #262018; }
+.p3-clip.thumb-mode .p3-th { position: relative; aspect-ratio: 16/9; border-radius: 4px; overflow: hidden; background: #101014; }
+.p3-clip.thumb-mode .p3-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.p3-clip.thumb-mode .dot { position: absolute; top: 4px; right: 4px; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.p3-clip.thumb-mode .p3-tf { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 11px; }
+.p3-clip.thumb-mode .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #page1 .src-line { display: block; }
 #page1 .src-line.warn { color: #F2C14E; }
 #page1 .src-line.ok { color: #7FD6A8; }

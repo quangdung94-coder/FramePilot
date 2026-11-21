@@ -1,6 +1,7 @@
 # Nhật ký thay đổi
 
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **Page 3 Thumbnail (`index.html`, `style.css`, `step3.js`):** Thêm nút chuyển `Chữ | Ảnh` ở cột trái Bước 3 để xem lưới 2 cột thumbnail nhỏ kèm chấm trạng thái In/Out; cho phép xuống dòng gọn ở `.p3-keys`, `.p3-txh` để không bị cắt chữ mép phải.
 - **Không phụ thuộc proxy & Sửa lẹm chữ cột phải (`troly_api.py`, `player.js`, `style.css`):**
   - Bỏ `margin-top: -8px` ở `.player`, bật `flex-wrap` và co gọn thanh `.top` ở màn vừa để hết tràn viền/lẹm nửa chữ dưới khung xem trước.
   - Mở fallback chỉ-đọc sang file gốc `c.path` khi clip chưa tạo proxy cho toàn bộ 5 chỗ: Kho khung RAM (`frames_open` / rê chuột lướt hình Page 2), Sóng âm Bước 3 (`wave`), Phát video (`play_info`), Keyframe (`keyframes`) và Gợi ý In/Out Hình+Tiếng (`inout_suggest_start`). Proxy nay chỉ là yếu tố phụ trợ giúp nhẹ/mượt hơn.
