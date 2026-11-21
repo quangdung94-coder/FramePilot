@@ -12,7 +12,8 @@ Mẫu một dòng: `- 21/11 | Nhóm A-E | việc ngắn | Chờ anh thử / Đan
 - 21/11 | Nhóm B | Sửa tràn viền thanh trên/lẹm chữ cột phải + mở fallback đọc file gốc (chỉ đọc) cho Sóng âm, Phát video, Keyframe, Kho khung RAM và Gợi ý In/Out khi chưa có proxy | Chờ anh thử | commit 2df1803
 - 21/11 | Nhóm B | Thêm nút chuyển Chữ / Ảnh (thumbnail 2 cột) ở cột trái Page 3 + chống cắt chữ mép phải .p3-center | Chờ anh thử | commit 5914faf
 - 21/11 | Nhóm B | Page 3: dời cột phải xuống dưới sóng âm (3 cột ngang), mở rộng cột trái, đổi nhãn List/Thumbnail giống DaVinci, bật 4 phím mũi tên di chuyển source | Chờ anh thử | commit d280444
-- 21/11 | Nhóm B | Page 1: hiển thị bin con từng hàng (màu + phím số) dưới bin mẹ đồng bộ Page 2 + sửa bin con từng dòng; thu gọn Thông tin clip (6 mục) thành thanh sát dưới lưới Source | Chờ anh thử | commit (cập nhật sau)
+- 21/11 | Nhóm B | Page 1: hiển thị bin con từng hàng (màu + phím số) dưới bin mẹ đồng bộ Page 2 + sửa bin con từng dòng; thu gọn Thông tin clip (6 mục) thành thanh sát dưới lưới Source | Chờ anh thử | commit 294e175
+- 21/11 | Nhóm B | Gom cài đặt project mới (1 dòng Lễ sáng+Tiệc tối / Chỉ tiệc + Kiểu quay) vào nút Setting (⚙), mặc định Ctrl+Z cho mọi hoàn tác, dọn sạch các chú thích nhỏ thừa | Chờ anh thử | commit (cập nhật sau)
 
 ## Tool học từ 5 project cũ (20/11/2026) - CHỜ ANH CHẠY
 - tools/hoc_tu_cu.py (+ hoc_tu_cu_phan_tich.py). Lệnh: `& C:\VideoAI_venv\Scripts\python.exe tools\hoc_tu_cu.py` (gõ Y để chạy; --thu LV_B --mau-toi-da 20 để thử nhỏ). Cần mở DaVinci, cắm đủ HDD/SSD. Kết quả: `D:\VideoAI\data\hoc_tu_cu\tong_hop.json`. Chưa chạy thật.

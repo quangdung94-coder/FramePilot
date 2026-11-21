@@ -46,7 +46,7 @@ class Step3New(unittest.TestCase):
         left = h[h.index('<aside class="p3-left">'):h.index('</aside>', h.index('<aside class="p3-left">'))]
         self.assertNotIn("p3Sug", left)                                                        # B6: cột trái không còn nút chạy gợi ý
         self.assertNotIn("Chạy lại gợi ý", h + self.s3)
-        right = h[h.index('<aside class="p3-right">'):]
+        right = h[h.index('<div class="p3-bottom-panels">'):]
         i_rules, i_btn = right.index('id="rulesTbl"'), right.index('id="p3Sug"')
         self.assertLess(i_rules, i_btn)                                                        # B7: ngay dưới bảng quy tắc từng bin
         self.assertIn('id="p3KeepManual" checked', right)                                      # ô tick mặc định bật

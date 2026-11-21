@@ -56,8 +56,8 @@
     <button class="btn-dashed" id="addStage">+ Thêm giai đoạn</button>
     <div class="inline8 hide-short"><select id="tplSel" class="sel flex1" title="Mẫu sự kiện"></select><button class="btn" id="suggestBtn" title="Chia lại giai đoạn theo mẫu đã chọn, rồi đặt mốc đầu/cuối vào các clip gần nhất">Gợi ý lại</button></div>
     <div class="todo-box" id="srcNote"></div>
-    <div class="note-box hide-short" id="axisNote">Bấm vào giai đoạn để sửa tên và bin con (cách nhau dấu phẩy, phím 1 đến 9). Bin con cũng thêm được ở bước 2.</div>
-    <div class="mini-links hide-short"><button class="btn-link" id="saveTpl" title="Lưu tên giai đoạn và bin con thành mẫu">Lưu mẫu cho đám sau</button><button class="btn-link hidden" id="clearManual" title="Các clip này quay về giai đoạn tính theo giờ">Bỏ chọn tay</button><button class="btn-link hidden" id="undoBtn1">Hoàn tác lần chuyển gần nhất</button></div>
+    <div class="note-box hidden" id="axisNote"></div>
+    <div class="mini-links hide-short"><button class="btn-link" id="saveTpl" title="Lưu tên giai đoạn và bin con thành mẫu">Lưu mẫu cho đám sau</button><button class="btn-link hidden" id="clearManual" title="Các clip này quay về giai đoạn tính theo giờ">Bỏ chọn tay</button><button class="btn-link hidden" id="undoBtn1">Hoàn tác (Ctrl+Z)</button></div>
     <button class="btn-accent btn-lg go" id="applyBtn1">Tạo bin, sang bước 2</button>
   </aside>
 
@@ -74,7 +74,7 @@
       <div class="pane">
         <div class="pane-h">Media bin</div>
         <div class="pane-b tree" id="tree"></div>
-        <div class="tree-note">Chọn bin mẹ, rồi bấm clip đầu và clip cuối của từng giai đoạn.<label class="vcam" title="Mặc định TẮT: chỉ nhóm máy theo track (kích thước mã hoá gốc + tiền tố tên file, bỏ qua cờ xoay). Bật thì tách thêm theo hướng sau xoay."><input type="checkbox" id="vertCams"> Có máy quay dọc</label></div>
+        <div class="tree-note"><label class="vcam" title="Mặc định TẮT: chỉ nhóm máy theo track. Bật thì tách thêm theo hướng sau xoay."><input type="checkbox" id="vertCams"> Có máy quay dọc</label></div>
       </div>
       <div class="pane">
         <div class="pane-h"><span id="g1Title">Source</span><div class="zoom-ctl" title="Phóng to / thu nhỏ thumbnail (hoặc Ctrl + Lăn chuột)"><span>−</span><input type="range" id="g1Zoom" min="80" max="260" value="118" aria-label="Cỡ thumbnail trang 1"><span>+</span></div><span class="r" id="g1Count"></span></div>
@@ -90,7 +90,7 @@
 <main class="page hidden" id="page2">
   <aside class="col-pool">
     <span class="caps">Media Pool</span>
-    <span class="dim12 pool-hint">Bấm đúp tên giai đoạn hoặc bin con để đổi tên.</span>
+    <span class="dim12 pool-hint hidden">Bấm đúp để đổi tên.</span>
     <div id="pool"></div>
   </aside>
 
@@ -167,7 +167,7 @@
     <div class="v6">
       <span class="dim12">Phím tắt của giai đoạn này</span>
       <div id="keyList"></div>
-      <span class="keys"><b>J</b> bật/tắt sao ★ · 0 bỏ nhãn · F1–F12 sang giai đoạn đó rồi bấm số bin con · mũi tên di chuyển · Shift/Ctrl + bấm chọn nhiều · Enter mở trong DaVinci</span>
+      <span class="keys hidden"><b>P</b> sao ★ · 0 bỏ nhãn · F1–F12 giai đoạn</span>
     </div>
     <div class="flex1"></div>
     <div class="v8">
@@ -190,7 +190,7 @@
         <button type="button" id="p3ViewThumb" title="Chế độ Thumbnail View (Ảnh)"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-1px;margin-right:3px"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 0h5v5H9z"/></svg>Thumbnail</button>
       </div>
     </div>
-    <span class="dim12">Cây giống Bước 2. Chỉ hiện clip đã gắn sao để đặt In/Out kỹ.</span>
+    <span class="dim12 hidden">Cây giống Bước 2. Chỉ hiện clip đã gắn sao để đặt In/Out kỹ.</span>
     <label class="p3-tg"><input type="checkbox" id="p3OnlyStar" checked><span class="sw"><i></i></span>Chỉ hiện clip có sao</label>
     <div class="p3-list p3-tree" id="p3List" tabindex="0"></div>
     <div class="p3-leg">
@@ -204,7 +204,7 @@
       <span class="dim13" id="p3Meta"></span>
     </div>
     <div id="stageHost3"></div>
-    <span class="dim12">Sóng âm (từ proxy) · bấm vào để lướt tới đó</span>
+    <span class="dim12 hidden">Sóng âm (từ proxy) · bấm vào để lướt tới đó</span>
     <div class="wave" id="waveBox"><canvas id="waveCv"></canvas><div class="wave-head" id="waveHead"></div><div class="wave-note" id="waveNote"></div></div>
     <div class="io-bar" id="ioBar"><div class="io-empty" id="ioEmpty">Chưa đặt In / Out</div></div>
     <div class="row-between dim12"><span class="io-in" id="ioIn">In --:--:--</span><span id="ioDur">Giữ --:--:--</span><span class="io-in" id="ioOut">Out --:--:--</span></div>
@@ -403,11 +403,22 @@
   </div>
 </div>
 
-<!-- Hộp Cài đặt thư mục Cache & SRT -->
+<!-- Hộp Cài đặt Project & Hệ thống (bánh răng) -->
 <div class="modal hidden" id="settingsModal">
-  <div class="modal-box" style="width:520px;max-width:94vw">
-    <h2>Cài đặt thư mục Cache &amp; SRT</h2>
+  <div class="modal-box" style="width:540px;max-width:94vw">
+    <h2>Cài đặt Project &amp; Thư mục</h2>
     <div class="v12" style="margin:12px 0">
+      <div class="v6">
+        <label class="lbl" for="setTplSel">Cài đặt project (1 dòng): Kiểu sự kiện &amp; Kiểu quay</label>
+        <div class="inline8">
+          <select id="setTplSel" class="sel flex1" title="Chọn nhanh Lễ sáng + Tiệc tối hoặc Chỉ tiệc"></select>
+          <select id="setStyleSel" class="sel" title="Kiểu quay của project">
+            <option value="">Kiểu quay: chưa chọn</option>
+            <option value="traditional">Truyền thống</option>
+            <option value="psc">PSC</option>
+          </select>
+        </div>
+      </div>
       <div class="v6">
         <label class="lbl" for="setCacheInp">Thư mục chứa Cache (thumbnail, sóng âm, keyframe, khung RAM):</label>
         <div class="inline8">

@@ -50,7 +50,7 @@ class TestPhimF(unittest.TestCase):
         self.assertIn("không có phím", self.js)
 
     def test_dong_nhac_phim_khop_phim_moi(self):
-        self.assertIn("F1–F12 sang giai đoạn đó rồi bấm số bin con", self.html)
+        self.assertIn("F1–F12 giai đoạn", self.html)
         self.assertNotIn("Shift+số sang giai đoạn", self.html)
 
 

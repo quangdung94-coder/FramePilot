@@ -31,7 +31,7 @@ class RenameWeb(unittest.TestCase):
         self.assertIn('doRename("bin"', self.js)
         self.assertIn('doRename("stage"', self.js)
         self.assertIn("nameClick", self.js)                                  # bước 1: nhận bấm đúp bằng thời gian
-        self.assertIn("Bấm đúp tên giai đoạn hoặc bin con để đổi tên.", self.html)
+        self.assertIn("Bấm đúp để đổi tên.", self.html)
         self.assertIn('title="Bấm đúp để đổi tên giai đoạn"', self.js)
 
     def test_chi_doi_trong_ke_hoach_khong_goi_davinci(self):

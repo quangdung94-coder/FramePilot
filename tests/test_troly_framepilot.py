@@ -153,7 +153,7 @@ class XungHo(unittest.TestCase):
 
     def test_chu_moi_dung_ban(self):
         h = rd("app", "troly_web", "index.html") + rd("app", "troly_web", "step3.js")
-        for t in ("chờ bạn duyệt", "Ô viền cam = bạn đã sửa", "In/Out chỉ vào DaVinci khi bạn bấm nút Ghi", "Giữ nguyên clip bạn đã đặt tay"):
+        for t in ("chờ bạn duyệt", "Ô viền cam = bạn đã sửa", "Giữ nguyên clip bạn đã đặt tay"):
             self.assertIn(t, h, t)
 
 

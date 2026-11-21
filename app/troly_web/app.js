@@ -121,8 +121,8 @@ function render(rebuildItems) {
   $("page4").classList.toggle("hidden", page !== 4);
   $("page5").classList.toggle("hidden", page !== 5);
   const hasMoves = S && S.moves.length;
-  $("undoBtn1").classList.toggle("hidden", !hasMoves);
-  $("undoBtn2").classList.toggle("hidden", !hasMoves);
+  $("undoBtn1").classList.add("hidden");
+  $("undoBtn2").classList.add("hidden");
   if (S && $("styleSel").value !== (S.shoot_style || "") && document.activeElement !== $("styleSel")) $("styleSel").value = S.shoot_style || "";
   if (S) {
     $("tplSel").innerHTML = `<option value=""${S.template ? "" : " selected"}>Chọn mẫu sự kiện…</option>` + S.templates.map((t) => `<option${t === S.template ? " selected" : ""}>${esc(t)}</option>`).join("");
@@ -885,6 +885,14 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") $("mNo").click(); else if (e.key === "Enter") $("mYes").click();
     return;
   }
+  if (e.ctrlKey && !e.altKey && !e.metaKey && e.code === "KeyZ") {
+    if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
+    e.preventDefault();
+    if (page === 3) return $("ioUndo").click();
+    if (S && S.moves && S.moves.length) { confirmUndo(); return; }
+    status("Chưa có thao tác nào để hoàn tác (Ctrl+Z).", "info");
+    return;
+  }
   if (page === 1) { if (e.key === "Escape") { if (selUid) { selUid = null; renderGrid1(); renderMeta(); renderTimeline(); } return; } key1(e); return; }
   if (e.key === "Escape") { $("ctx").classList.add("hidden"); if (pending) { cancelPending(); status("Đã thôi chờ bin con (clip giữ nguyên giai đoạn mới).", "info"); } return; }
   if (page === 4) { lnKey(e); return; }
@@ -1090,16 +1098,23 @@ $("styleSel").onchange = async (e) => {
   });
 })();
 
-/* ---- Hộp Cài đặt (bánh răng): tùy chọn thư mục Cache & SRT ---- */
+/* ---- Hộp Cài đặt (bánh răng): Project mới (1 dòng) + thư mục Cache & SRT ---- */
 (function initSettingsModal() {
   const modal = $("settingsModal"), btn = $("btnSettings");
   if (!modal || !btn) return;
   let defDataRoot = "";
+  const shortTplName = (t) => /tiệc/i.test(t) && !/sáng|đầy đủ/i.test(t) ? "Chỉ tiệc" : (/đầy đủ/i.test(t) ? "Lễ sáng + Tiệc tối" : t);
   btn.onclick = async () => {
     const r = await api().settings_get();
     defDataRoot = (r && r.data_root) || "";
     $("setCacheInp").value = (r && r.cache_root) || defDataRoot;
     $("setSrtInp").value = (r && r.srt_root) || "";
+    const tplSel = $("setTplSel"), stSel = $("setStyleSel");
+    if (tplSel && S && Array.isArray(S.templates)) {
+      tplSel.innerHTML = S.templates.map((t) => `<option value="${esc(t)}">${esc(shortTplName(t))}</option>`).join("");
+      tplSel.value = S.template || $("tplSel").value || (S.templates[0] || "");
+    }
+    if (stSel && S) stSel.value = S.shoot_style || "";
     modal.classList.remove("hidden");
   };
   $("setCancel").onclick = () => modal.classList.add("hidden");
@@ -1120,7 +1135,20 @@ $("styleSel").onchange = async (e) => {
   $("setSave").onclick = async () => {
     const r = await api().settings_save($("setCacheInp").value, $("setSrtInp").value);
     if (r && r.error) return status(r.error, "warn");
+    const tpl = $("setTplSel") ? $("setTplSel").value : "";
+    const sty = $("setStyleSel") ? $("setStyleSel").value : "";
+    if (S && sty !== (S.shoot_style || "")) {
+      const st = await api().set_shoot_style(sty);
+      if (st && !st.error) setState(st);
+    }
+    if (S && tpl && tpl !== S.template) {
+      $("tplSel").value = tpl;
+      if (S.n) {
+        const sr = await api().suggest(tpl);
+        if (sr && !sr.error) { setState(sr); fitView(); renderPage1(); }
+      }
+    }
     modal.classList.add("hidden");
-    status("Đã lưu cài đặt thư mục Cache & SRT.", "ok");
+    status("Đã lưu cài đặt project & thư mục (Ctrl+Z để hoàn tác khi cần).", "ok");
   };
 })();

@@ -517,7 +517,7 @@ class WebFiles(unittest.TestCase):
     def test_giao_dien_co_dung_khoi_theo_demo(self):
         for ident in ("tlSel", "tree", "g1", "meta", "keybar", "stageList", "addStage", "applyBtn1", "vertCams", "density", "bands", "ruler"):
             self.assertIn('id="%s"' % ident, self.html)
-        for text in ("Media bin", "Thông tin clip", "Tạo bin, sang bước 2", "+ Thêm giai đoạn", "Gợi ý lại", "Có máy quay dọc"):
+        for text in ("Media bin", "Tạo bin, sang bước 2", "+ Thêm giai đoạn", "Gợi ý lại", "Có máy quay dọc"):
             self.assertIn(text, self.html + self.js)
 
     def test_da_bo_nhung_phan_cu(self):
