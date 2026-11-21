@@ -16,7 +16,7 @@ Ai làm xong việc gì thì sửa file này (xem `AGENTS.md` mục 5). Đầu m
 ## Việc tiếp theo, theo thứ tự
 1. Đọc kết quả `tong_hop.json` cùng người dùng → đề xuất cách học In/Out (chỉ bàn, chưa làm khi chưa được bảo).
 2. Nhiều camera: trang 1 (chọn mốc bằng thumbnail, Phần 1) đã làm và người dùng thử OK. Còn: trang 2 (làn ngang, mỗi máy một làn) và trang 3 (In/Out nhiều máy). Demo duyệt: `design/nhieu_camera/` (nếu có) hoặc bản trong project Claude. Mỗi trang dừng chờ người dùng duyệt. Quyết định: tối đa 4 máy (A–D, chữ cái trong ô màu), chia khung xem làm trong DaVinci không làm trong panel, timeline sync máy 1 lên V1/A1, tô màu clip chỉ khi bấm Áp dụng, gợi ý In/Out theo giờ chung là công tắc mặc định TẮT. "Pin" trong kế hoạch nghĩa là BIN. Project nhiều máy: giai đoạn liền nhau, không khoảng trống (CHƯA làm).
-3. Trang 1 Phần 2 (đóng gói exe, B10–B19): CHỜ người dùng nói. Exe không làm panel mượt hơn, chỉ lợi cài đặt; có rủi ro Windows Defender.
+3. Trang 1 Phần 2 (đóng gói exe, B10–B19): CHỜ người dùng nói. Exe không làm panel mượt hơn, chỉ lợi cài đặt; có rủi ro Windows Defender. **Quyết định 21/11:** Việc điều chỉnh tương thích & tối ưu cho **macOS** (nhận diện `fusionscript.so`, Media Engine, đường dẫn DaVinci macOS) sẽ làm chung ở giai đoạn đóng gói này.
 4. Lời nói/Whisper: model đáng thử (cần người dùng DUYỆT trước khi tải): whisper large-v3-turbo, Qwen3-ASR-1.7B, PANNs/YAMNet, SigLIP so với OpenCLIP. Không dùng InsightFace (cần giấy phép thương mại). Tài liệu: `nghien_cuu/` trong project Claude (slide FramePilot_nghien_cuu).
 
 ## Đang chờ người dùng thử / quyết (đừng tự đặt "Xong")
