@@ -3,7 +3,7 @@
 "use strict";
 
 const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", sub: "all", onlyStar: false, onlyKey: false, min20: false, hideBad: false, find: "",
-  detail: null, edit: null, run: null, lastRefresh: 0, timer: null, vid: null, mediaUid: null };
+  detail: null, edit: null, run: null, lastRefresh: 0, timer: null, vid: null, mediaUid: null, spanIdx: 0, newSpan: false, hoverT: null };
 const mmss = (s) => Math.floor((s || 0) / 60) + ":" + String(Math.round((s || 0) % 60)).padStart(2, "0");
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -55,7 +55,7 @@ async function lnLoadDetail(uid) {
 }
 
 function lnSelect(uid) {
-  LN.sel = uid; LN.detail = null; LN.edit = null;
+  LN.sel = uid; LN.detail = null; LN.edit = null; LN.spanIdx = 0; LN.newSpan = false; LN.hoverT = null;
   renderRows(); renderRight(); lnLoadDetail(uid);
 }
 
@@ -146,8 +146,23 @@ function curRow() { return LN.rows.find((r) => r.uid === LN.sel) || null; }
 function editSpan() {
   if (LN.edit) return LN.edit;
   const d = LN.detail, r = curRow();
+  const cm = clipMeta(r.uid);
+  const hasManual = cm && ((Array.isArray(cm.inouts) && cm.inouts.length) || (cm.in_s != null && cm.out_s != null && cm.io_src === "manual"));
+  if (hasManual) {
+    const arr = (Array.isArray(cm.inouts) && cm.inouts.length) ? cm.inouts : [[cm.in_s, cm.out_s]];
+    const sp = arr[Math.max(0, Math.min(LN.spanIdx, arr.length - 1))];
+    return { in_s: sp[0], out_s: sp[1], src: "manual", dirty: false };
+  }
   const sp = (d && d.span) || (r && r.span);
   return sp ? { in_s: sp.in_s, out_s: sp.out_s, src: sp.src, dirty: false } : null;
+}
+function lnSpans(r) {
+  if (!r) return [];
+  const cm = clipMeta(r.uid);
+  if (cm && Array.isArray(cm.inouts) && cm.inouts.length) return cm.inouts.map((x) => [x[0], x[1]]);
+  if (cm && cm.in_s != null && cm.out_s != null && cm.io_src === "manual") return [[cm.in_s, cm.out_s]];
+  const sp = (LN.detail && LN.detail.span) || r.span;
+  return sp ? [[sp.in_s, sp.out_s]] : [];
 }
 
 function lnEnsureMedia(r) {
@@ -221,10 +236,21 @@ function renderRight() {
   $("lnLangBtn").onclick = async () => { if (r.silent) return; await api().speech_set_lang(r.key, r.lang === "en" ? "vi" : "en"); lnRefresh(); };
   $("lnDurEnd").textContent = mmss(r.dur);
   const e = editSpan(), dur = r.dur || 1;
+  const spans = lnSpans(r);
+  if (LN.spanIdx >= spans.length) LN.spanIdx = Math.max(0, spans.length - 1);
   let bar = barHtml(r, true);
-  if (e) {
+  if (spans.length) {
+    spans.forEach((sp, idx) => {
+      const isAct = idx === LN.spanIdx;
+      const sa = (isAct && LN.edit) ? LN.edit.in_s : sp[0];
+      const sb = (isAct && LN.edit) ? LN.edit.out_s : sp[1];
+      const l = sa / dur * 100, w = (sb - sa) / dur * 100;
+      const handles = isAct ? `<span class="h" data-h="in" style="left:${l.toFixed(2)}%"></span><span class="h" data-h="out" style="left:${(l + w).toFixed(2)}%"></span>` : "";
+      bar += `<b class="box" data-si="${idx}" style="left:${l.toFixed(2)}%;width:${w.toFixed(2)}%;${isAct ? "" : "opacity:0.45;"}"></b>${handles}`;
+    });
+  } else if (e) {
     const l = e.in_s / dur * 100, w = (e.out_s - e.in_s) / dur * 100;
-    bar += `<b class="box" style="left:${l.toFixed(2)}%;width:${w.toFixed(2)}%"></b>
+    bar += `<b class="box" data-si="0" style="left:${l.toFixed(2)}%;width:${w.toFixed(2)}%"></b>
       <span class="h" data-h="in" style="left:${l.toFixed(2)}%"></span><span class="h" data-h="out" style="left:${(l + w).toFixed(2)}%"></span>`;
   }
   $("lnBar").innerHTML = bar;
@@ -234,8 +260,10 @@ function renderRight() {
     const tc = (d && d.tc) || r.tc;
     $("lnIn").textContent = "In " + addTc(tc, e.in_s, fps); $("lnOut").textContent = "Out " + addTc(tc, e.out_s, fps);
     $("lnHold").textContent = "Giữ " + Math.round(e.out_s - e.in_s) + " giây";
-    $("lnSuggTitle").textContent = { manual: "Đoạn bạn đã đặt (lưu trong panel, chưa ghi vào DaVinci)", davinci: "Đoạn đã đặt In / Out trong DaVinci, giờ theo timecode của file gốc" }[e.src] || "Đoạn gợi ý, giờ theo timecode của file gốc";
-    $("lnSuggNote").textContent = e.dirty ? "Đã kéo mép khung. Bấm “Đặt In / Out” để lưu vào kế hoạch của panel." : "Kéo mép khung trắng để chỉnh. Bạn đặt tay thì lấy theo bạn.";
+    $("lnSuggTitle").textContent = spans.length > 1
+      ? `Đặt tay ${spans.length} khúc (Shift+I/O thêm khúc, Bước 5 tự trim lên timeline)`
+      : ({ manual: "Đoạn bạn đã đặt (lưu trong panel, chưa ghi vào DaVinci)", davinci: "Đoạn đã đặt In / Out trong DaVinci, giờ theo timecode của file gốc" }[e.src] || "Đoạn gợi ý, giờ theo timecode của file gốc");
+    $("lnSuggNote").textContent = e.dirty ? "Đã kéo mép khung. Bấm “Đặt In / Out” để lưu vào kế hoạch của panel." : "Kéo mép khung trắng hoặc bấm I / O (Shift+I/O để thêm khúc).";
   }
   const lines = (d && d.lines) || [];
   const visLines = LN.hideBad ? lines.filter((l) => !l.why.length) : lines;
@@ -300,12 +328,26 @@ if ($("lnPlayBtn")) $("lnPlayBtn").onclick = () => {
   if (!LN.vid) return;
   if (LN.vid.paused) LN.vid.play().catch(() => {}); else LN.vid.pause();
 };
-if ($("lnWaveBox")) $("lnWaveBox").addEventListener("mousemove", (ev) => {
-  const r = curRow(); if (!r || !LN.vid || ev.buttons) return;
-  const rect = $("lnWaveBox").getBoundingClientRect(), dur = LN.vid.duration || r.dur || 1;
-  const t = Math.max(0, Math.min(dur, (ev.clientX - rect.left) / rect.width * dur));
-  LN.vid.currentTime = t;
-});
+if ($("lnWaveBox")) {
+  $("lnWaveBox").addEventListener("mousemove", (ev) => {
+    const r = curRow(); if (!r || ev.buttons) return;
+    const rect = $("lnWaveBox").getBoundingClientRect(), dur = (LN.vid && LN.vid.duration) || r.dur || 1;
+    const t = Math.max(0, Math.min(dur, (ev.clientX - rect.left) / rect.width * dur));
+    LN.hoverT = t;
+    if (LN.vid) LN.vid.currentTime = t;
+  });
+  $("lnWaveBox").addEventListener("mouseleave", () => { LN.hoverT = null; });
+}
+if ($("lnBar")) {
+  $("lnBar").addEventListener("mousemove", (ev) => {
+    const r = curRow(); if (!r || ev.buttons) return;
+    const rect = $("lnBar").getBoundingClientRect(), dur = (LN.vid && LN.vid.duration) || r.dur || 1;
+    const t = Math.max(0, Math.min(dur, (ev.clientX - rect.left) / rect.width * dur));
+    LN.hoverT = t;
+    if (LN.vid) LN.vid.currentTime = t;
+  });
+  $("lnBar").addEventListener("mouseleave", () => { LN.hoverT = null; });
+}
 $("lnLines").addEventListener("click", (ev) => {
   const ln = ev.target.closest(".ln-line"); if (!ln || !LN.vid) return;
   LN.vid.currentTime = +ln.dataset.t || 0;
@@ -346,13 +388,77 @@ async function lnToggleStar() {
 }
 $("lnStar").onclick = lnToggleStar;
 
+async function lnSaveSpans(r, spans) {
+  if (!r) return;
+  const res = await api().set_inouts(r.uid, spans);
+  if (res && res.error) return status(res.error, "warn");
+  const cm = clipMeta(r.uid);
+  if (cm) {
+    cm.inouts = (res && res.inouts) || [];
+    cm.in_s = res ? res.in_s : null;
+    cm.out_s = res ? res.out_s : null;
+    cm.io_src = res && res.in_s != null ? "manual" : null;
+  }
+  const spObj = (res && res.in_s != null) ? { in_s: res.in_s, out_s: res.out_s, src: "manual" } : null;
+  if (LN.detail) LN.detail.span = spObj;
+  r.span = spObj;
+  LN.edit = null;
+  renderRight();
+}
+
+async function lnMark(which, addNew) {
+  const r = curRow(); if (!r) return;
+  const dur = r.dur || (LN.vid && LN.vid.duration) || 0; if (!(dur > 0)) return;
+  const t = LN.hoverT != null ? LN.hoverT : (LN.vid ? LN.vid.currentTime : 0);
+  const step = 1 / (r.fps || 25);
+  let spans = lnSpans(r);
+  if (LN.edit && spans.length) spans[Math.max(0, Math.min(LN.spanIdx, spans.length - 1))] = [LN.edit.in_s, LN.edit.out_s];
+  if (addNew) {
+    if (which === "in") {
+      spans.push([t, Math.max(t + step, dur)]);
+      LN.spanIdx = spans.length - 1;
+      LN.newSpan = true;
+      return lnSaveSpans(r, spans);
+    }
+    if (LN.newSpan && spans.length) {
+      const idx = spans.length - 1;
+      spans[idx] = [Math.min(spans[idx][0], t - step), Math.max(t, spans[idx][0] + step)];
+      LN.newSpan = false;
+      return lnSaveSpans(r, spans);
+    }
+    const a = Math.max(0, t - Math.min(3.0, t));
+    spans.push([a, Math.max(a + step, t)]);
+    LN.spanIdx = spans.length - 1;
+    LN.newSpan = false;
+    return lnSaveSpans(r, spans);
+  }
+  LN.newSpan = false;
+  if (!spans.length) {
+    spans = [which === "in" ? [t, Math.max(t + step, dur)] : [0, Math.max(t, step)]];
+    LN.spanIdx = 0;
+  } else {
+    const idx = Math.max(0, Math.min(LN.spanIdx, spans.length - 1));
+    const [a, b] = spans[idx];
+    spans[idx] = which === "in" ? [t, Math.max(b, t + step)] : [Math.min(a, t - step), t];
+  }
+  return lnSaveSpans(r, spans);
+}
+
 $("lnSet").onclick = async () => {
   const r = curRow(), e = editSpan();
-  if (!r || !e) return status("Clip này chưa có đoạn gợi ý để đặt.", "warn");
-  await api().speech_set_inout(r.uid, e.in_s, e.out_s);
+  if (!r) return;
+  if (!e) {
+    const dur = r.dur || (LN.vid && LN.vid.duration) || 0;
+    if (!(dur > 0)) return status("Chưa rõ độ dài clip để đặt In / Out.", "warn");
+    const t = LN.vid ? LN.vid.currentTime : 0;
+    await lnSaveSpans(r, [[t, Math.min(dur, Math.max(t + 3.0, t + 1 / (r.fps || 25)))]]);
+    return status("Đã tạo In / Out mới cho clip (bấm I / O để chỉnh, Shift+I/O để thêm khúc).", "ok");
+  }
+  const spans = lnSpans(r);
+  if (spans.length) spans[Math.max(0, Math.min(LN.spanIdx, spans.length - 1))] = [e.in_s, e.out_s];
+  else spans.push([e.in_s, e.out_s]);
+  await lnSaveSpans(r, spans);
   status("Đã lưu In / Out vào kế hoạch của panel (chưa ghi vào DaVinci).", "ok");
-  LN.edit = null;
-  await lnRefresh();
 };
 
 /* Ghi vào DaVinci: dùng chung hộp xác nhận + sao lưu + Hoàn tác của player.js (ADR-0016). Chỉ clip có In/Out ĐẶT TAY mới ghi. */
@@ -362,12 +468,18 @@ $("lnWrite").onclick = () => {
   plWrite("selected", ids);
 };
 
-/* kéo mép khung trắng ở thanh lớn */
+/* kéo mép khung trắng ở thanh lớn + bấm chọn từng khúc */
 $("lnBar").addEventListener("mousedown", (ev) => {
-  const h = ev.target.closest(".h"); const r = curRow(); if (!h || !r) return;
+  const r = curRow(); if (!r) return;
+  const bx = ev.target.closest(".box[data-si]");
+  if (bx && !ev.target.closest(".h") && +bx.dataset.si !== LN.spanIdx) {
+    LN.spanIdx = +bx.dataset.si; LN.edit = null; renderRight();
+  }
+  const h = ev.target.closest(".h"); if (!h) return;
   ev.preventDefault();
   const rect = $("lnBar").getBoundingClientRect(), dur = r.dur || 1;
-  const e0 = editSpan(); const which = h.dataset.h;
+  const e0 = editSpan(); if (!e0) return;
+  const which = h.dataset.h;
   const move = (m) => {
     const t = Math.min(dur, Math.max(0, (m.clientX - rect.left) / rect.width * dur));
     const cur = LN.edit || { ...e0 };
@@ -384,6 +496,20 @@ function lnKey(e) {
   if (e.code === "Space") { e.preventDefault(); if (LN.vid) { if (LN.vid.paused) LN.vid.play().catch(() => {}); else LN.vid.pause(); } return; }
   if (e.ctrlKey && e.code === "KeyA") { e.preventDefault(); LN.pick = new Set(LN.rows.filter(inStage).map((r) => r.uid)); renderRows(); renderExportBtns(); return; }
   if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleStar(); return; }
+  if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+    if (e.code === "KeyI") { e.preventDefault(); lnMark("in", e.shiftKey); return; }
+    if (e.code === "KeyO") { e.preventDefault(); lnMark("out", e.shiftKey); return; }
+    if (e.code === "Delete" || e.code === "Backspace") {
+      const r = curRow(), spans = lnSpans(r);
+      if (r && spans.length > 1) {
+        e.preventDefault();
+        spans.splice(Math.max(0, Math.min(LN.spanIdx, spans.length - 1)), 1);
+        LN.spanIdx = Math.max(0, LN.spanIdx - 1);
+        lnSaveSpans(r, spans);
+        return;
+      }
+    }
+  }
   const dir = { ArrowUp: -1, ArrowDown: 1 }[e.key];
   if (!dir) return;
   e.preventDefault();

@@ -109,6 +109,9 @@ class TestMultiInoutAndSpeechFixes(unittest.TestCase):
         self.assertIn('plMark("in", e.shiftKey)', player_js)
         self.assertIn('plMark("out", e.shiftKey)', player_js)
         self.assertIn("set_inouts(", player_js)
+        self.assertIn('lnMark("in", e.shiftKey)', speech_js)
+        self.assertIn('lnMark("out", e.shiftKey)', speech_js)
+        self.assertIn("set_inouts(", speech_js)
 
 
 if __name__ == "__main__":
