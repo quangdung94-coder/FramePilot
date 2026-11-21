@@ -1128,6 +1128,52 @@ $("styleSel").onchange = async (e) => {
   if (!modal || !btn) return;
   let defDataRoot = "";
   const shortTplName = (t) => /tiệc/i.test(t) && !/sáng|đầy đủ/i.test(t) ? "Chỉ tiệc" : (/đầy đủ/i.test(t) ? "Lễ sáng + Tiệc tối" : t);
+  const addLutRow = (pref, path, hint) => {
+    const list = $("setLutList");
+    if (!list) return;
+    const row = document.createElement("div");
+    row.className = "inline8 lut-row";
+    row.innerHTML = `<input class="inp lut-pref" style="width:92px" placeholder="VD: C0, DG" value="${esc(pref || "")}" title="${esc(hint || "Tiền tố đầu tên file")}">`
+      + `<input class="inp flex1 lut-path" placeholder="File LUT (.cube / .3dl)" value="${esc(path || "")}">`
+      + `<button class="btn lut-pick" type="button">Chọn...</button>`
+      + `<button class="btn lut-del" type="button" title="Xóa dòng">✕</button>`;
+    row.querySelector(".lut-pick").onclick = async () => {
+      const r = await api().settings_pick_lut();
+      if (r && r.path) row.querySelector(".lut-path").value = r.path;
+      else if (r && r.error) status(r.error, "warn");
+    };
+    row.querySelector(".lut-del").onclick = () => row.remove();
+    list.appendChild(row);
+    return row;
+  };
+  const renderLutRows = (saved, detected) => {
+    const list = $("setLutList");
+    if (!list) return;
+    list.innerHTML = "";
+    const map = (saved && typeof saved === "object") ? saved : {};
+    const seen = new Set();
+    for (const d of (detected || [])) {
+      if (!d || !d.prefix) continue;
+      seen.add(d.prefix.toUpperCase());
+      const key = Object.keys(map).find((k) => k.toUpperCase() === d.prefix.toUpperCase()) || d.prefix;
+      addLutRow(key, map[key] || "", `${d.count} clip trong project`);
+    }
+    for (const [k, v] of Object.entries(map)) {
+      if (!seen.has(k.toUpperCase())) addLutRow(k, v, "");
+    }
+    if (!list.children.length) addLutRow("", "", "");
+  };
+  const collectLutMap = () => {
+    const out = {};
+    const list = $("setLutList");
+    if (!list) return out;
+    for (const row of list.querySelectorAll(".lut-row")) {
+      const p = (row.querySelector(".lut-pref").value || "").trim();
+      const v = (row.querySelector(".lut-path").value || "").trim();
+      if (p && v) out[p] = v;
+    }
+    return out;
+  };
   btn.onclick = async () => {
     const r = await api().settings_get();
     defDataRoot = (r && r.data_root) || "";
@@ -1140,7 +1186,21 @@ $("styleSel").onchange = async (e) => {
       tplSel.value = S.template || $("tplSel").value || (S.templates[0] || "");
     }
     if (stSel && S) stSel.value = S.shoot_style || "";
+    renderLutRows(r && r.camera_luts, r && r.detected_prefixes);
     modal.classList.remove("hidden");
+  };
+  if ($("setLutAdd")) $("setLutAdd").onclick = () => {
+    const row = addLutRow("", "", "");
+    if (row) row.querySelector(".lut-pref").focus();
+  };
+  if ($("setRefreshThumbs")) $("setRefreshThumbs").onclick = async () => {
+    const tplPath = $("setTplPathInp") ? $("setTplPathInp").value : null;
+    const sv = await api().settings_save($("setCacheInp").value, $("setSrtInp").value, tplPath, collectLutMap());
+    if (sv && sv.error) return status(sv.error, "warn");
+    if (typeof LUT !== "undefined" && LUT.cache) LUT.cache.clear();
+    const st = await api().thumbs_refresh();
+    if (st && !st.error) setState(st);
+    status("Đã xóa cache thumbnail của project này và đang tạo lại theo LUT mới.", "ok");
   };
   $("setCancel").onclick = () => modal.classList.add("hidden");
   $("setPickCache").onclick = async () => {
@@ -1165,8 +1225,9 @@ $("styleSel").onchange = async (e) => {
   };
   $("setSave").onclick = async () => {
     const tplPath = $("setTplPathInp") ? $("setTplPathInp").value : null;
-    const r = await api().settings_save($("setCacheInp").value, $("setSrtInp").value, tplPath);
+    const r = await api().settings_save($("setCacheInp").value, $("setSrtInp").value, tplPath, collectLutMap());
     if (r && r.error) return status(r.error, "warn");
+    if (typeof LUT !== "undefined" && LUT.cache) LUT.cache.clear();
     const tpl = $("setTplSel") ? $("setTplSel").value : "";
     const sty = $("setStyleSel") ? $("setStyleSel").value : "";
     if (S && sty !== (S.shoot_style || "")) {
@@ -1179,6 +1240,9 @@ $("styleSel").onchange = async (e) => {
         const sr = await api().suggest(tpl);
         if (sr && !sr.error) { setState(sr); fitView(); renderPage1(); }
       }
+    } else if (S && S.n) {
+      const st2 = await api().state();
+      if (st2 && !st2.error) setState(st2);
     }
     modal.classList.add("hidden");
     status("Đã lưu cài đặt project & thư mục (Ctrl+Z để hoàn tác khi cần).", "ok");

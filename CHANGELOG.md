@@ -1,6 +1,11 @@
 # Nhật ký thay đổi
 
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **LUT xem trước theo tiền tố máy & Áp LUT WebGL cho Page 4 (`troly_env.py`, `troly_api.py`, `troly_thumbs.py`, `panel_troly_web.py`, `index.html`, `app.js`, `player.js`, `speech.js`):**
+  - Thêm mục cấu hình **LUT theo tiền tố tên file** (ví dụ `C`, `DG`, `DJI_`) trong Setting bánh răng `⚙` (lưu vào `camera_luts` trong `config.json` để dùng chung cho các đám sau), tự gợi ý các tiền tố máy có trong project hiện tại và hỗ trợ hộp thoại chọn file `.cube`/`.3dl`.
+  - Quy tắc ưu tiên: **Input LUT đã gắn trong DaVinci luôn thắng trước**; chỉ khi clip chưa có Input LUT trong DaVinci mới lấy LUT từ Setting theo tiền tố dài nhất khớp đầu tên file (chỉ đọc để xem trước, không ghi vào Media Pool).
+  - Thêm nút **Làm mới thumbnail** trong Setting `⚙`: xóa cache thumbnail của **riêng project đang mở** và tạo lại theo LUT mới.
+  - Bổ sung áp LUT bằng WebGL lên trình phát video của **Page 4 (`4 · Lời nói`)** (`#lnThumb`) đồng bộ với Page 2 & Page 3.
 - **Tinh chỉnh Page 2, 3, 4 theo 4 ảnh phản hồi (`index.html`, `style.css`, `app.js`, `step3.js`, `speech.js`):**
   - Page 2 & Page 3: Cây bin dùng mũi tên `▾`/`▸` cho phép thu gọn/mở riêng từng bin mẹ tùy ý, đồng thời khi mở bin dưới thì các bin đã mở ở trên **không bị đóng lại** (không khóa cứng phải xổ hết toàn bộ).
   - Page 3: Trả bảng *Quy tắc gợi ý từng bin* về dạng bảng dọc thẳng hàng từ trên xuống (1 dòng 1 bin), và ẩn hộp *Kiểu quay (PSC / Truyền thống)* thừa vì đã chọn trong Setting.

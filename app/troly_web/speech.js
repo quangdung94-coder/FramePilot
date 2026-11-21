@@ -160,6 +160,7 @@ function lnEnsureMedia(r) {
   $("lnTime").textContent = `0:00 / ${mmss(r.dur)}`;
   $("lnPlayNote").textContent = "";
   if (LN.vid) { try { LN.vid.pause(); LN.vid.removeAttribute("src"); LN.vid.load(); } catch (e) {} LN.vid = null; }
+  if (typeof lutDetachEl === "function" && lt) lutDetachEl(lt);
   if (!src && typeof api === "function") {
     api().want_thumbs([r.uid]).then((ready) => {
       if (ready && ready[r.uid]) { thumbs[r.uid] = ready[r.uid]; if (LN.sel === r.uid && lt && !lt.querySelector("img")) lt.insertAdjacentHTML("afterbegin", `<img src="${ready[r.uid]}" draggable="false">`); }
@@ -182,6 +183,10 @@ function lnEnsureMedia(r) {
       });
       v.addEventListener("error", () => { $("lnPlayNote").textContent = "Không giải mã được video trực tiếp"; });
       lt.appendChild(v); LN.vid = v;
+      if (typeof lutAttachEl === "function" && typeof S !== "undefined" && S && Array.isArray(S.clips)) {
+        const cl = S.clips.find((x) => x.uid === r.uid);
+        if (cl) lutAttachEl(cl, v, lt);
+      }
     });
     api().wave(r.uid).then((w) => {
       if (LN.sel !== r.uid) return;

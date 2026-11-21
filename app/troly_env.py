@@ -46,6 +46,12 @@ def templates_path():
     return config().get("templates_path") or ""
 
 
+def camera_luts():
+    """Ánh xạ tiền tố tên file máy quay -> đường dẫn file LUT (.cube/.3dl) để xem trước khi clip chưa gắn LUT trong DaVinci."""
+    v = config().get("camera_luts")
+    return dict(v) if isinstance(v, dict) else {}
+
+
 def save_config(patch):
     """Cập nhật một phần config.json qua file tạm (giữ nguyên các mục khác)."""
     p = config_path()

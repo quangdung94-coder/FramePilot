@@ -17,6 +17,7 @@ Mẫu một dòng: `- 21/11 | Nhóm A-E | việc ngắn | Chờ anh thử / Đan
 - 21/11 | Nhóm B | Page 5: mở rộng chiều cao timeline V1/V2/A1/A2 ở trên, đẩy bảng chi tiết cụm/bin xuống sát dưới, ẩn chú thích thừa và thêm phím ←/→ chuyển cụm sự kiện | Chờ anh thử | commit cbf50fe
 - 21/11 | Nhóm B | Tổng rà soát 8 ảnh Page 1–5: bỏ chú thích thừa & sửa sót (J)->(P), Lưu mẫu to + chọn đường dẫn, mở sẵn toàn bộ cây bin Page 2/3, phóng to video & gom quy tắc ngang Page 3, thêm thumbnail Page 4, Zoom timeline Page 5 | Chờ anh thử | commit 280341d
 - 21/11 | Nhóm B | Page 2/3 cây bin thu gọn/mở tùy ý không tự đóng nhóm trên; Page 3 bảng quy tắc sổ dọc từ trên xuống + ẩn Kiểu quay thừa; Page 4 thêm Play nghe/sóng âm/lọc Bin con & Chỉ clip sao ★ | Chờ anh thử | commit (cập nhật sau)
+- 21/11 | Nhóm B | Cấu hình LUT theo tiền tố tên file trong Setting ⚙ (ưu tiên Input LUT DaVinci trước, dự phòng Setting), nút Làm mới thumbnail riêng project hiện tại, áp WebGL LUT cho trình phát Page 4 | Chờ anh thử | commit (cập nhật sau)
 
 ## Tool học từ 5 project cũ (20/11/2026) - CHỜ ANH CHẠY
 - tools/hoc_tu_cu.py (+ hoc_tu_cu_phan_tich.py). Lệnh: `& C:\VideoAI_venv\Scripts\python.exe tools\hoc_tu_cu.py` (gõ Y để chạy; --thu LV_B --mau-toi-da 20 để thử nhỏ). Cần mở DaVinci, cắm đủ HDD/SSD. Kết quả: `D:\VideoAI\data\hoc_tu_cu\tong_hop.json`. Chưa chạy thật.

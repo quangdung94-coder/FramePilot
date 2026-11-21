@@ -114,6 +114,14 @@ class ThumbMaker(object):
         self.pool = cf.ThreadPoolExecutor(max_workers=max(1, workers))
         self._lut_cache = {}
 
+    @property
+    def root(self):
+        return self.cache_dir
+
+    @root.setter
+    def root(self, v):
+        self.cache_dir = v
+
     def lut_for(self, lut_name):
         if not self.use_lut or not lut_name:
             return None

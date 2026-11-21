@@ -154,9 +154,8 @@ const LUT = { cv: null, gl: null, prog: null, vtex: null, ltex: null, cache: new
 const LUT_VS = "#version 300 es\nin vec2 p; out vec2 uv; void main(){ uv = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }";
 const LUT_FS = "#version 300 es\nprecision highp float; precision highp sampler3D;\nuniform sampler2D uV; uniform sampler3D uL; uniform vec3 uMin; uniform vec3 uMax; uniform float uN; uniform int uOn;\n" +
   "in vec2 uv; out vec4 o;\nvoid main(){ vec3 c = texture(uV, vec2(uv.x, 1.0-uv.y)).rgb; if (uOn == 1) { vec3 q = clamp((c-uMin)/(uMax-uMin), 0.0, 1.0); q = q*((uN-1.0)/uN) + 0.5/uN; c = texture(uL, q).rgb; } o = vec4(c, 1.0); }";
-function lutGL() {
-  if (LUT.gl) return LUT.gl;
-  const cv = document.createElement("canvas"); cv.id = "plLut"; cv.className = "pv-lut"; cv.style.display = "none";
+function lutInitGL(st, cv) {
+  if (st.gl) return st.gl;
   const gl = cv.getContext("webgl2", { alpha: false, antialias: false, preserveDrawingBuffer: true });
   if (!gl) return null;
   const sh = (t, src) => { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
@@ -166,42 +165,50 @@ function lutGL() {
     gl.useProgram(pr);
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     const loc = gl.getAttribLocation(pr, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    LUT.vtex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, LUT.vtex);
+    st.vtex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, st.vtex);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
     gl.uniform1i(gl.getUniformLocation(pr, "uV"), 0); gl.uniform1i(gl.getUniformLocation(pr, "uL"), 1);
-    LUT.prog = pr; LUT.cv = cv; LUT.gl = gl;
-  } catch (e) { LUT.gl = null; return null; }
+    st.prog = pr; st.cv = cv; st.gl = gl;
+  } catch (e) { st.gl = null; return null; }
   return gl;
 }
-function lutUpload(d) {                                         // d = {size, dmin, dmax, b64}
-  const gl = lutGL(); if (!gl) return false;
+function lutGL() {
+  if (LUT.gl) return LUT.gl;
+  const cv = document.createElement("canvas"); cv.className = "pv-lut"; cv.style.display = "none";
+  return lutInitGL(LUT, cv);
+}
+function lutUploadTo(st, d, gl) {
+  if (!gl) return false;
   const bin = atob(d.b64), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
   const f32 = new Float32Array(u8.buffer);
-  if (LUT.ltex) gl.deleteTexture(LUT.ltex);
-  LUT.ltex = gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, LUT.ltex);
+  if (st.ltex) gl.deleteTexture(st.ltex);
+  st.ltex = gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, st.ltex);
   for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_3D, k, v);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
   gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGB16F, d.size, d.size, d.size, 0, gl.RGB, gl.FLOAT, f32);
   if (gl.getError() !== gl.NO_ERROR) return false;
-  gl.uniform3fv(gl.getUniformLocation(LUT.prog, "uMin"), d.dmin); gl.uniform3fv(gl.getUniformLocation(LUT.prog, "uMax"), d.dmax);
-  gl.uniform1f(gl.getUniformLocation(LUT.prog, "uN"), d.size);
+  gl.uniform3fv(gl.getUniformLocation(st.prog, "uMin"), d.dmin); gl.uniform3fv(gl.getUniformLocation(st.prog, "uMax"), d.dmax);
+  gl.uniform1f(gl.getUniformLocation(st.prog, "uN"), d.size);
   return true;
 }
-function lutDraw() {
-  const v = LUT.vid, gl = LUT.gl, cv = LUT.cv; if (!LUT.ready || !v || !gl || v.readyState < 2 || !v.videoWidth) return false;
-  const host = $("preview"), w = host.clientWidth, h = host.clientHeight, dpr = window.devicePixelRatio || 1;
+function lutUpload(d) { return lutUploadTo(LUT, d, lutGL()); }
+function lutDrawTo(st, host, on) {
+  const v = st.vid, gl = st.gl, cv = st.cv; if (!st.ready || !v || !gl || !host || v.readyState < 2 || !v.videoWidth) return false;
+  const w = host.clientWidth, h = host.clientHeight, dpr = window.devicePixelRatio || 1;
+  if (w < 2 || h < 2) return false;
   const W = Math.max(2, Math.round(w * dpr)), H = Math.max(2, Math.round(h * dpr));
   if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
   const va = v.videoWidth / v.videoHeight, ca = W / H;                  // khung đen hai bên giống object-fit: contain
   let vw = W, vh = H; if (va > ca) vh = Math.round(W / va); else vw = Math.round(H * va);
   gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.viewport(Math.round((W - vw) / 2), Math.round((H - vh) / 2), vw, vh);
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, LUT.vtex);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, st.vtex);
   try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v); } catch (e) { return false; }
-  gl.uniform1i(gl.getUniformLocation(LUT.prog, "uOn"), LUT.on ? 1 : 0);
+  gl.uniform1i(gl.getUniformLocation(st.prog, "uOn"), on ? 1 : 0);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  cv.style.display = "block"; LUT.last = performance.now();
+  cv.style.display = "block"; st.last = performance.now();
   return true;
 }
+function lutDraw() { return lutDrawTo(LUT, $("preview"), LUT.on); }
 function lutLoop() {                                            // vẽ lại mỗi khung hình mới của video (requestVideoFrameCallback), dự phòng rAF
   const v = LUT.vid; if (!v || !LUT.ready) return;
   const id = ++LUT.loopId;
@@ -231,6 +238,38 @@ function lutDetach() {
   LUT.loopId++; LUT.ready = false; LUT.vid = null;
   if (LUT.cv) LUT.cv.style.display = "none";
   lutUi();
+}
+const LUT_EL = new WeakMap();
+function lutDetachEl(host) {
+  const st = host && LUT_EL.get(host);
+  if (!st) return;
+  st.loopId++; st.ready = false; st.vid = null;
+  if (st.cv) st.cv.style.display = "none";
+}
+async function lutAttachEl(c, v, host) {
+  if (!host) return;
+  let st = LUT_EL.get(host);
+  if (!st) {
+    const cv = document.createElement("canvas");
+    cv.className = "pv-lut"; cv.style.cssText = "display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2";
+    host.appendChild(cv);
+    st = { cv, gl: null, prog: null, vtex: null, ltex: null, ready: false, loopId: 0, vid: null, loaded: null, last: 0 };
+    LUT_EL.set(host, st);
+  }
+  lutDetachEl(host); st.vid = v;
+  if (!c || !c.lut) return;
+  let d = LUT.cache.get(c.lut);
+  if (d === undefined) { const r = await api().lut_cube(c.uid); d = r && r.b64 ? r : { error: (r && r.error) || "none" }; LUT.cache.set(c.lut, d); }
+  if (st.vid !== v || v.parentNode !== host) return;
+  if (d.error) return;
+  const gl = lutInitGL(st, st.cv); if (!gl) return;
+  if (st.loaded !== c.lut) { if (!lutUploadTo(st, d, gl)) return; st.loaded = c.lut; }
+  if (!st.cv.parentNode) host.appendChild(st.cv);
+  st.ready = true;
+  const id = ++st.loopId;
+  const tick = () => { if (id !== st.loopId || st.vid !== v || v.parentNode !== host) return; lutDrawTo(st, host, true); schedule(); };
+  const schedule = () => { if (id !== st.loopId || st.vid !== v || v.parentNode !== host) return; if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick); };
+  tick();
 }
 document.addEventListener("click", (e) => {
   if (e.target.id !== "plLut" || e.target.disabled) return;

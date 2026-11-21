@@ -80,6 +80,7 @@ class TrolyApi(object):
                                      workers=thumb_workers)
         self._thumb_done = {}             # uid -> (đường dẫn jpg | None, ghi chú)
         self._inflight = set()
+        self._thumb_gen = 0
         self._want = []                   # uid ưu tiên làm thumbnail trước (đang thấy trên màn hình)
         self._save_timer = None
         self._speech_st, self._speech_run, self._speech_last = None, None, None
@@ -246,7 +247,7 @@ class TrolyApi(object):
                 clips.append({"uid": c.uid, "name": c.name, "m0": m[0] if m else None, "m1": m[1] if m else None, "mk": self._mk_letter.get(c.uid, ""),
                               "time": c.t_start.strftime("%H:%M:%S") if c.t_start else "--:--:--",
                               "dur": c.dur or 0, "stage": si, "label": lb, "label_by": ((tc.label_of(self._plan, c) or {}).get("by") if lb else None),
-                              "manual": bool(tc.manual_of(self._plan, c)), "camera": c.camera, "src": c.t_src, "lut": c.lut or "", "bin_path": c.bin_path,
+                              "manual": bool(tc.manual_of(self._plan, c)), "camera": c.camera, "src": c.t_src, "lut": self._effective_lut(c) or "", "bin_path": c.bin_path,
                               "thumb": c.uid in self._thumb_done and bool(self._thumb_done[c.uid][0]),
                               "in_s": in_s, "out_s": out_s, "io_src": io_src, "dv": dv, "fps": fps, "tc": c.tc or "", "sug": sug,
                               "star": tc.is_starred(self._plan, c)})
@@ -1761,7 +1762,8 @@ class TrolyApi(object):
         else:
             return {"error": "Chưa có proxy"}
         st = self._frame_store()
-        lut_path = self._thumbs.lut_for(c.lut) if c.lut else None
+        eff_lut = self._effective_lut(c)
+        lut_path = self._thumbs.lut_for(eff_lut) if eff_lut else None
         r = st.open(c.rel or c.name, src, c.fps or 25.0, c.dur or 0, lut_path, bool(prefetch))
         if r.get("token"):
             r["url"] = "http://127.0.0.1:%d/f/%s" % (self._play_server().port, r["token"])
@@ -1799,16 +1801,35 @@ class TrolyApi(object):
         kf = tkf.get(src, os.path.join(self._cache_root, "cache", "troly_kf", tc._safe(self._project)), tkf.ffprobe_path(self._thumbs.ffmpeg))
         return {"kf": kf} if kf else {"error": "Không đọc được keyframe"}
 
+    def _effective_lut(self, c):
+        """LUT để xem trước clip: ưu tiên Input LUT trong DaVinci trước; chưa có mới lấy theo tiền tố tên file trong Cài đặt."""
+        if c is None:
+            return ""
+        dv_lut = (getattr(c, "lut", None) or "").strip()
+        if dv_lut:
+            return dv_lut
+        luts = te.camera_luts()
+        if not luts:
+            return ""
+        name = (getattr(c, "name", None) or "").upper()
+        for prefix in sorted(luts.keys(), key=lambda k: len(str(k or "")), reverse=True):
+            p = str(prefix or "").strip()
+            val = str(luts.get(prefix) or "").strip()
+            if p and val and name.startswith(p.upper()):
+                return val
+        return ""
+
     def lut_cube(self, uid):
         """Dữ liệu LUT .cube của clip để giao diện áp bằng WebGL lên khung xem (Việc 1, ADR-0023). Chỉ ĐỌC file LUT; không có LUT thì {'none': True}."""
         c = self._by_uid.get(uid)
         if c is None:
             return {"error": "Không thấy clip."}
-        if not c.lut:
+        eff_lut = self._effective_lut(c)
+        if not eff_lut:
             return {"none": True}
-        path = self._thumbs.lut_for(c.lut)
+        path = self._thumbs.lut_for(eff_lut)
         if not path:
-            return {"error": "Không thấy file LUT %s" % c.lut}
+            return {"error": "Không thấy file LUT %s" % eff_lut}
         cache = self.__dict__.setdefault("_lut_payloads", {})
         if path not in cache:
             try:
@@ -1825,27 +1846,32 @@ class TrolyApi(object):
             if n >= THUMB_INFLIGHT or not self._clips:
                 return
             order = [self._by_uid[u] for u in self._want if u in self._by_uid] + self._clips
+            gen = getattr(self, "_thumb_gen", 0)
             for c in order:
                 if c.uid in self._thumb_done or c.uid in self._inflight:
                     continue
                 self._inflight.add(c.uid)
-                fut = self._thumbs.submit(c.uid, c.path, c.proxy, c.lut, c.dur)
-                fut.add_done_callback(lambda f, u=c.uid: self._thumb_ready(f, u))
+                fut = self._thumbs.submit(c.uid, c.path, c.proxy, self._effective_lut(c), c.dur)
+                fut.add_done_callback(lambda f, u=c.uid, g=gen: self._thumb_ready(f, u, g))
                 n += 1
                 if n >= THUMB_INFLIGHT:
                     break
 
-    def _thumb_ready(self, fut, uid_hint=None):
+    def _thumb_ready(self, fut, uid_hint=None, gen=0):
         try:
             uid, p, note = fut.result()
         except Exception as e:            # noqa: BLE001  làm thumbnail ném ngoại lệ: giải phóng chỗ, tính là lỗi (không kẹt hàng đợi)
             if uid_hint is not None:
                 with self._lock:
+                    if gen != getattr(self, "_thumb_gen", 0):
+                        return
                     self._inflight.discard(uid_hint)
                     self._thumb_done[uid_hint] = (None, "lỗi: %s" % e)
             self._emit("status", {"text": "Lỗi thumbnail: %s" % e, "kind": "warn"})
             return self._pump_thumbs()
         with self._lock:
+            if gen != getattr(self, "_thumb_gen", 0):
+                return
             self._inflight.discard(uid)
             self._thumb_done[uid] = (p, note)
             done = sum(1 for v in self._thumb_done.values() if v[0])
@@ -2570,12 +2596,21 @@ class TrolyApi(object):
 
     # ------------------------------------------------------------------ Cài đặt chung (bánh răng)
     def settings_get(self):
-        """Trả cài đặt thư mục chứa cache, SRT và đường dẫn file mẫu hiện tại."""
+        """Trả cài đặt thư mục chứa cache, SRT, đường dẫn file mẫu và LUT theo tiền tố máy hiện tại."""
+        import re as _re
+        counts = collections.Counter()
+        with self._lock:
+            for c in self._clips:
+                m = _re.match(r"^([A-Za-z]+(?:_|-)?)", getattr(c, "name", "") or "")
+                if m:
+                    counts[m.group(1)] += 1
         return {
             "data_root": self._root or "",
             "cache_root": self._cache_root or self._root or "",
             "srt_root": te.srt_root() or "",
             "templates_path": tc._tpl_file(self._root, self._tpl_custom()) or "",
+            "camera_luts": te.camera_luts(),
+            "detected_prefixes": [{"prefix": p, "count": n} for p, n in counts.most_common()],
         }
 
     def settings_pick_dir(self):
@@ -2586,8 +2621,16 @@ class TrolyApi(object):
         d = fn()
         return {"dir": d} if d else {"cancel": True}
 
-    def settings_save(self, cache_root="", srt_root="", templates_path=None):
-        """Lưu tùy chọn nơi chứa cache, nơi chứa file SRT và đường dẫn file mẫu vào config.json (không ghi vào thư mục git)."""
+    def settings_pick_lut(self):
+        """Mở hộp thoại chọn file LUT (.cube / .3dl) trên Windows."""
+        fn = getattr(self, "pick_file_fn", None)
+        if fn is None:
+            return {"error": "Không mở được hộp chọn file LUT ở chế độ này."}
+        p = fn()
+        return {"path": p} if p else {"cancel": True}
+
+    def settings_save(self, cache_root="", srt_root="", templates_path=None, camera_luts=None):
+        """Lưu tùy chọn nơi chứa cache, nơi chứa file SRT, đường dẫn file mẫu và LUT theo máy vào config.json (không ghi vào thư mục git)."""
         repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).lower()
         c_dir = (cache_root or "").strip()
         s_dir = (srt_root or "").strip()
@@ -2604,13 +2647,42 @@ class TrolyApi(object):
         patch = {"cache_root": c_dir, "srt_root": s_dir}
         if t_dir is not None:
             patch["templates_path"] = t_dir
+        if isinstance(camera_luts, dict):
+            patch["camera_luts"] = {
+                str(k).strip(): str(v).strip()
+                for k, v in camera_luts.items()
+                if str(k or "").strip() and str(v or "").strip()
+            }
         te.save_config(patch)
         with self._lock:
             self._cache_root = c_dir or self._root
-            self._thumbs.root = os.path.join(self._cache_root, "cache", "troly_thumbs", tc._safe(self._project))
+            self._thumbs.cache_dir = os.path.join(self._cache_root, "cache", "troly_thumbs", tc._safe(self._project))
+            os.makedirs(self._thumbs.cache_dir, exist_ok=True)
             if getattr(self, "_wave", None) is not None:
                 self._wave.root = os.path.join(self._cache_root, "cache", "troly_wave", tc._safe(self._project))
-        return {"ok": True, "cache_root": self._cache_root, "srt_root": s_dir}
+        return {"ok": True, "cache_root": self._cache_root, "srt_root": s_dir, "camera_luts": patch.get("camera_luts")}
+
+    def thumbs_refresh(self):
+        """Xóa cache thumbnail của RIÊNG project đang mở và tạo lại toàn bộ (dùng khi đổi LUT)."""
+        import shutil
+        with self._lock:
+            self._thumb_gen = getattr(self, "_thumb_gen", 0) + 1
+            root = self._thumbs.cache_dir
+            if root and os.path.isdir(root):
+                shutil.rmtree(root, ignore_errors=True)
+            os.makedirs(root, exist_ok=True)
+            self._thumb_done.clear()
+            self._inflight.clear()
+            if hasattr(self, "_lut_payloads"):
+                self._lut_payloads.clear()
+            if hasattr(self, "_frames") and self._frames is not None:
+                try:
+                    self._frames.close()
+                except Exception:  # noqa: BLE001
+                    pass
+                self._frames = None
+        self._pump_thumbs()
+        return self.state()
 
     def close(self):
         if self._play is not None:
