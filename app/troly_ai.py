@@ -30,6 +30,9 @@ MODEL_FILE = "open_clip_model.safetensors"
 MODEL_ARCH = "ViT-B-32"
 SIGLIP_DIR_NAME = "siglip_vitb16"
 SIGLIP_ARCH = "ViT-B-16-SigLIP"
+SIGLIP2_DIR_NAME = "siglip2_vitb16"
+SIGLIP2_ARCH = "ViT-B-16-SigLIP2"
+DINOV2_DIR_NAME = "dinov2_small"
 TEMPERATURE = 100.0                 # CLIP: logit_scale ~100
 BATCH = 32
 THUMB_WIDTH = 320
@@ -396,10 +399,34 @@ def has_siglip(data_root):
     return os.path.isdir(d) and os.path.isdir(os.path.join(d, "models--timm--ViT-B-16-SigLIP"))
 
 
+def siglip2_dir(data_root):
+    return os.path.join(data_root, "models", SIGLIP2_DIR_NAME)
+
+
+def has_siglip2(data_root):
+    d = siglip2_dir(data_root)
+    return os.path.isfile(os.path.join(d, MODEL_FILE))
+
+
+def dinov2_dir(data_root):
+    return os.path.join(data_root, "models", DINOV2_DIR_NAME)
+
+
+def has_dinov2(data_root):
+    d = dinov2_dir(data_root)
+    return os.path.isdir(d) and os.path.isfile(os.path.join(d, "config.json"))
+
+
 def load_model(data_root):
     import open_clip
     import torch
     dev = "cuda" if torch.cuda.is_available() else "cpu"
+    if has_siglip2(data_root):
+        sd2 = siglip2_dir(data_root)
+        w2 = os.path.join(sd2, MODEL_FILE)
+        model, _, pre = open_clip.create_model_and_transforms(SIGLIP2_ARCH, pretrained=w2, device=dev)
+        model.eval()
+        return model, pre, open_clip.get_tokenizer(SIGLIP2_ARCH), dev
     if has_siglip(data_root):
         sd = siglip_dir(data_root)
         os.environ.setdefault("HF_HOME", sd)
@@ -413,8 +440,90 @@ def load_model(data_root):
 
 
 def embed_dir(data_root, project):
-    sub = "troly_embed_siglip" if has_siglip(data_root) else "troly_embed"
+    if has_siglip2(data_root):
+        sub = "troly_embed_siglip2"
+    elif has_siglip(data_root):
+        sub = "troly_embed_siglip"
+    else:
+        sub = "troly_embed"
     return os.path.join(data_root, "cache", sub, tc._safe(project))
+
+
+def run_embed_dino(project, data_root, proxy_root):
+    """Nhúng thêm vector DINOv2-small (384 chiều) cho 'Tìm góc tương tự' & học mẫu 2-3 clip. Lưu cạnh vectors.npz."""
+    if not has_dinov2(data_root):
+        return {"skipped": True}
+    import numpy as np
+    import torch
+    from PIL import Image
+    from transformers import AutoImageProcessor, AutoModel
+
+    d = embed_dir(data_root, project)
+    os.makedirs(d, exist_ok=True)
+    clips, _ = match_thumbs(project, data_root, proxy_root)
+    todo_all = [c for c in clips if c["thumb"]]
+    npz = os.path.join(d, "dino_vectors.npz")
+    keys, vecs = [], None
+    if os.path.isfile(npz):
+        with np.load(npz, allow_pickle=False) as z:
+            keys, vecs = list(z["keys"]), z["vecs"].copy()
+    done = set(keys)
+    todo = [c for c in todo_all if c["key"] not in done]
+    if not todo:
+        return {"embedded": len(done), "new": 0}
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    ddir = dinov2_dir(data_root)
+    proc = AutoImageProcessor.from_pretrained(ddir, local_files_only=True)
+    model = AutoModel.from_pretrained(ddir, local_files_only=True).to(dev).eval()
+    new_k, new_v = [], []
+    stop = os.path.join(d, "STOP")
+    with torch.no_grad():
+        for i in range(0, len(todo), BATCH):
+            if os.path.isfile(stop):
+                break
+            batch = todo[i:i + BATCH]
+            imgs, ok_k = [], []
+            for c in batch:
+                try:
+                    with Image.open(c["thumb"]) as im:
+                        imgs.append(im.convert("RGB").copy())
+                        ok_k.append(c["key"])
+                except (OSError, ValueError):
+                    pass
+            if not imgs:
+                continue
+            inp = proc(images=imgs, return_tensors="pt").to(dev)
+            v = model(**inp).last_hidden_state[:, 0]
+            v = v / v.norm(dim=-1, keepdim=True)
+            for k_it, row in zip(ok_k, v.float().cpu().numpy()):
+                new_k.append(k_it)
+                new_v.append(row)
+    if new_k:
+        mat = np.stack(new_v).astype(np.float32)
+        all_k = keys + new_k
+        all_v = mat if vecs is None else np.concatenate([vecs, mat], axis=0)
+        tmp = npz + ".tmp.npz"
+        np.savez(tmp, keys=np.array(all_k, dtype=object), vecs=all_v)
+        os.replace(tmp, npz)
+    del model
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return {"embedded": len(done) + len(new_k), "new": len(new_k)}
+
+
+def load_dino_vectors(data_root, project):
+    """{ck: vector DINOv2} từ cache nhúng, hoặc {} nếu chưa có."""
+    import numpy as np
+    f = os.path.join(embed_dir(data_root, project), "dino_vectors.npz")
+    if not os.path.isfile(f):
+        return {}
+    with np.load(f, allow_pickle=False) as z:
+        keys, vecs = list(z["keys"]), z["vecs"].copy()
+    out = {}
+    for k, v in zip(keys, vecs):
+        stem, _, parent = str(k).partition("|")
+        out[(parent.casefold(), stem.casefold())] = v
+    return out
 
 
 def _log(path, msg):
@@ -546,7 +655,7 @@ def run_suggest(project, data_root, proxy_root):
                       "scores": [round(float(x), 4) for x in p],
                       "c_scores": [round(float(x), 4) for x in cp],
                       "label": lab.get(stem_key)})
-    out = {"project_tag": project[:10], "model": ("SigLIP %s" % SIGLIP_ARCH if has_siglip(data_root) else "OpenCLIP %s laion2b_s34b_b79k" % MODEL_ARCH), "bins": bins,
+    out = {"project_tag": project[:10], "model": ("SigLIP2 %s" % SIGLIP2_ARCH if has_siglip2(data_root) else ("SigLIP %s" % SIGLIP_ARCH if has_siglip(data_root) else "OpenCLIP %s laion2b_s34b_b79k" % MODEL_ARCH)), "bins": bins,
            "concepts": c_ids,
            "prompts": {b: prompts_for(b, custom_map=syn) for b in bins}, "count": len(items), "items": items,
            "eval": evaluate(items, bins)}
@@ -796,7 +905,7 @@ class AiJob(object):
         self._proc = None
 
     def available(self):
-        return os.path.isfile(self.python) and (has_siglip(self.root) or os.path.isfile(model_path(self.root)))
+        return os.path.isfile(self.python) and (has_siglip2(self.root) or has_siglip(self.root) or os.path.isfile(model_path(self.root)))
 
     def running(self):
         return self._proc is not None and self._proc.poll() is None
@@ -847,14 +956,17 @@ def main(argv=None):
         print("Đã đặt cờ dừng.")
         return 0
     res = {}
-    if a.cmd == "run":                                      # panel gọi: nhúng rồi gợi ý; bị dừng giữa chừng thì không gợi ý
+    if a.cmd == "run":                                      # panel gọi: nhúng (SigLIP2 + DINOv2) rồi gợi ý; bị dừng giữa chừng thì không gợi ý
         res["embed"] = run_embed(a.project, dr, pr)
+        if not os.path.isfile(os.path.join(embed_dir(dr, a.project), "STOP")):
+            res["dino"] = run_embed_dino(a.project, dr, pr)
         if not os.path.isfile(os.path.join(embed_dir(dr, a.project), "STOP")):
             res["suggest"] = run_suggest(a.project, dr, pr)
         print(json.dumps(res, ensure_ascii=False))
         return 0
     if a.cmd in ("embed", "all"):
         res["embed"] = run_embed(a.project, dr, pr)
+        res["dino"] = run_embed_dino(a.project, dr, pr)
     if a.cmd in ("suggest", "all"):
         res["suggest"] = run_suggest(a.project, dr, pr)
     if a.cmd in ("review", "all"):

@@ -345,7 +345,31 @@ function renderPage3Cur(c) {
   document.querySelectorAll("#p3List .p3-clip").forEach((el) => el.classList.toggle("cur", +el.dataset.i === cur));
   const el = document.querySelector(`#p3List .p3-clip[data-i="${cur}"]`); if (el) el.scrollIntoView({ block: "nearest" });
   if (page === 3) { waveLoad(c); p3TxLoad(c); }
+  if ($("p3ClapTags")) { $("p3ClapTags").innerHTML = ""; $("p3ClapTags").classList.add("hidden"); }
 }
+if ($("p3ClapBtn")) $("p3ClapBtn").addEventListener("click", async () => {
+  const c = curClip(); if (!c) return status("Chưa chọn clip.", "warn");
+  const btn = $("p3ClapBtn"), box = $("p3ClapTags");
+  btn.disabled = true; btn.textContent = "Đang quét…";
+  try {
+    const r = await api().audio_events(c.uid);
+    if (r && r.error) return status(r.error, "warn");
+    const evs = (r && r.events) || [];
+    if (!evs.length) {
+      box.innerHTML = '<span class="dim12">Không phát hiện tiếng vỗ tay / cười lớn / múa lân nổi bật trong clip này.</span>';
+      box.classList.remove("hidden");
+      return;
+    }
+    box.innerHTML = evs.map((ev) => `<button type="button" class="btn-sm p3-clap-chip" data-t="${ev.t0}" title="Bấm để nhảy tới ${p3mmss(ev.t0)}">${esc(ev.tag)} · ${p3mmss(ev.t0)}</button>`).join("");
+    box.classList.remove("hidden");
+    box.querySelectorAll(".p3-clap-chip").forEach((b) => {
+      b.onclick = () => { if (typeof plSeek === "function") plSeek(+b.dataset.t); };
+    });
+    status(`CLAP tìm thấy ${evs.length} khoảnh khắc âm thanh nổi bật.`, "ok");
+  } finally {
+    btn.disabled = false; btn.textContent = "Tiếng động AI";
+  }
+});
 $("p3Pad").addEventListener("change", async () => {
   const r = await api().inout_sug_pad($("p3Pad").value);
   if (r.error) { status(r.error, "warn"); $("p3Pad").value = (S && S.inout_sug ? S.inout_sug.pad : 0.3); return; }

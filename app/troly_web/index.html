@@ -216,10 +216,12 @@
           <button class="btn-sm" id="waveZIn" type="button" title="Phóng to sóng âm (hoặc Ctrl + Cuộn chuột)">+</button>
           <button class="btn-sm" id="waveZFit" type="button" title="Vừa khung sóng âm">Vừa</button>
           <label class="chk" title="Khi kéo mép In/Out gần khoảng nghỉ giọng, tự hút nhẹ vào khoảng lặng"><input type="checkbox" id="waveSnap" checked> Hút lặng</label>
+          <button class="btn-sm" id="p3ClapBtn" type="button" title="Quét tiếng vỗ tay, cười lớn, cụng ly, múa lân bằng CLAP AI">Tiếng động AI</button>
         </div>
         <span class="dim13" id="p3Meta"></span>
       </div>
     </div>
+    <div class="inline8 hidden" id="p3ClapTags" style="flex-wrap:wrap;gap:5px;margin-bottom:4px"></div>
     <div id="stageHost3"></div>
     <span class="dim12 hidden">Sóng âm (từ proxy) · bấm vào để lướt tới đó</span>
     <div class="wave-scroll" id="waveScroll">
@@ -365,7 +367,10 @@
       <button class="btn btn-44 flex1" id="lnStar">Gắn sao (P)</button>
       <button class="btn-accent btn-44 flex1" id="lnSet">Đặt In / Out</button>
     </div>
-    <button class="btn" id="lnWrite" title="Ghi các In/Out đã đặt của clip đang chọn (hoặc các clip Ctrl/Shift + bấm) vào Media Pool, có hộp xác nhận và sao lưu">Ghi In/Out phần đã chọn vào DaVinci</button>
+    <div class="inline8">
+      <button class="btn flex1" id="lnDiarizeBtn" type="button" title="Phân tách giọng MC và từng người nói trong clip bằng WavLM-SV (chạy cục bộ)">Tách người nói (MC / Gia đình)</button>
+      <button class="btn flex1" id="lnWrite" title="Ghi các In/Out đã đặt của clip đang chọn (hoặc các clip Ctrl/Shift + bấm) vào Media Pool, có hộp xác nhận và sao lưu">Ghi In/Out đã chọn</button>
+    </div>
     <button class="btn ln-deep" disabled title="Sắp có">Đọc kỹ từng câu (vows, phát biểu dài) · sắp có</button>
   </aside>
 </main>

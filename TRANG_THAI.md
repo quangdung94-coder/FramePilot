@@ -4,6 +4,7 @@ Bàn giao cho project mới: đọc docs/BAN_GIAO.md trước. Agent khác (Anti
 
 ## Ghi tạm khi không có Notion (Claude đồng bộ sang Notion khi người dùng nói "đồng bộ", rồi dọn khối này)
 Mẫu một dòng: `- 21/11 | Nhóm A-E | việc ngắn | Chờ anh thử / Đang làm / Xong | commit abc1234`
+- 21/11 | Nhóm B-C | Tích hợp AI Đợt 2 (SigLIP 2 ưu tiên phân loại cảnh, DINOv2-small tìm góc/cảnh tương tự Page 2, CLAP bắt 6 tiếng động tiệc cưới Page 3, WavLM-SV tách người nói MC/Gia đình offline không cần token Page 4) & build lại FramePilot.exe (616 test đạt) | Chờ anh thử | commit (cập nhật sau)
 - 21/11 | Nhóm B | Gợi ý In/Out Hình+Tiếng (Laplacian + Optical Flow + Silero VAD), Zoom thumbnail Page 1/2, Hover Scrub + J/K/L + I/O + P sao + quét chuột | Chờ anh thử | commit (cập nhật sau)
 - 21/11 | Nhóm B | Tải & tích hợp SigLIP ViT-B/16 vào troly_ai.py (chạy GPU RTX 3060 offline, tách cache embed, fallback OpenCLIP) | Chờ anh thử | commit (cập nhật sau)
 - 21/11 | Nhóm A | Nhiều camera Trang 2 (lọc máy + làn ngang) & Trang 3 (Các máy khác lúc này + công tắc gợi ý theo giờ chung mặc định TẮT) | Chờ anh thử | commit (cập nhật sau)

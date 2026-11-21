@@ -1061,7 +1061,7 @@ if ($("p2SimBtn")) $("p2SimBtn").onclick = async () => {
   if ($("p2Find")) $("p2Find").value = "Giống: " + c.name;
   if ($("p2FindClear")) $("p2FindClear").classList.remove("hidden");
   renderPage2(true);
-  status(r && r.mode === "vector" ? "Đã xếp các clip có góc/bối cảnh giống nhất lên đầu." : "Đã lọc các clip cùng bin/máy với clip đang chọn.", "info");
+  status(r && r.mode === "dino" ? "Đã xếp các clip có góc máy & bố cục giống nhất lên đầu (DINOv2)." : (r && r.mode === "vector" ? "Đã xếp các clip có góc/bối cảnh giống nhất lên đầu." : "Đã lọc các clip cùng bin/máy với clip đang chọn."), "info");
 };
 if ($("p2FindClear")) $("p2FindClear").onclick = () => {
   window.p2SearchUids = null;

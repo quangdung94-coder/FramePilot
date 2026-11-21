@@ -286,10 +286,13 @@ function renderRight() {
   }
   const lines = (d && d.lines) || [];
   const visLines = LN.hideBad ? lines.filter((l) => !l.why.length) : lines;
+  const spks = (LN.speakers && LN.speakers[r.uid]) || null;
   $("lnLines").innerHTML = !d ? '<span class="dim13" style="padding:8px">Đang tải...</span>'
-    : visLines.length ? visLines.map((l) => {
+    : visLines.length ? visLines.map((l, idx) => {
       const inside = e && l.t0 >= e.in_s - 0.01 && l.t1 <= e.out_s + 0.01;
-      return `<div class="ln-line${l.keys.length && !l.why.length ? " key" : ""}${inside ? " in" : ""}${l.why.length ? " bad" : ""}" data-t="${l.t0}"><span class="t">${fmtSec(l.t0)}</span><span class="x">${esc(l.text)}${l.why.length ? " · nghi sai" : ""}</span></div>`;
+      const spk = spks && spks[l.idx != null ? l.idx : idx];
+      const spkTag = spk ? `<span class="ln-dup" style="${spk === "MC" ? "color:#F2A33A;border-color:#F2A33A55;background:#F2A33A1A" : ""}">${esc(spk)}</span>` : "";
+      return `<div class="ln-line${l.keys.length && !l.why.length ? " key" : ""}${inside ? " in" : ""}${l.why.length ? " bad" : ""}" data-t="${l.t0}"><span class="t">${fmtSec(l.t0)}</span><span class="x">${spkTag}${esc(l.text)}${l.why.length ? " · nghi sai" : ""}</span></div>`;
     }).join("")
     : `<span class="dim13" style="padding:8px">${r.silent ? "Clip này không có tiếng nói, chỉ có tiếng nền." : (lines.length ? "Các câu đều nghi sai (đang bật Ẩn câu sai)." : "Có tiếng nói nhưng Whisper không ra chữ.")}</span>`;
   $("lnStar").textContent = ((d ? d.star : r.star) ? "Bỏ sao (P)" : "Gắn sao (P)");
@@ -453,6 +456,22 @@ async function lnToggleStar() {
   status(was ? "Đã bỏ sao của clip." : "Đã gắn sao ★ cho clip.", "ok");
 }
 $("lnStar").onclick = lnToggleStar;
+if ($("lnDiarizeBtn")) $("lnDiarizeBtn").onclick = async () => {
+  const r0 = curRow(); if (!r0) return status("Chưa chọn clip.", "warn");
+  const btn = $("lnDiarizeBtn");
+  btn.disabled = true; btn.textContent = "Đang tách người nói…";
+  try {
+    const r = await api().speech_diarize(r0.uid);
+    if (r && r.error) return status(r.error, "warn");
+    LN.speakers = LN.speakers || {};
+    LN.speakers[r0.uid] = r.speakers || [];
+    renderRight();
+    const uniq = new Set(r.speakers || []);
+    status(`Đã tách ${uniq.size} giọng nói trong clip (${[...uniq].join(", ")}).`, "ok");
+  } finally {
+    btn.disabled = false; btn.textContent = "Tách người nói (MC / Gia đình)";
+  }
+};
 
 async function lnSaveSpans(r, spans) {
   if (!r) return;

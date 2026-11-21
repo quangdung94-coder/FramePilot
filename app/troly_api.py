@@ -1178,16 +1178,17 @@ class TrolyApi(object):
         return ai.load_synonyms(self._root)
 
     def _ai_data(self):
-        """(vectors, desc) nạp lại khi file đổi; đồng thời cache c_scores cho Phương án B."""
+        """(vectors, desc) nạp lại khi file đổi; đồng thời cache c_scores và vector DINOv2."""
         vf, sf = self._ai_files()
         sig = tuple((os.path.getmtime(f) if os.path.isfile(f) else 0) for f in (vf, sf))
         if self._ai_cache.get("sig") != sig:
             try:
                 self._ai_cache = {"sig": sig, "vec": ai.load_vectors(self._root, self._project),
+                                  "dino": ai.load_dino_vectors(self._root, self._project),
                                   "desc": ai.load_suggest(self._root, self._project),
                                   "c_scores": ai.load_concept_scores(self._root, self._project)}
             except Exception:                                 # noqa: BLE001  numpy thiếu / file hỏng: coi như chưa có
-                self._ai_cache = {"sig": sig, "vec": {}, "desc": None, "c_scores": None}
+                self._ai_cache = {"sig": sig, "vec": {}, "dino": {}, "desc": None, "c_scores": None}
         return self._ai_cache["vec"], self._ai_cache["desc"]
 
     def ai_set_bin_concept(self, stage_i, bin_name, concept_id):
@@ -2143,13 +2144,31 @@ class TrolyApi(object):
             return {"uids": [u for _, u in scored[:int(limit)]], "mode": "ai+text" if has_ai else "text"}
 
     def ai_similar(self, uid, limit=24):
-        """Tìm các clip có góc/bối cảnh tương đồng nhất bằng vector SigLIP/OpenCLIP đã lưu (hoặc cùng bin/máy nếu chưa có vector)."""
+        """Tìm các clip có góc/bối cảnh tương đồng nhất: ưu tiên vector DINOv2 (chuẩn góc máy/bố cục), rồi SigLIP2/OpenCLIP, rồi cùng bin/máy."""
         with self._lock:
             cur = self._by_uid.get(uid)
             if cur is None:
                 return {"uids": [], "mode": "none"}
             vec, _desc = self._ai_data()
+            dino = self._ai_cache.get("dino") or {}
             k0 = ai.ck(cur.rel or cur.name)
+            # Ưu tiên DINOv2 nếu có
+            if dino and (k0 in dino or cur.rel in dino):
+                import numpy as np
+                v0 = dino.get(k0)
+                if v0 is None:
+                    v0 = dino[cur.rel]
+                hits = []
+                for c in self._clips:
+                    if c.uid == uid:
+                        continue
+                    vc = dino.get(ai.ck(c.rel or c.name))
+                    if vc is None and c.rel in dino:
+                        vc = dino[c.rel]
+                    if vc is not None:
+                        hits.append((float(np.dot(v0, vc)), c.uid))
+                hits.sort(key=lambda x: -x[0])
+                return {"uids": [u for _, u in hits[:int(limit)]], "mode": "dino"}
             v0 = vec.get(k0) if vec else None
             if v0 is None and vec and cur.rel in vec:
                 v0 = vec[cur.rel]
@@ -2172,6 +2191,107 @@ class TrolyApi(object):
             cur_lab = (tc.label_of(self._plan, cur) or {}).get("bin")
             hits = [c.uid for c in self._clips if c.uid != uid and ((tc.label_of(self._plan, c) or {}).get("bin") == cur_lab if cur_lab else c.camera == cur.camera)]
             return {"uids": hits[:int(limit)], "mode": "fallback"}
+
+    def audio_events(self, uid):
+        """Nhận diện sự kiện âm thanh đám cưới (vỗ tay, cười lớn, cụng ly, múa lân, pháo hoa, xúc động) bằng LAION-CLAP (chỉ đọc)."""
+        import tempfile
+        import troly_proc
+        with self._lock:
+            c = self._by_uid.get(uid)
+            if c is None:
+                return {"error": "Không tìm thấy clip."}
+            src = self._media_src(c)
+            croot = self._cache_base()
+            droot = self._root or r"D:\VideoAI\data"
+        if not src or not os.path.isfile(src):
+            return {"error": "Không tìm thấy file nguồn hoặc proxy của clip."}
+        cdir = os.path.join(croot, "cache", "troly_aev", tc._safe(self._project))
+        os.makedirs(cdir, exist_ok=True)
+        cfile = os.path.join(cdir, tc._safe(uid) + ".json")
+        if os.path.isfile(cfile):
+            try:
+                with open(cfile, "r", encoding="utf-8") as f:
+                    return {"ok": True, "events": json.load(f), "cached": True}
+            except (OSError, ValueError):
+                pass
+        py = (te.config() or {}).get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+        mdir = os.path.join(droot, "models", "clap_htsat_unfused")
+        worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "troly_audio_events.py")
+        if not (os.path.isfile(py) and os.path.isdir(mdir) and os.path.isfile(worker)):
+            return {"error": "Chưa có model CLAP hoặc môi trường AI."}
+        fd, wav = tempfile.mkstemp(suffix=".wav", prefix="fp_clap_")
+        os.close(fd)
+        try:
+            r1 = troly_proc.chay_an(["ffmpeg", "-nostdin", "-y", "-v", "error", "-i", src, "-vn", "-ac", "1", "-ar", "48000", wav],
+                                    capture_output=True, timeout=60)
+            if r1.returncode != 0 or not os.path.isfile(wav):
+                return {"error": "Không trích được âm thanh từ clip."}
+            r2 = troly_proc.chay_an([py, "-X", "utf8", worker, "--model", mdir, "--wav", wav],
+                                    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
+            if r2.returncode != 0:
+                return {"error": "Lỗi CLAP: %s" % (r2.stderr or "")[-180:]}
+            lines = [ln for ln in (r2.stdout or "").splitlines() if ln.strip()]
+            evs = json.loads(lines[-1]) if lines else []
+            try:
+                with open(cfile + ".tmp", "w", encoding="utf-8") as f:
+                    json.dump(evs, f, ensure_ascii=False)
+                os.replace(cfile + ".tmp", cfile)
+            except OSError:
+                pass
+            return {"ok": True, "events": evs, "cached": False}
+        finally:
+            if os.path.isfile(wav):
+                try:
+                    os.remove(wav)
+                except OSError:
+                    pass
+
+    def speech_diarize(self, uid):
+        """Tách người nói (MC vs Người 1, Người 2...) cho các câu đã chép của clip bằng WavLM-SV (offline, không cần HF_TOKEN)."""
+        import tempfile
+        import troly_proc
+        with self._lock:
+            c = self._by_uid.get(uid)
+            st = self._speech_store()
+            if c is None or st is None:
+                return {"error": "Chưa có clip hoặc kho lời nói."}
+            src = self._media_src(c)
+            droot = self._root or r"D:\VideoAI\data"
+            lines = st.lines_of(c.rel)
+        if not lines:
+            return {"error": "Clip này chưa có câu chép lời để tách người nói."}
+        if not src or not os.path.isfile(src):
+            return {"error": "Không tìm thấy file nguồn hoặc proxy."}
+        py = (te.config() or {}).get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+        mdir = os.path.join(droot, "models", "wavlm_sv")
+        worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "troly_diarize_worker.py")
+        if not (os.path.isfile(py) and os.path.isdir(mdir) and os.path.isfile(worker)):
+            return {"error": "Chưa có model WavLM-SV hoặc môi trường AI."}
+        fd1, wav = tempfile.mkstemp(suffix=".wav", prefix="fp_diar_")
+        fd2, segf = tempfile.mkstemp(suffix=".json", prefix="fp_diar_")
+        os.close(fd1)
+        os.close(fd2)
+        try:
+            with open(segf, "w", encoding="utf-8") as f:
+                json.dump([[float(l["t0"]), float(l["t1"]), l.get("text", "")] for l in lines], f, ensure_ascii=False)
+            r1 = troly_proc.chay_an(["ffmpeg", "-nostdin", "-y", "-v", "error", "-i", src, "-vn", "-ac", "1", "-ar", "16000", wav],
+                                    capture_output=True, timeout=60)
+            if r1.returncode != 0 or not os.path.isfile(wav):
+                return {"error": "Không trích được âm thanh từ clip."}
+            r2 = troly_proc.chay_an([py, "-X", "utf8", worker, "--model", mdir, "--wav", wav, "--segs", segf],
+                                    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
+            if r2.returncode != 0:
+                return {"error": "Lỗi tách người nói: %s" % (r2.stderr or "")[-180:]}
+            out_lines = [ln for ln in (r2.stdout or "").splitlines() if ln.strip()]
+            speakers = json.loads(out_lines[-1]) if out_lines else []
+            return {"ok": True, "speakers": speakers}
+        finally:
+            for fp in (wav, segf):
+                if os.path.isfile(fp):
+                    try:
+                        os.remove(fp)
+                    except OSError:
+                        pass
 
     def append_starred(self):
         """Đưa toàn bộ clip có sao ★ vào timeline của DaVinci (theo thứ tự giờ quay)."""
