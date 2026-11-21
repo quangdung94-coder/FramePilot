@@ -151,10 +151,18 @@
       row.onclick = (e) => {
         if (e.target.closest(".mc-apply-sug")) return;
         const uid = row.dataset.uid, m0Other = +row.dataset.m0;
-        const curSec = (typeof PL !== "undefined" && PL.t != null) ? PL.t : 0;
+        const curSec = (typeof PL !== "undefined" && PL.vid && !isNaN(PL.vid.currentTime)) ? PL.vid.currentTime : 0;
         const targetSec = Math.max(0, (curC.m0 * 60 + curSec) - m0Other * 60);
         if (typeof window.p3SelectUid === "function") window.p3SelectUid(uid);
-        setTimeout(() => { if (typeof plSeek === "function") plSeek(targetSec); }, 180);
+        let tries = 0;
+        const seekWhenReady = () => {
+          if (typeof PL !== "undefined" && PL.uid === uid && PL.vid && PL.vid.readyState >= 1) {
+            if (typeof plSeek === "function") plSeek(targetSec);
+            return;
+          }
+          if (++tries < 25) setTimeout(seekWhenReady, 80);
+        };
+        setTimeout(seekWhenReady, 80);
       };
     });
 

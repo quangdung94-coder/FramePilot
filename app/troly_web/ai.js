@@ -198,13 +198,13 @@ $("aiBox").addEventListener("click", async (e) => {
   if (t.id === "aiUnskip" && c) { await api().ai_skip([c.uid], true); AI.cache = {}; return aiBoxRender(); }
 });
 
-document.addEventListener("keydown", (e) => {                   // A nhận hạng 1, X bỏ qua; chỉ ở Bước 2, không khi đang gõ chữ
+document.addEventListener("keydown", (e) => {                   // A nhận hạng 1; chỉ ở Bước 2, không khi đang gõ chữ hay mở hộp thoại
   if (page !== 2 || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+  if (!$("modal").classList.contains("hidden") || ($("helpModal") && !$("helpModal").classList.contains("hidden")) || ($("settingsModal") && !$("settingsModal").classList.contains("hidden"))) return;
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
-  if (e.code !== "KeyA" && e.code !== "KeyX") return;
+  if (e.code !== "KeyA") return;
   const c = items[cur]; if (!c || c.label || !AI.info || !AI.info.has_data || AI.info.running) return;
   e.preventDefault();
-  if (e.code === "KeyX") { const b = $("aiSkip"); if (b) b.click(); return; }
   const first = document.querySelector("#aiBody [data-ai-take]"); if (first) first.click();
 });
 

@@ -253,7 +253,7 @@ class Web(unittest.TestCase):
         import re
         web = os.path.join(HERE, "..", "app", "troly_web")
         ids = set(re.findall(r'id="([^"]+)"', self.html))
-        dyn = {"aiSkip", "tplName", "ioHead", "lnLang", "lnLangBtn", "lnPick", "evName"}                 # sinh động trong JS (innerHTML), không nằm sẵn trong HTML
+        dyn = {"aiSkip", "tplName", "ioHead", "lnLang", "lnLangBtn", "lnPick", "evName", "d5TlName"}                 # sinh động trong JS (innerHTML), không nằm sẵn trong HTML
         for f in sorted(glob.glob(os.path.join(web, "*.js"))):
             with open(f, encoding="utf-8") as fh:
                 src = fh.read()

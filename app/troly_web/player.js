@@ -186,15 +186,16 @@ function plNudge(frames) {                                     // mũi tên: ch�
 }
 
 function snapSilence(t, dur) {
-  if (!$("waveSnap") || !$("waveSnap").checked || !PL.wave || !PL.wave.length || !(dur > 0)) return t;
-  const arr = PL.wave, n = arr.length;
+  const arr = (typeof WV !== "undefined" && Array.isArray(WV.peaks) && WV.peaks.length) ? WV.peaks : null;
+  if (!$("waveSnap") || !$("waveSnap").checked || !arr || !(dur > 0)) return t;
+  const n = arr.length;
   const idx = Math.round((t / dur) * (n - 1));
   const win = Math.max(1, Math.round((0.35 / dur) * n));
   let best = idx, bestV = arr[idx] || 0;
   for (let k = Math.max(0, idx - win); k <= Math.min(n - 1, idx + win); k++) {
     if (arr[k] < bestV) { bestV = arr[k]; best = k; }
   }
-  return bestV < 0.14 ? Math.max(0, Math.min(dur, (best / Math.max(1, n - 1)) * dur)) : t;
+  return bestV < 14 ? Math.max(0, Math.min(dur, (best / Math.max(1, n - 1)) * dur)) : t;
 }
 
 (function initWaveZoom() {
@@ -678,7 +679,7 @@ document.addEventListener("mousedown", (e) => {               // bấm ra ngoài
 document.addEventListener("keydown", (e) => {
   if (page !== 2 && page !== 3) return;
   if (e.target && e.target.closest && e.target.closest("#p3List")) PL.focus = false;
-  if (!$("modal").classList.contains("hidden") || ($("settingsModal") && !$("settingsModal").classList.contains("hidden"))) return;
+  if (!$("modal").classList.contains("hidden") || ($("helpModal") && !$("helpModal").classList.contains("hidden")) || ($("settingsModal") && !$("settingsModal").classList.contains("hidden"))) return;
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" || e.target.isContentEditable) return;
   if (e.ctrlKey || e.altKey || e.metaKey) return;
   if (e.code === "Space") { e.preventDefault(); e.stopPropagation(); clearInterval(PL.jklTimer); PL.jklTimer = 0; PL.jklRate = 0; plToggle(); return; }

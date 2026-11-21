@@ -101,6 +101,7 @@ function setState(st) {
   if (!st || st.error) { if (st && st.error) status(st.error, "warn"); return; }
   const firstLoad = !S || S.n !== st.n;
   S = st;
+  window.S = S;
   if (firstLoad || !fitted) {
     if (keepView && st.n) { keepView = false; fitted = true; } else fitView();     // giữ thu phóng đã lưu khi mở lại
   }
@@ -259,6 +260,17 @@ function renderTimeline() {
     if (S) for (const c of S.clips) {
       if (c.m0 == null || c.m0 < view[0] || c.m0 > view[1] || c.mk !== m.letter) continue;
       d += `<i style="left:${pct(c.m0)}"></i>`;
+    }
+    d += `</div>`;
+  });
+  if (S && Array.isArray(S.audio)) S.audio.forEach((a) => {
+    d += `<div class="dens-row dens-aud" style="--c:#6E6E78" title="${esc(a.name || ("Audio " + a.track))}"><span class="lab cam-chip" style="background:#6E6E78;color:#fff">A${a.track}</span>`;
+    for (const seg of (a.items || [])) {
+      const m0 = seg[0], m1 = seg[1];
+      if (m1 <= view[0] || m0 >= view[1]) continue;
+      const x0 = Math.max(m0, view[0]), x1 = Math.min(m1, view[1]);
+      const w = Math.max(0.2, (x1 - x0) / span * 100).toFixed(3);
+      d += `<i style="left:${pct(x0)};width:${w}%;opacity:0.7"></i>`;
     }
     d += `</div>`;
   });

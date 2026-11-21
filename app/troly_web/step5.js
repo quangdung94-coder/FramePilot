@@ -145,7 +145,7 @@ function d5Paint() {
   if (ws.length) { w.innerHTML = ws.map((x) => `<span>⚠ ${esc(x.text)}</span>`).join(""); w.classList.remove("hidden"); } else w.classList.add("hidden");
   $("d5Create").disabled = !v.items.length;
   if ($("d5CamTrackWrap")) $("d5CamTrackWrap").classList.toggle("hidden", !((v.n_machines || 0) > 1));
-  $("d5CreateHint").innerHTML = `Timeline mới có 2 track hình V1, V2 đúng như trên màn hình, tên “Rough Cut sao ${esc(v.project || "")} &lt;ngày giờ&gt;”. Không sửa timeline đang có.`;
+  $("d5CreateHint").innerHTML = `Timeline mới có 2 track hình V1, V2 (hoặc V1–V4 nếu bật xếp theo track máy), tên mặc định “Rough Cut sao …” — có thể đặt/đổi tên khi bấm tạo. Không sửa timeline đang có.`;
   $("d5FootL").textContent = `${v.n_starred} clip sao · V1 ${d5mm(v.total_s)}${v.v2_s > 0 ? ` · V2 chồng ${d5mm(v.v2_s)}` : ""} · mục tiêu ${d5mm(v.target_s)}`;
   if (keep) {
     const el = document.querySelector(`[data-k="${CSS.escape(keep.k)}"]`);
@@ -525,15 +525,21 @@ $("d5Create").addEventListener("click", async () => {
   const sm = v.tl_summary, short = v.short_s || 0;
   const gap = v.state === "short" ? `<div class="tl-warn"><b>Đang thiếu ${d5mm(short)}</b> so với mục tiêu ${d5mm(v.target_s)}: chưa đủ clip sao. Vẫn tạo được; Trợ lý không tự thêm clip.</div>`
     : v.state === "over" ? `<div class="tl-warn"><b>Đang dư ${d5mm(v.delta_s)}</b> so với mục tiêu ${d5mm(v.target_s)}. Vẫn tạo được; Trợ lý không tự bỏ clip của bạn.</div>` : `<div>Khớp mục tiêu ${d5mm(v.target_s)}.</div>`;
-  const ok = await ask("Tạo timeline mới?",
-    `<div>Tên: <b>Rough Cut sao ${esc(v.project || "")} &lt;ngày giờ lúc bấm&gt;</b></div><div>Độ dài V1: <b>${d5mm(v.total_s)}</b> · mục tiêu ${d5mm(v.target_s)}</div>` +
+  const now = new Date(), p2 = (n) => String(n).padStart(2, "0");
+  const rawDef = `Rough Cut sao ${v.project || ""} ${p2(now.getDate())}.${p2(now.getMonth() + 1)} ${p2(now.getHours())}h${p2(now.getMinutes())}m${p2(now.getSeconds())}`;
+  const defName = rawDef.replace(/[\\/:*?"<>|&]+/g, " ").replace(/\s+/g, " ").trim();
+  const resName = await ask("Tạo timeline mới?",
+    `<div><label class="lbl" for="d5TlName">Tên timeline mới:</label><input id="d5TlName" class="inp" style="width:100%;margin:4px 0 8px" value="${esc(defName)}" maxlength="120"></div>` +
+    `<div>Độ dài V1: <b>${d5mm(v.total_s)}</b> · mục tiêu ${d5mm(v.target_s)}</div>` +
     `<div>Số clip: <b>${sm.n_v1 + sm.n_v2}</b> (V1 ${sm.n_v1}${sm.n_v2 ? `, V2 chồng ${sm.n_v2}` : ""}) / ${v.n_starred} clip sao</div>` + gap +
     `<div>Khối Slow: <b>${sm.slow.length ? esc(sm.slow.join(", ")) : "không có"}</b></div><div>Khối tắt tiếng: <b>${sm.muted.length ? esc(sm.muted.join(", ")) : "không có"}</b></div>` +
-    `<div>Thứ tự: theo cách bạn xếp trên màn hình (V1 rồi V2 chồng)</div><br>Chỉ tạo <b>MỘT timeline MỚI</b> có 2 track hình V1, V2. Không sửa hay xóa timeline đang có, không ghi In/Out lên clip gốc. Slow giữ nguyên In/Out nên clip dài hơn và các clip sau V1 bị đẩy ra sau. Tắt tiếng chỉ tắt clip tiếng của khối (A1 cho V1, A2 cho V2), không đụng A3 trở lên. Trợ lý ghi nhật ký trước khi tạo và đọc lại vị trí để kiểm.`,
-    "Tạo timeline mới");
-  if (!ok) return status("Đã hủy, chưa tạo gì trong DaVinci.", "info");
+    `<div>Thứ tự: theo cách bạn xếp trên màn hình (V1 rồi V2 chồng)</div><br>Chỉ tạo <b>MỘT timeline MỚI</b> có 2 track hình V1, V2 (hoặc theo từng máy nếu bật tùy chọn). Không sửa hay xóa timeline đang có, không ghi In/Out lên clip gốc. Slow giữ nguyên In/Out nên clip dài hơn và các clip sau V1 bị đẩy ra sau. Tắt tiếng chỉ tắt clip tiếng của khối, không đụng track khác. Trợ lý ghi nhật ký trước khi tạo và đọc lại vị trí để kiểm.`,
+    "Tạo timeline mới", () => { const el = $("d5TlName"); return { name: el ? el.value.trim() : defName }; });
+  if (!resName) return status("Đã hủy, chưa tạo gì trong DaVinci.", "info");
+  const chosenName = resName.name;
+  if (!chosenName) return status("Tên timeline không được để trống.", "warn");
   const multiTrack = !!($("d5CamTrack") && $("d5CamTrack").checked);
-  const r = await api().dur_create_timeline(multiTrack);
+  const r = await api().dur_create_timeline(multiTrack, chosenName);
   if (r.error) return status(r.error, "warn");
   status(`Đang tạo timeline “${r.name}”...`, "info");
 });

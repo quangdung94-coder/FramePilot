@@ -171,10 +171,22 @@ class TestExportApi(ApiFixture, unittest.TestCase):
         self.assertEqual([f for f in os.listdir(self.out) if f.endswith(".tmp")], [])
 
     def test_hop_chon_thu_muc_huy_thi_khong_xuat(self):
-        self.api.pick_dir_fn = lambda: None
-        self.assertEqual(self.api.speech_export("stages"), {"cancel": True})
-        self.api.pick_dir_fn = lambda: self.out
-        self.assertTrue(self.api.speech_export("stages").get("ok"))
+        import json
+        cfg_p = os.path.join(self.out, "_cfg_srt_test.json")
+        with open(cfg_p, "w", encoding="utf-8") as fh:
+            json.dump({"data_root": self.out, "srt_root": ""}, fh)
+        old_cfg = os.environ.get("TROLY_CONFIG")
+        os.environ["TROLY_CONFIG"] = cfg_p
+        try:
+            self.api.pick_dir_fn = lambda: None
+            self.assertEqual(self.api.speech_export("stages"), {"cancel": True})
+            self.api.pick_dir_fn = lambda: self.out
+            self.assertTrue(self.api.speech_export("stages").get("ok"))
+        finally:
+            if old_cfg is None:
+                os.environ.pop("TROLY_CONFIG", None)
+            else:
+                os.environ["TROLY_CONFIG"] = old_cfg
 
 
 if __name__ == "__main__":

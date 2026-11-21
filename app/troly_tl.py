@@ -152,17 +152,22 @@ def summary(r, plan):
 
 
 def verify_readback(pl, got):
-    """Kiểm kết quả ĐỌC LẠI từ DaVinci. pl = placements (đã sắp V1 trước); got = [(track, start_frame, end_frame)] cùng thứ tự V1 theo vị trí, V2 theo vị trí.
-    V1 phải liền nhau (không chồng, không hở); V2 phải bắt đầu đúng chỗ (sai số 1 frame). Trả (ok, [lời]) ."""
+    """Kiểm kết quả ĐỌC LẠI từ DaVinci. pl = placements (đã sắp V1 trước); got = [(track, start_frame, end_frame)] cùng thứ tự V1 theo vị trí, V2..V4 theo vị trí.
+    V1 phải liền nhau (trừ khi ở chế độ nhiều track máy có đánh dấu gapped); V2..V4 phải đủ số clip. Trả (ok, [lời])."""
     msgs = []
     v1 = [g for g in got if g[0] == "V1"]
-    v2 = [g for g in got if g[0] == "V2"]
-    for a, b in zip(v1, v1[1:]):
-        if b[1] != a[2]:
-            msgs.append("V1: clip kết thúc ở %d nhưng clip kế bắt đầu ở %d (%s)." % (a[2], b[1], "chồng" if b[1] < a[2] else "hở"))
-    pv2 = [x for x in pl if x["track"] == "V2"]
-    if len(v2) != len(pv2):
-        msgs.append("V2: có %d clip, cần %d." % (len(v2), len(pv2)))
+    gapped = any(x.get("gapped") for x in pl)
+    if not gapped:
+        for a, b in zip(v1, v1[1:]):
+            if b[1] != a[2]:
+                msgs.append("V1: clip kết thúc ở %d nhưng clip kế bắt đầu ở %d (%s)." % (a[2], b[1], "chồng" if b[1] < a[2] else "hở"))
+    for tr in ("V1", "V2", "V3", "V4"):
+        if tr == "V1" and not gapped:
+            continue
+        gtr = [g for g in got if g[0] == tr]
+        ptr = [x for x in pl if x["track"] == tr]
+        if len(gtr) != len(ptr):
+            msgs.append("%s: có %d clip, cần %d." % (tr, len(gtr), len(ptr)))
     return (not msgs), msgs
 
 

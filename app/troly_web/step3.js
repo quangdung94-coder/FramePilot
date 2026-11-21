@@ -310,6 +310,12 @@ window.p3SelectUid = function (uid) {
   if (!S || !S.clips) return;
   const c = S.clips.find((x) => x.uid === uid);
   if (!c) return;
+  if (!c.star && $("onlyStar") && $("onlyStar").checked) {
+    P3.onlyStar = false;
+    $("onlyStar").checked = false;
+    if ($("p3OnlyStar")) $("p3OnlyStar").checked = false;
+    renderPage2(true);
+  }
   const si = c.stage != null ? c.stage : -1;
   const sub = si >= 0 ? (c.label || NONE) : null;
   if (si !== gStage || sub !== gSub) p3View(si, sub);

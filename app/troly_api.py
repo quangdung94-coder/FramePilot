@@ -1950,22 +1950,50 @@ class TrolyApi(object):
             self._save_soon()
         return self.state()
 
+    def sync_audio_offset(self, ref_uid, tgt_uid):
+        """Đo độ lệch sóng âm (giây) giữa 2 clip (Cam A vs Cam B hoặc Tascam). CHỈ ĐỌC file, không sửa file gốc."""
+        import troly_sync as tsync
+        with self._lock:
+            r = self._by_uid.get(ref_uid)
+            t = self._by_uid.get(tgt_uid)
+            if r is None or t is None:
+                return {"error": "Không tìm thấy clip để đối khớp sóng âm."}
+            rp = (r.proxy if r.proxy and os.path.isfile(r.proxy) else r.file_path)
+            tp = (t.proxy if t.proxy and os.path.isfile(t.proxy) else t.file_path)
+        a = tsync.extract_pcm(rp)
+        b = tsync.extract_pcm(tp)
+        if a is None or b is None:
+            return {"error": "Không đọc được âm thanh (kiểm tra ffmpeg hoặc file nguồn)."}
+        off, conf = tsync.match_offset(a, b)
+        return {"ok": True, "offset_s": off, "confidence": conf, "ref": r.name, "tgt": t.name}
+
     def hw_info(self):
         return hw.detect(refresh=True)
 
     def _cache_base(self):
-        return (te.config().get("cache_root") or "").strip() or self._root
+        return self._cache_root or self._root
+
+    def _cache_dirs(self):
+        croot = self._cache_base()
+        dirs = []
+        if croot:
+            dirs.extend([
+                os.path.join(croot, "cache", "troly_thumbs"),
+                os.path.join(croot, "cache", "troly_wave"),
+                os.path.join(croot, "cache", "troly_kf"),
+            ])
+        if self._root:
+            dirs.append(os.path.join(self._root, "troly", "ai_embed"))
+        return dirs
 
     def cache_list(self):
         """Liệt kê dung lượng các thư mục cache tái tạo được (KHÔNG chạm plan/*.json)."""
         root = self._cache_base()
-        if not root or not os.path.isdir(root):
-            return {"root": root or "", "items": [], "total_mb": 0.0}
-        buckets = ("thumbs", "wave", "kf", "ram", "ai_embed")
+        if not root:
+            return {"root": "", "items": [], "total_mb": 0.0}
         by_proj = collections.defaultdict(int)
         other_bytes = 0
-        for b in buckets:
-            bd = os.path.join(root, "troly", b)
+        for bd in self._cache_dirs():
             if not os.path.isdir(bd):
                 continue
             try:
@@ -1998,8 +2026,8 @@ class TrolyApi(object):
         if not root or not target:
             return {"error": "Không xác định được thư mục cache."}
         removed = 0
-        for b in ("thumbs", "wave", "kf", "ram", "ai_embed"):
-            p = os.path.join(root, "troly", b, target)
+        for bd in self._cache_dirs():
+            p = os.path.join(bd, target)
             if os.path.isdir(p):
                 shutil.rmtree(p, ignore_errors=True)
                 removed += 1
@@ -2018,8 +2046,11 @@ class TrolyApi(object):
             _vec, desc = self._ai_data()
             words = [w for w in q.split() if w]
             scored = []
-            # Map từ khóa query sang tên bin gần nhất nếu có gợi ý AI
+            # Hỗ trợ cả tuple (bins, by_ck) từ ai.load_suggest lẫn dict mock
             ai_bins = desc.get("bins") if isinstance(desc, dict) else None
+            sug_bins = desc[0] if (isinstance(desc, tuple) and len(desc) >= 2 and isinstance(desc[0], list)) else []
+            sug_map = desc[1] if (isinstance(desc, tuple) and len(desc) >= 2 and isinstance(desc[1], dict)) else None
+            has_ai = bool(ai_bins or sug_map)
             for c in self._clips:
                 s = 0.0
                 txt = (c.name + " " + (c.bin_path or "") + " " + (tc.label_of(self._plan, c) or {}).get("bin", "")).lower()
@@ -2027,14 +2058,20 @@ class TrolyApi(object):
                     if w in txt:
                         s += 2.0
                 if isinstance(ai_bins, dict):
-                    row = ai_bins.get(c.rel) or {}
+                    row = ai_bins.get(c.rel) or ai_bins.get(ai.ck(c.rel or c.name)) or {}
                     bname = str(row.get("bin") or "").lower()
                     if any(w in bname for w in words):
                         s += 1.5 * float(row.get("score") or 0.5)
+                elif sug_map is not None and sug_bins:
+                    sc_list = sug_map.get(ai.ck(c.rel or c.name))
+                    if sc_list:
+                        for bi, bname in enumerate(sug_bins):
+                            if bi < len(sc_list) and any(w in str(bname).lower() for w in words):
+                                s += 2.0 * max(0.0, float(sc_list[bi]))
                 if s > 0:
                     scored.append((s, c.uid))
             scored.sort(key=lambda x: -x[0])
-            return {"uids": [u for _, u in scored[:int(limit)]], "mode": "ai+text" if ai_bins else "text"}
+            return {"uids": [u for _, u in scored[:int(limit)]], "mode": "ai+text" if has_ai else "text"}
 
     def ai_similar(self, uid, limit=24):
         """Tìm các clip có góc/bối cảnh tương đồng nhất bằng vector SigLIP/OpenCLIP đã lưu (hoặc cùng bin/máy nếu chưa có vector)."""
@@ -2043,14 +2080,22 @@ class TrolyApi(object):
             if cur is None:
                 return {"uids": [], "mode": "none"}
             vec, _desc = self._ai_data()
-            if vec and cur.rel in vec:
-                import numpy as np
+            k0 = ai.ck(cur.rel or cur.name)
+            v0 = vec.get(k0) if vec else None
+            if v0 is None and vec and cur.rel in vec:
                 v0 = vec[cur.rel]
+            if v0 is not None:
+                import numpy as np
                 hits = []
                 for c in self._clips:
-                    if c.uid == uid or c.rel not in vec:
+                    if c.uid == uid:
                         continue
-                    sim = float(np.dot(v0, vec[c.rel]))
+                    vc = vec.get(ai.ck(c.rel or c.name))
+                    if vc is None and c.rel in vec:
+                        vc = vec[c.rel]
+                    if vc is None:
+                        continue
+                    sim = float(np.dot(v0, vc))
                     hits.append((sim, c.uid))
                 hits.sort(key=lambda x: -x[0])
                 return {"uids": [u for _, u in hits[:int(limit)]], "mode": "vector"}
@@ -2318,9 +2363,9 @@ class TrolyApi(object):
             self._save_soon()
             return self._dur_view()
 
-    def dur_create_timeline(self, multi_track=False):
+    def dur_create_timeline(self, multi_track=False, tl_name=None):
         """Nút "Đưa lên Timeline mới" (giao diện đã hỏi xác nhận). Tính lại kế hoạch NGAY lúc bấm rồi tạo đúng bản đó (không còn bước cắt gọt riêng).
-        multi_track=True khi nhiều máy: A->V1, B->V2, C->V3, D->V4. Ghi nhật ký TRƯỚC khi tạo; chỉ tạo timeline mới, không SetMarkInOut lên clip gốc."""
+        multi_track=True khi nhiều máy: A->V1, B->V2, C->V3, D->V4; tl_name: tên timeline do người dùng đặt. Ghi nhật ký TRƯỚC khi tạo; chỉ tạo timeline mới, không SetMarkInOut lên clip gốc."""
         import re
         with self._lock:
             if self._busy or not self._clips:
@@ -2340,14 +2385,23 @@ class TrolyApi(object):
                 mk = self._mk_letter.get(c.uid, "")
                 tr_name = ("V%d" % cam_map[mk]) if (use_cam_tracks and mk in cam_map) else x["track"]
                 segs.append({"uid": c.uid, "a": a, "b": b, "pct": x["pct"], "track": tr_name, "start_f": int(round(x["start_s"] * fps)),
-                             "mute": bool(x["mute"])})
+                             "mute": bool(x["mute"]), "multi_track": bool(use_cam_tracks)})
                 rows.append({"rel": c.rel, "stage": x["stage"], "bin": x["bin"], "in_s": x["in_s"], "out_s": x["out_s"], "in_frame": a, "out_frame": b,
                              "pct": x["pct"], "track": tr_name, "start_s": x["start_s"], "mute": bool(x["mute"])})
             if not segs:
                 return {"error": "Không có đoạn nào hợp lệ (clip thiếu fps)."}
             stamp = datetime.datetime.now()
-            raw = "Rough Cut sao %s %s" % (self._project, stamp.strftime("%d.%m %Hh%Mm%S"))
+            custom = str(tl_name).strip() if tl_name is not None else ""
+            raw = custom if custom else ("Rough Cut sao %s %s" % (self._project, stamp.strftime("%d.%m %Hh%Mm%S")))
             name = " ".join(re.sub(r'[\\/:*?"<>|&]', " ", raw).split())
+            if not name:
+                return {"error": "Tên timeline không hợp lệ."}
+            existing = {x.lower() for x in (self._tl_names or [])}
+            if name.lower() in existing:
+                base, n_suf = name, 2
+                while ("%s (%d)" % (base, n_suf)).lower() in existing:
+                    n_suf += 1
+                name = "%s (%d)" % (base, n_suf)
             try:
                 log = tc.write_timeline_log(self._root, self._project, {
                     "created": stamp.isoformat(timespec="seconds"), "timeline_name": name, "count": len(segs), "total_s": r["total_s"],

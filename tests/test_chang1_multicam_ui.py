@@ -69,7 +69,7 @@ class TestChang1Backend(unittest.TestCase):
     def test_cache_clear_preserves_plan_json(self):
         self.api._save_now()
         pfile = tc.plan_path(self.tmp.name, "P_MC_TEST")
-        tdir = os.path.join(self.tmp.name, "troly", "thumbs", tc._safe("P_MC_TEST"))
+        tdir = os.path.join(self.tmp.name, "cache", "troly_thumbs", tc._safe("P_MC_TEST"))
         os.makedirs(tdir, exist_ok=True)
         with open(os.path.join(tdir, "x.jpg"), "wb") as f:
             f.write(b"123")
@@ -102,7 +102,24 @@ class TestFrontendWiring(unittest.TestCase):
             self.assertIn(eid, html)
         self.assertIn("toggle_reject", app_js)
         self.assertIn("speech_start(bins, cams)", sp_js)
-        self.assertIn("dur_create_timeline(multiTrack)", s5_js)
+        self.assertIn("dur_create_timeline(multiTrack, chosenName)", s5_js)
+        self.assertIn("d5TlName", s5_js)
+
+    def test_dur_create_timeline_custom_name(self):
+        api = ta.TrolyApi("P_TL_NAME", tempfile.mkdtemp(), emit=lambda *a: None, start_worker=False)
+        c1 = tc.Clip(uid="u1", rel="A001.mp4", name="A001.mp4", t_start=tc.datetime.datetime(2026, 11, 20, 9, 0, 0),
+                     dur=20.0, fps=25.0, frames=500, bin_path="Master/01")
+        api._clips = [c1]
+        api._by_uid = {"u1": c1}
+        api._day0 = tc.datetime.datetime(2026, 11, 20, 0, 0, 0)
+        api._plan["stages"] = [{"name": "Gia tiên", "start": 530.0, "end": 560.0, "color": "#F2A33A", "bins": ["Nghi lễ"]}]
+        api._assign = {"u1": 0}
+        tc.toggle_star(api._plan, c1)
+        tc.set_label(api._plan, c1, "Gia tiên", "Nghi lễ")
+        api._plan.setdefault("inout", {})["A001.mp4"] = [2.0, 10.0]
+        r = api.dur_create_timeline(False, "Highlight Cuoi 2026")
+        self.assertTrue(r.get("ok"))
+        self.assertEqual(r.get("name"), "Highlight Cuoi 2026")
 
 
 if __name__ == "__main__":

@@ -460,10 +460,14 @@ class TrolyWorker(threading.Thread):
         v1 = [x for x in segs if _t_idx(x) == 1]
         v_more = sorted([x for x in segs if _t_idx(x) >= 2], key=lambda x: (_t_idx(x), x.get("start_f", 0)))
 
+        # Nếu là chế độ xếp theo track máy (multi_track: A->V1, B->V2, C->V3, D->V4) hoặc không có clip V1,
+        # đặt tất cả clip bằng recordFrame đúng mốc start_f thay vì CreateTimelineFromClips (vốn ép V1 dính liền từ 0).
+        v1_gapped = (not v1) or any(x.get("multi_track") for x in segs)
+
         def info(x):
             return {"mediaPoolItem": self.items[x["uid"]][1], "startFrame": int(x["a"]), "endFrame": int(x["b"])}
 
-        infos = [info(x) for x in v1]
+        infos = [] if v1_gapped else [info(x) for x in v1]
         before = self._timeline_names()
         pool = self.pool
         tl, why, created_empty = None, [], False
@@ -478,7 +482,7 @@ class TrolyWorker(threading.Thread):
             try:
                 tl = pool.CreateEmptyTimeline(name)
                 created_empty = bool(tl)
-                if tl and (infos or v_more) and not self._make_current(tl):
+                if tl and (infos or v_more or v1_gapped) and not self._make_current(tl):
                     why.append("không chuyển được sang timeline mới, KHÔNG thêm đoạn để khỏi chèn nhầm vào timeline đang mở")
                     tl = None
                 elif tl and infos and not pool.AppendToTimeline(infos):
@@ -492,7 +496,11 @@ class TrolyWorker(threading.Thread):
         if not tl:
             extra = " Một timeline rỗng có thể đã được tạo, bạn xóa tay nếu thấy (Trợ lý không xóa timeline)." if created_empty else ""
             raise RuntimeError("DaVinci không tạo được timeline mới (%d đoạn). Chi tiết: %s.%s" % (len(segs), "; ".join(why), extra))
-        notes = self._finish_layout(tl, v1, v_more, info, _t_idx)
+        if v1_gapped:
+            v1_arg, v_more_arg = [], sorted(segs, key=lambda x: (_t_idx(x), x.get("start_f", 0)))
+        else:
+            v1_arg, v_more_arg = v1, v_more
+        notes = self._finish_layout(tl, v1_arg, v_more_arg, info, _t_idx, _v1_gapped=v1_gapped)
         after = self._timeline_names()
         res = {"name": name, "n": len(segs), "before": None if before is None else len(before), "after": None if after is None else len(after),
                "old_intact": None, "verified": False, "layout_ok": notes["layout_ok"], "layout_msgs": notes["msgs"], "n_slow": notes["n_slow"],
@@ -502,7 +510,7 @@ class TrolyWorker(threading.Thread):
             res["verified"] = len(after) == len(before) + 1 and bool(res["old_intact"]) and name in after
         self.post("cut_timeline_created", res)
 
-    def _finish_layout(self, tl, v1, v2, info, _t_idx=None):
+    def _finish_layout(self, tl, v1, v2, info, _t_idx=None, _v1_gapped=False):
         """Slow ở V1, khối V2..V4, tắt tiếng, đọc lại kiểm (xem do_create_cut_timeline). Mọi lỗi nhỏ được ghi lại, không làm hỏng timeline đã tạo."""
         if _t_idx is None:
             _t_idx = lambda x: 2 if str(x.get("track") or "").upper() == "V2" else 1
@@ -603,9 +611,11 @@ class TrolyWorker(threading.Thread):
             import troly_tl
             got = [("V1", int(it.GetStart()), int(it.GetEnd())) for it in (tl.GetItemListInTrack("video", 1) or [])]
             if v2:
-                for ti in sorted({_t_idx(x) for x in v2}):
+                for ti in sorted({_t_idx(x) for x in v2 if _t_idx(x) >= 2}):
                     got += [("V%d" % ti, int(it.GetStart()), int(it.GetEnd())) for it in (tl.GetItemListInTrack("video", ti) or [])]
             pl = [{"track": "V1"} for _ in v1] + [{"track": "V%d" % _t_idx(x)} for x in v2]
+            if _v1_gapped:
+                pl = [{"track": "V%d" % _t_idx(x), "gapped": True} for x in v2]
             notes["layout_ok"], more = troly_tl.verify_readback(pl, got)
             notes["msgs"] += more
         except Exception as e:                                # noqa: BLE001
