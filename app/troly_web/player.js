@@ -443,6 +443,55 @@ function plAttachHoverScrub(box) {
 }
 plAttachHoverScrub($("waveBox"));
 plAttachHoverScrub($("ioBar"));
+plAttachHoverScrub($("preview"));
+plAttachHoverScrub($("plSeek"));
+
+/* Hover Scrub ngay trên lưới thumbnail Page 2 (giống DaVinci Media Pool): rê ngang qua ảnh là lướt clip không cần nhấn Space */
+(function initGridHoverScrub() {
+  const grid = $("grid");
+  if (!grid) return;
+  let hoverTimer = 0, pend = false, lx = 0, curThumb = null, curCard = null;
+  let line = document.createElement("div");
+  line.className = "thumb-scrub";
+  const flush = () => {
+    pend = false;
+    if (!curThumb || !curCard) return;
+    const i = +curCard.dataset.i, c = items[i];
+    if (!c || !(c.dur > 0)) return;
+    const r = curThumb.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (lx - r.left) / Math.max(1, r.width)));
+    if (line.parentNode !== curThumb) curThumb.appendChild(line);
+    line.style.left = (pct * 100).toFixed(2) + "%";
+    line.style.display = "block";
+    const t = pct * c.dur;
+    if (i === cur) {
+      PL.hoverT = t;
+      if (PL.vid) plSeek(t, { fast: true });
+    }
+  };
+  grid.addEventListener("mousemove", (e) => {
+    if (page !== 2 || e.buttons) return;
+    const th = e.target.closest(".thumb"), card = e.target.closest(".card");
+    if (!th || !card) { line.style.display = "none"; return; }
+    if (curCard !== card) {
+      clearTimeout(hoverTimer);
+      curCard = card; curThumb = th;
+      const idx = +card.dataset.i;
+      if (idx !== cur) {
+        hoverTimer = setTimeout(() => {
+          if (curCard === card && typeof moveCur === "function") { moveCur(idx); flush(); }
+        }, 120);
+      }
+    }
+    lx = e.clientX;
+    if (!pend) { pend = true; requestAnimationFrame(flush); }
+  });
+  grid.addEventListener("mouseleave", () => {
+    clearTimeout(hoverTimer);
+    curCard = null; curThumb = null; PL.hoverT = null;
+    line.style.display = "none";
+  });
+})();
 
 function plJkl(action) {                                         // Cụm phím J - K - L chuẩn DaVinci
   const v = PL.vid; if (!v) return;

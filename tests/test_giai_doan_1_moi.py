@@ -79,6 +79,8 @@ class TestGiaiDoan1(unittest.TestCase):
         self.assertIn('id="g2Zoom"', html)
         self.assertIn("marquee-box", app_js)
         self.assertIn("plAttachHoverScrub", pl_js)
+        self.assertIn("initGridHoverScrub", pl_js)
+        self.assertIn('plAttachHoverScrub($("preview"))', pl_js)
         self.assertIn("plJkl", pl_js)
         self.assertIn('e.code === "KeyP"', app_js)
 
