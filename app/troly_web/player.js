@@ -3,7 +3,7 @@
    (api.set_inout), ghi vào DaVinci chỉ khi bấm nút + xác nhận. Phím đọc bằng event.code, bỏ qua khi đang gõ ô chữ. */
 "use strict";
 
-const PL = { openMs: 0, t0: 0, range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null };
+const PL = { openMs: 0, t0: 0, range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, hoverT: null, jklRate: 0, jklTimer: 0 };
 /* Việc 2 (ADR-0023): lướt mượt. Chỉ gửi lệnh nhảy khi lệnh trước xong (seeked), lệnh mới thay lệnh cũ chưa gửi; đang KÉO thì nhảy theo keyframe
    (giải mã 1 khung), THẢ ra thì nhảy chính xác. Dùng lại MỘT thẻ <video> cho mọi clip. Không tạo proxy mới. */
 const SK = { want: null, fast: false, busy: false, drag: false, timer: 0, sent: 0, seeks: 0, dwell: 0 };
@@ -77,9 +77,9 @@ function plCurRange() {
   if (c.in_s != null) return [c.in_s, c.out_s];
   return [0, c.dur || 0];
 }
-function plMark(which) {                                       // phím I / O: đặt tại vị trí đang xem
-  const c = curClip(); if (!c || !PL.vid) return;
-  const t = PL.vid.currentTime, [a, b] = plCurRange();
+function plMark(which) {                                       // phím I / O: đặt tại vị trí con trỏ chuột (hover) hoặc đầu phát
+  const c = curClip(); if (!c || (!PL.vid && PL.hoverT == null)) return;
+  const t = (PL.hoverT != null) ? PL.hoverT : PL.vid.currentTime, [a, b] = plCurRange();
   PL.edge = which;
   if (which === "in") plSet(t, Math.max(b, t + plStep()));
   else plSet(Math.min(a, t - plStep()), t);
@@ -416,6 +416,59 @@ function plDragScrub(ev, box) {                                   // bấm vào 
   document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
 }
 $("waveBox").addEventListener("mousedown", (ev) => plDragScrub(ev, $("waveBox")));
+/* Live Hover Scrub chuẩn DaVinci: rê chuột ngang qua sóng âm hoặc thanh In/Out là lướt hình, KHÔNG cần giữ chuột trái */
+function plAttachHoverScrub(box) {
+  if (!box) return;
+  let pend = false, lx = 0;
+  const tAt = (x) => {
+    const c = curClip(), dur = PL.dur || (c && c.dur) || 0, r = box.getBoundingClientRect();
+    return dur > 0 && r.width > 0 ? Math.max(0, Math.min(dur, (x - r.left) / r.width * dur)) : null;
+  };
+  const flush = () => {
+    pend = false;
+    const t = tAt(lx);
+    if (t == null) return;
+    PL.hoverT = t;
+    if (PL.vid) plSeek(t, { fast: true });
+  };
+  box.addEventListener("mousemove", (e) => {
+    if (e.buttons) return;
+    lx = e.clientX;
+    if (!pend) { pend = true; requestAnimationFrame(flush); }
+  });
+  box.addEventListener("mouseleave", () => {
+    PL.hoverT = null;
+    if (PL.vid && !PL.vid.paused) return;
+  });
+}
+plAttachHoverScrub($("waveBox"));
+plAttachHoverScrub($("ioBar"));
+
+function plJkl(action) {                                         // Cụm phím J - K - L chuẩn DaVinci
+  const v = PL.vid; if (!v) return;
+  clearInterval(PL.jklTimer); PL.jklTimer = 0;
+  if (action === "k") {
+    PL.jklRate = 0;
+    if (!v.paused) v.pause();
+    return;
+  }
+  if (action === "l") {
+    PL.jklRate = PL.jklRate <= 0 ? 1 : Math.min(4, PL.jklRate * 2);
+    v.playbackRate = PL.jklRate;
+    if (v.paused) v.play().catch(() => {});
+    return;
+  }
+  if (action === "j") {
+    PL.jklRate = PL.jklRate >= 0 ? -1 : Math.max(-4, PL.jklRate * 2);
+    if (!v.paused) v.pause();
+    PL.jklTimer = setInterval(() => {
+      if (!PL.vid || PL.jklRate >= 0) { clearInterval(PL.jklTimer); PL.jklTimer = 0; return; }
+      const next = Math.max(0, PL.vid.currentTime + PL.jklRate * 0.08);
+      plSeek(next, { fast: true });
+      if (next <= 0) { PL.jklRate = 0; clearInterval(PL.jklTimer); PL.jklTimer = 0; }
+    }, 80);
+  }
+}
 $("plSeek").addEventListener("mousedown", () => { SK.drag = true; });
 $("plSeek").addEventListener("input", () => { if (PL.vid) plSeek($("plSeek").value / 1000 * PL.dur, { fast: SK.drag }); });
 const plSeekRelease = () => { if (!SK.drag) return; SK.drag = false; if (PL.vid) plSeek($("plSeek").value / 1000 * PL.dur); };     // thả: nhảy chính xác
@@ -434,8 +487,10 @@ document.addEventListener("keydown", (e) => {
   if (!$("modal").classList.contains("hidden")) return;
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" || e.target.isContentEditable) return;
   if (e.ctrlKey || e.altKey || e.metaKey) return;
-  if (e.code === "Space") { e.preventDefault(); e.stopPropagation(); plToggle(); return; }
-  if (page !== 3 && (e.code === "KeyI" || e.code === "KeyO")) return;                               // I/O chỉ ở Bước 3
+  if (e.code === "Space") { e.preventDefault(); e.stopPropagation(); plJkl("k"); plToggle(); return; }
+  if (e.code === "KeyJ") { e.preventDefault(); e.stopPropagation(); plJkl("j"); return; }
+  if (e.code === "KeyK") { e.preventDefault(); e.stopPropagation(); plJkl("k"); return; }
+  if (e.code === "KeyL") { e.preventDefault(); e.stopPropagation(); plJkl("l"); return; }
   if (e.code === "KeyI") { e.preventDefault(); e.stopPropagation(); plMark("in"); return; }
   if (e.code === "KeyO") { e.preventDefault(); e.stopPropagation(); plMark("out"); return; }
   if ((e.code === "ArrowLeft" || e.code === "ArrowRight") && PL.focus && PL.vid) {

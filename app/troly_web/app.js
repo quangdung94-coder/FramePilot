@@ -799,7 +799,7 @@ document.addEventListener("mousedown", (e) => {
 $("onlyNew").addEventListener("change", () => { saveUi(); renderPage2(true); });
 $("onlyStar").addEventListener("change", () => renderPage2(true));
 
-/* Dấu sao ★ (phím J): chọn nhiều clip thì đặt đồng loạt. Có clip chưa sao -> gắn sao cho tất cả; tất cả đã sao -> bỏ sao. */
+/* Dấu sao ★ (phím P): chọn nhiều clip thì đặt đồng loạt. Có clip chưa sao -> gắn sao cho tất cả; tất cả đã sao -> bỏ sao. */
 async function toggleStar() {
   if (!items.length) return;
   const idx = sel.size ? [...sel] : [cur];
@@ -815,7 +815,7 @@ async function toggleStar() {
 $("starToggleBtn").onclick = () => toggleStar();
 async function appendStarred() {
   const n = S ? (S.n_starred || 0) : 0;
-  if (!n) return status("Chưa có clip nào có sao ★. Bấm phím J để gắn sao.", "warn");
+  if (!n) return status("Chưa có clip nào có sao ★. Bấm phím P để gắn sao.", "warn");
   const ok = await ask("Đưa clip có sao lên timeline",
     `<p>Sẽ TẠO một timeline MỚI trong DaVinci gồm <b>${n}</b> clip có sao ★, xếp theo giai đoạn rồi theo giờ quay.</p><p>Timeline đang có không bị sửa. Điểm In/Out sẽ chỉnh lại trong DaVinci sau.</p>`, "Tạo timeline mới");
   if (!ok) return;
@@ -875,13 +875,13 @@ document.addEventListener("keydown", (e) => {
   if (page === 4) { lnKey(e); return; }
   if (page === 3) {                                                  // Bước 3: chỉ J, ↑/↓ đổi clip, Enter; số KHÔNG xếp bin ở đây
     if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.altKey || e.metaKey) return;
-    if (e.code === "KeyJ" && !e.shiftKey) { e.preventDefault(); toggleStar(); return; }
+    if (e.code === "KeyP" && !e.shiftKey) { e.preventDefault(); toggleStar(); return; }
     if (e.code === "ArrowUp" || e.code === "ArrowDown") { e.preventDefault(); moveCur(cur + (e.code === "ArrowUp" ? -1 : 1)); return; }
     if (e.code === "Enter") { e.preventDefault(); reveal(); }
     return;
   }
   if (page !== 2 || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
-  if (e.code === "KeyJ" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { cancelPending(); e.preventDefault(); toggleStar(); return; }
+  if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { cancelPending(); e.preventDefault(); toggleStar(); return; }
   const d = digitOf(e);
   if (pending && d !== null && !e.ctrlKey && !e.altKey) {          // số sau phím F: vào bin con
     e.preventDefault();
@@ -922,7 +922,7 @@ async function showCur() {
     return;
   }
   $("curName").textContent = c.name;
-  $("starToggleBtn").textContent = c.star ? "★ Bỏ sao (phím J)" : "☆ Gắn sao (phím J)";
+  $("starToggleBtn").textContent = c.star ? "★ Bỏ sao (phím P)" : "☆ Gắn sao (phím P)";
   $("starToggleBtn").classList.toggle("active", !!c.star);
   renderPage3Cur(c);
   aiBoxRender();                                           // hộp Gợi ý AI (ai.js)
@@ -1007,3 +1007,57 @@ $("styleSel").onchange = async (e) => {
   if (page === 5) renderPage5();
   status(e.target.value ? "Đã chọn kiểu quay " + (e.target.value === "psc" ? "PSC" : "Truyền thống") + ": chỉ đổi gợi ý màu xanh, In/Out bạn đặt tay vẫn thắng." : "Đã bỏ chọn kiểu quay: gợi ý như mặc định.", "ok");
 };
+
+/* ---- Zoom Thumbnail Page 1 & Page 2 + Quét chuột chọn nhiều clip ---- */
+(function initZoomAndMarquee() {
+  const z1 = $("g1Zoom"), z2 = $("g2Zoom");
+  if (z1) {
+    const applyZ1 = (v) => {
+      v = Math.max(80, Math.min(260, +v || 118));
+      z1.value = v;
+      const g1 = $("g1"); if (g1) g1.style.setProperty("--g1-w", v + "px");
+    };
+    z1.addEventListener("input", () => applyZ1(z1.value));
+    $("g1").addEventListener("wheel", (e) => {
+      if (e.ctrlKey) { e.preventDefault(); applyZ1(+z1.value + (e.deltaY < 0 ? 18 : -18)); }
+    }, { passive: false });
+  }
+  if (z2) {
+    const applyZ2 = (v) => {
+      v = Math.max(120, Math.min(320, +v || 200));
+      z2.value = v;
+      const gr = $("grid"); if (gr) gr.style.gridTemplateColumns = `repeat(auto-fill, minmax(${v}px, 1fr))`;
+    };
+    z2.addEventListener("input", () => applyZ2(z2.value));
+    $("gridScroll").addEventListener("wheel", (e) => {
+      if (e.ctrlKey) { e.preventDefault(); applyZ2(+z2.value + (e.deltaY < 0 ? 20 : -20)); }
+    }, { passive: false });
+  }
+  const gs = $("gridScroll"), mq = document.createElement("div");
+  mq.className = "marquee-box"; document.body.appendChild(mq);
+  let drag = null;
+  gs.addEventListener("mousedown", (e) => {
+    if (e.button !== 0 || e.target.closest(".card")) return;
+    drag = { x0: e.clientX, y0: e.clientY };
+    mq.style.display = "block"; mq.style.left = e.clientX + "px"; mq.style.top = e.clientY + "px";
+    mq.style.width = "0px"; mq.style.height = "0px";
+  });
+  document.addEventListener("mousemove", (e) => {
+    if (!drag) return;
+    const x = Math.min(drag.x0, e.clientX), y = Math.min(drag.y0, e.clientY);
+    const w = Math.abs(e.clientX - drag.x0), h = Math.abs(e.clientY - drag.y0);
+    mq.style.left = x + "px"; mq.style.top = y + "px"; mq.style.width = w + "px"; mq.style.height = h + "px";
+    if (w < 6 && h < 6) return;
+    const mr = mq.getBoundingClientRect(), next = new Set();
+    document.querySelectorAll("#grid .card").forEach((el) => {
+      const cr = el.getBoundingClientRect();
+      if (!(cr.right < mr.left || cr.left > mr.right || cr.bottom < mr.top || cr.top > mr.bottom)) next.add(+el.dataset.i);
+    });
+    if (next.size) { sel = next; cur = [...next][0]; patchGrid(); }
+  });
+  document.addEventListener("mouseup", () => {
+    if (!drag) return;
+    drag = null; mq.style.display = "none";
+    if (sel.size) showCur();
+  });
+})();

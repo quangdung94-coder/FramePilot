@@ -27,6 +27,8 @@ import troly_core as tc             # noqa: E402
 MODEL_DIR_NAME = "openclip_vitb32_laion2b"
 MODEL_FILE = "open_clip_model.safetensors"
 MODEL_ARCH = "ViT-B-32"
+SIGLIP_DIR_NAME = "siglip_vitb16"
+SIGLIP_ARCH = "ViT-B-16-SigLIP"
 TEMPERATURE = 100.0                 # CLIP: logit_scale ~100
 BATCH = 32
 THUMB_WIDTH = 320
@@ -218,17 +220,34 @@ def model_path(data_root):
     return os.path.join(data_root, "models", MODEL_DIR_NAME, MODEL_FILE)
 
 
+def siglip_dir(data_root):
+    return os.path.join(data_root, "models", SIGLIP_DIR_NAME)
+
+
+def has_siglip(data_root):
+    d = siglip_dir(data_root)
+    return os.path.isdir(d) and os.path.isdir(os.path.join(d, "models--timm--ViT-B-16-SigLIP"))
+
+
 def load_model(data_root):
     import open_clip
     import torch
     dev = "cuda" if torch.cuda.is_available() else "cpu"
+    if has_siglip(data_root):
+        sd = siglip_dir(data_root)
+        os.environ.setdefault("HF_HOME", sd)
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        model, _, pre = open_clip.create_model_and_transforms(SIGLIP_ARCH, pretrained="webli", cache_dir=sd, device=dev)
+        model.eval()
+        return model, pre, open_clip.get_tokenizer(SIGLIP_ARCH), dev
     model, _, pre = open_clip.create_model_and_transforms(MODEL_ARCH, pretrained=model_path(data_root), device=dev)
     model.eval()
     return model, pre, open_clip.get_tokenizer(MODEL_ARCH), dev
 
 
 def embed_dir(data_root, project):
-    return os.path.join(data_root, "cache", "troly_embed", tc._safe(project))
+    sub = "troly_embed_siglip" if has_siglip(data_root) else "troly_embed"
+    return os.path.join(data_root, "cache", sub, tc._safe(project))
 
 
 def _log(path, msg):

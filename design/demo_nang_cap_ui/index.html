@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FramePilot — Demo Giao Diện Nâng Cấp (Chờ duyệt)</title>
+<style>
+:root {
+  --bg: #18181B; --bar: #1F1F23; --line: #2E2E34; --card: #222226; --btn: #26262B; --btn-line: #3A3A42;
+  --text: #E7E7EA; --dim: #A1A1AA; --dim2: #C4C4CC; --tick: #8A8A94; --accent: #F2A33A; --accent-text: #18181B;
+  --blue: #38BDF8; --green: #34D399; --red: #EF4444; --right: #1C1C20;
+}
+* { box-sizing: border-box; user-select: none; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: Inter, "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+#app { height: 100vh; display: flex; flex-direction: column; }
+
+/* Thanh trên */
+.top { height: 58px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 20px; background: var(--bar); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; }
+.logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #18181B; font-weight: 800; font-size: 14px; }
+.brand-title { font-size: 15px; font-weight: 700; }
+.brand-sub { font-size: 11px; color: var(--accent); }
+.steps { display: flex; gap: 6px; }
+.step { padding: 8px 14px; border-radius: 8px; color: var(--dim2); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; background: transparent; }
+.step:hover { background: var(--btn); }
+.step.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.badge-demo { font-size: 11px; padding: 4px 10px; border-radius: 999px; background: rgba(56,189,248,.14); color: var(--blue); border: 1px solid rgba(56,189,248,.35); }
+
+/* Main layout */
+.page { flex: 1; min-height: 0; display: flex; }
+.hidden { display: none !important; }
+
+/* Cột trái */
+.col-left { width: 250px; flex-shrink: 0; background: var(--bar); border-right: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.col-left h3 { margin: 0; font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+.stage-item { padding: 9px 10px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; font-size: 13px; cursor: pointer; }
+.stage-item.on { border-color: var(--accent); background: #2A241A; }
+.dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 8px; }
+.sub-bin { margin-left: 14px; padding: 6px 10px; border-radius: 6px; font-size: 12px; color: var(--dim2); display: flex; justify-content: space-between; cursor: pointer; }
+.sub-bin:hover { background: var(--btn); }
+.sub-bin .k { background: var(--btn); border: 1px solid var(--btn-line); padding: 1px 6px; border-radius: 4px; font-size: 11px; color: var(--dim); }
+
+/* Vùng trung tâm */
+.col-main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 14px 18px; gap: 12px; }
+.tl-mini { background: var(--bar); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.tl-bar { height: 28px; background: #141417; border-radius: 6px; position: relative; overflow: hidden; display: flex; margin-top: 8px; border: 1px solid var(--line); }
+.tl-seg { height: 100%; display: flex; align-items: center; padding: 0 8px; font-size: 11px; font-weight: 600; color: #18181B; border-right: 2px solid #18181B; }
+
+/* Thanh công cụ lưới + ZOOM THUMBNAIL */
+.grid-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; background: var(--bar); border: 1px solid var(--line); border-radius: 10px; }
+.zoom-box { display: flex; align-items: center; gap: 8px; background: var(--card); padding: 4px 10px; border-radius: 8px; border: 1px solid var(--btn-line); }
+.zoom-box button { width: 22px; height: 22px; border-radius: 4px; border: 0; background: var(--btn); color: var(--text); cursor: pointer; font-weight: 700; }
+.zoom-box button:hover { background: var(--btn-line); }
+.zoom-box input[type=range] { width: 110px; accent-color: var(--accent); cursor: pointer; }
+.zoom-val { font-size: 11px; color: var(--dim); min-width: 38px; text-align: right; }
+
+/* Lưới Thumbnail + Marquee Selection */
+.grid-wrap { flex: 1; min-height: 0; position: relative; overflow-y: auto; background: #151518; border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--thumb-w, 190px), 1fr)); gap: 10px; align-content: start; }
+.marquee { position: fixed; border: 1.5px solid var(--accent); background: rgba(242,163,58,0.16); pointer-events: none; z-index: 99; display: none; }
+
+/* Card Thumbnail + Live Hover Scrub + Thanh In/Out nhỏ */
+.card { background: var(--card); border: 1.5px solid var(--line); border-radius: 8px; overflow: hidden; cursor: pointer; transition: border-color .1s; position: relative; }
+.card:hover { border-color: #52525B; }
+.card.cur { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.card.picked { border-color: var(--blue); background: #1D2530; }
+.thumb { aspect-ratio: 16/9; background: #0E0E11; position: relative; overflow: hidden; }
+.thumb canvas { width: 100%; height: 100%; display: block; }
+.badge-tl { position: absolute; top: 5px; left: 5px; font-size: 10px; background: rgba(0,0,0,.72); padding: 2px 5px; border-radius: 4px; color: #fff; }
+.badge-br { position: absolute; bottom: 7px; right: 5px; font-size: 10px; background: rgba(0,0,0,.72); padding: 2px 5px; border-radius: 4px; color: #fff; }
+.star-b { position: absolute; top: 5px; right: 5px; font-size: 13px; color: var(--accent); text-shadow: 0 1px 3px #000; }
+
+/* Vạch Hover Scrub giống Media Pool DaVinci */
+.scrub-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #EF4444; pointer-events: none; display: none; box-shadow: 0 0 4px rgba(0,0,0,.8); }
+.thumb:hover .scrub-line { display: block; }
+.scrub-time { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); font-size: 10px; background: rgba(239,68,68,.9); color: #fff; padding: 1px 5px; border-radius: 3px; display: none; pointer-events: none; font-weight: 600; }
+.thumb:hover .scrub-time { display: block; }
+
+/* Vạch trạng thái In/Out dưới chân thumbnail */
+.card-io-bar { height: 4px; background: #141417; position: relative; width: 100%; }
+.card-io-fill { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.card-io-fill.sug { background: var(--green); }
+.card-io-fill.man { background: var(--accent); }
+
+.card-foot { padding: 7px 8px; display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; }
+.card-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--btn); color: var(--dim2); white-space: nowrap; }
+.tag.ai { background: rgba(56,189,248,.15); color: var(--blue); border: 1px solid rgba(56,189,248,.3); }
+
+/* Cột phải: Player + Sóng âm + Hover I/O */
+.col-right { width: 390px; flex-shrink: 0; background: var(--right); border-left: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.preview-box { aspect-ratio: 16/9; background: #0B0B0D; border-radius: 8px; border: 1px solid var(--line); position: relative; overflow: hidden; }
+.preview-box canvas { width: 100%; height: 100%; display: block; }
+.jkl-pill { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 5px; background: rgba(0,0,0,.75); color: var(--accent); border: 1px solid rgba(242,163,58,.4); }
+.tc-overlay { position: absolute; bottom: 8px; left: 8px; font-family: monospace; font-size: 12px; background: rgba(0,0,0,.75); padding: 3px 7px; border-radius: 4px; }
+
+/* Sóng âm & Thanh In/Out Hover */
+.wave-wrap { background: #141417; border: 1px solid var(--line); border-radius: 8px; padding: 8px; position: relative; cursor: crosshair; }
+.wave-canvas { width: 100%; height: 54px; display: block; }
+.io-track { height: 22px; background: #1B1B20; border-radius: 5px; margin-top: 6px; position: relative; border: 1px solid var(--line); cursor: crosshair; overflow: hidden; }
+.io-box-range { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; }
+.io-box-range.sug { background: rgba(52,211,153,.28); border: 1.5px solid var(--green); }
+.io-box-range.man { background: rgba(242,163,58,.32); border: 1.5px solid var(--accent); }
+.hover-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); pointer-events: none; }
+
+.reason-box { background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.3); border-radius: 8px; padding: 9px 10px; font-size: 12px; line-height: 1.45; color: #D1FAE5; }
+.kbd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: var(--dim); background: var(--card); padding: 9px; border-radius: 8px; border: 1px solid var(--line); }
+.kbd-grid b { color: var(--text); background: var(--btn); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--btn-line); margin-right: 4px; }
+
+.btn { height: 34px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--btn-line); background: var(--btn); color: var(--text); font-size: 12px; font-weight: 500; cursor: pointer; }
+.btn:hover { background: #323238; }
+.btn-accent { background: var(--accent); color: #18181B; border-color: var(--accent); font-weight: 600; }
+.status-bar { height: 30px; background: var(--bar); border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; font-size: 12px; color: var(--dim); }
+
+/* Multicam View */
+.mc-lane { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+.mc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+.cam-badge { width: 22px; height: 22px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #18181B; }
+.mc-clips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.mc-clip { min-width: 150px; background: #141417; border: 1px solid var(--line); border-radius: 6px; padding: 6px; font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">FP</div>
+      <div>
+        <div class="brand-title">FramePilot</div>
+        <div class="brand-sub">Demo Giao Diện Mới (Dữ liệu mô phỏng · 21/11)</div>
+      </div>
+    </div>
+    <nav class="steps">
+      <button class="step on" data-tab="p1">1 · Giai đoạn (Có Zoom)</button>
+      <button class="step" data-tab="p2">2 · Phân loại &amp; In/Out Nhanh</button>
+      <button class="step" data-tab="p3">Nhiều Camera (Làn ngang)</button>
+    </nav>
+    <span class="badge-demo">Bản Demo Để Duyệt</span>
+  </header>
+
+  <!-- BƯỚC 1 & 2 CHUNG KHUNG DEMO TƯƠNG TÁC -->
+  <main class="page" id="mainView">
+    <aside class="col-left">
+      <h3>Giai đoạn &amp; Bin</h3>
+      <div class="stage-item on"><span><i class="dot" style="background:#F2A33A"></i>01 · Chuẩn bị</span><span style="color:var(--dim)">42</span></div>
+      <div class="sub-bin"><span>Decor / Váy nhẫn</span><span class="k">1</span></div>
+      <div class="sub-bin"><span>Beauty Cô dâu</span><span class="k">2</span></div>
+      <div class="sub-bin"><span>Chú rể</span><span class="k">3</span></div>
+      <div class="stage-item"><span><i class="dot" style="background:#38BDF8"></i>02 · Lễ Gia Tiên</span><span style="color:var(--dim)">68</span></div>
+      <div class="stage-item"><span><i class="dot" style="background:#34D399"></i>03 · Tiệc Nhà Hàng</span><span style="color:var(--dim)">95</span></div>
+
+      <div style="margin-top:auto; padding:10px; background:var(--card); border-radius:8px; border:1px solid var(--line); font-size:12px; color:var(--dim2); line-height:1.5">
+        <b style="color:var(--accent)">Điểm mới để anh thử:</b><br>
+        1. Kéo thanh <b>Zoom</b> ở trên lưới (hoặc <code>Ctrl + Lăn chuột</code>).<br>
+        2. <b>Rê chuột</b> qua bất kỳ thẻ clip nào (không bấm) để lướt hình.<br>
+        3. <b>Kéo chuột từ khoảng trống</b> để quét chọn nhiều clip.<br>
+        4. Rê chuột trên sóng âm bên phải rồi bấm <b>I / O</b>, thử <b>J K L</b> &amp; <b>P</b>.
+      </div>
+    </aside>
+
+    <section class="col-main">
+      <!-- Thanh thời gian chỉ hiện ở Tab 1 -->
+      <div class="tl-mini" id="p1Timeline">
+        <div style="display:flex; justify-content:space-between; font-size:12px;">
+          <b>Thanh thời gian buổi quay (06:20 – 13:45)</b>
+          <span style="color:var(--dim)">Bấm clip đầu &amp; cuối để chia giai đoạn (F1–F9)</span>
+        </div>
+        <div class="tl-bar">
+          <div class="tl-seg" style="width:28%; background:#F2A33A">01 · Chuẩn bị</div>
+          <div class="tl-seg" style="width:34%; background:#38BDF8">02 · Lễ Gia Tiên</div>
+          <div class="tl-seg" style="width:38%; background:#34D399">03 · Tiệc Nhà Hàng</div>
+        </div>
+      </div>
+
+      <!-- Thanh công cụ Lưới + ZOOM IN/OUT THUMBNAIL -->
+      <div class="grid-toolbar">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <b id="gridTitle" style="font-size:14px;">Source · 12 clip mẫu</b>
+          <span id="selCount" style="font-size:12px; color:var(--blue)">Đang chọn 1 clip</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="zoom-box" title="Kéo dãn kích thước thumbnail (hoặc Ctrl + Lăn chuột)">
+            <span style="font-size:11px; color:var(--dim)">Cỡ ảnh</span>
+            <button id="zoomOut">−</button>
+            <input type="range" id="zoomSlider" min="120" max="320" value="190">
+            <button id="zoomIn">+</button>
+            <span class="zoom-val" id="zoomVal">190px</span>
+          </div>
+          <button class="btn" id="btnAutoIo">Gợi ý In/Out (Nét+Êm+Tiếng)</button>
+        </div>
+      </div>
+
+      <!-- Lưới Thumbnail -->
+      <div class="grid-wrap" id="gridWrap">
+        <div class="grid" id="grid"></div>
+      </div>
+    </section>
+
+    <!-- Cột phải: Player + Sóng âm + Thao tác JKL & Hover I/O -->
+    <aside class="col-right">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <b style="font-size:14px;" id="curTitle">DG4968.MP4</b>
+        <span style="font-size:11px; color:var(--dim)" id="curMeta">50fps · 18.4s</span>
+      </div>
+
+      <div class="preview-box">
+        <canvas id="pvCanvas" width="360" height="202"></canvas>
+        <div class="jkl-pill" id="jklState">Tạm dừng (K)</div>
+        <div class="tc-overlay" id="tcText">00:01.40 / 00:18.40</div>
+      </div>
+
+      <div class="wave-wrap" id="waveArea" title="Rê chuột tới đâu, con trỏ chạy tới đó — KHÔNG cần giữ chuột trái. Bấm I/O để đặt mốc!">
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-bottom:4px;">
+          <span>Sóng âm &amp; Độ nét/Rung (Rê chuột để lướt)</span>
+          <span id="hoverSec" style="color:var(--red)">0.00s</span>
+        </div>
+        <canvas class="wave-canvas" id="waveCanvas" width="340" height="54"></canvas>
+        <div class="io-track" id="ioTrack">
+          <div class="io-box-range sug" id="ioRangeBox" style="left:8%; width:20%"></div>
+        </div>
+        <div class="hover-playhead" id="playhead" style="left:12%"></div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; font-size:12px; font-family:monospace; background:var(--card); padding:7px 10px; border-radius:6px; border:1px solid var(--line);">
+        <span style="color:var(--green)" id="lblIn">In: 01.40s</span>
+        <span style="color:var(--text)" id="lblDur">Giữ: 3.50s</span>
+        <span style="color:var(--green)" id="lblOut">Out: 04.90s</span>
+      </div>
+
+      <div class="reason-box" id="reasonBox">
+        <b>Lý do gợi ý In/Out:</b><br>
+        • Bỏ <b>1.4s đầu</b> (chống rung tay khi bấm máy).<br>
+        • Chọn đoạn <b>3.5s</b> có độ nét cao nhất (Laplacian 594) và máy lia êm nhất (Optical Flow 0.29).
+      </div>
+
+      <div class="kbd-grid">
+        <div><b>J</b> Tua lùi (1x/2x/4x)</div>
+        <div><b>I</b> Đặt In ngay tại chuột</div>
+        <div><b>K</b> Dừng (Space cũng dừng)</div>
+        <div><b>O</b> Đặt Out ngay tại chuột</div>
+        <div><b>L</b> Tua tới (1x/2x/4x)</div>
+        <div><b>P</b> Gắn / bỏ sao ★</div>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="btn" style="flex:1" id="btnStar">★ Gắn sao (P)</button>
+        <button class="btn btn-accent" style="flex:1" id="btnConfirmIo">Chốt In/Out tay</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- VIEW NHIỀU CAMERA (LÀN NGANG) -->
+  <main class="page hidden" id="camView" style="flex-direction:column; padding:16px 24px; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div>
+        <h2 style="margin:0; font-size:16px;">Giai đoạn 3 · Nhiều Camera theo làn ngang (Đã đồng bộ giờ quay)</h2>
+        <span style="font-size:12px; color:var(--dim)">Tối đa 4 máy (A–D). Nhìn thẳng các góc quay cùng thời điểm để chọn góc nét nhất.</span>
+      </div>
+      <div class="zoom-box">
+        <span style="font-size:11px; color:var(--dim)">Zoom trục</span>
+        <input type="range" min="1" max="3" step="0.5" value="1.5">
+      </div>
+    </div>
+
+    <div class="mc-lane">
+      <div class="mc-head"><span class="cam-badge" style="background:#F2A33A">A</span> Máy A · Sony A7S3 (Góc cận / Chú rể)</div>
+      <div class="mc-clips">
+        <div class="mc-clip"><b>A001.MP4</b><br><span style="color:var(--green)">Nét 610 · Rung 0.3 ★</span></div>
+        <div class="mc-clip"><b>A002.MP4</b><br><span style="color:var(--dim)">Nét 340 · Rung 1.1</span></div>
+        <div class="mc-clip"><b>A003.MP4</b><br><span style="color:var(--green)">Nét 720 · Có tiếng MC</span></div>
+      </div>
+    </div>
+    <div class="mc-lane">
+      <div class="mc-head"><span class="cam-badge" style="background:#38BDF8">B</span> Máy B · FX3 (Góc toàn / Cô dâu)</div>
+      <div class="mc-clips">
+        <div class="mc-clip"><b>B014.MP4</b><br><span style="color:var(--dim)">Nét 410 · Lia nhanh</span></div>
+        <div class="mc-clip"><b>B015.MP4</b><br><span style="color:var(--green)">Nét 680 · Êm 0.4 ★</span></div>
+        <div class="mc-clip"><b>B016.MP4</b><br><span style="color:var(--dim)">Nét 290 · Out nét</span></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="status-bar">
+    <span id="statusTxt">Sẵn sàng · Rê chuột trên thumbnail hoặc sóng âm để thử cảm giác lướt không cần giữ chuột trái.</span>
+    <span>FramePilot UI Demo</span>
+  </footer>
+</div>
+
+<div class="marquee" id="marquee"></div>
+
+<script>
+const CLIPS = [
+  { id: 1, name: "DG4968.MP4", time: "06:25", dur: 18.4, tag: "Decor", ai: true, star: true, inS: 1.4, outS: 4.9, src: "sug", reason: "Bỏ 1.4s đầu chống rung · Đỉnh nét 594 + Êm 0.29 (3.5s)", color: "#8B5CF6" },
+  { id: 2, name: "DG4966.MP4", time: "06:28", dur: 12.0, tag: "Beauty cô dâu", ai: true, star: false, inS: 1.3, outS: 4.8, src: "sug", reason: "Bỏ 1.3s đầu · Khuôn mặt nét ổn định (3.5s)", color: "#EC4899" },
+  { id: 3, name: "DG4939.MP4", time: "06:31", dur: 25.5, tag: "Gia tiên", ai: false, star: true, inS: 4.2, outS: 9.8, src: "man", reason: "Đặt tay · Có tiếng nói (VAD) 4.2s - 9.8s", color: "#F59E0B" },
+  { id: 4, name: "DG4950.MP4", time: "06:34", dur: 9.2, tag: "Decor", ai: true, star: false, inS: 1.2, outS: 4.4, src: "sug", reason: "Bỏ 1.2s đầu · Lia máy êm nhất 3.2s", color: "#10B981" },
+  { id: 5, name: "DG4954.MP4", time: "06:38", dur: 15.0, tag: "Chú rể", ai: true, star: false, inS: 1.5, outS: 5.0, src: "sug", reason: "Bỏ 1.5s đầu · Đỉnh nét 480 (3.5s)", color: "#3B82F6" },
+  { id: 6, name: "DG4970.MP4", time: "06:41", dur: 32.0, tag: "Phỏng vấn", ai: false, star: true, inS: 2.0, outS: 11.5, src: "sug", reason: "Phát hiện giọng nói (Silero VAD): giữ trọn câu", color: "#06B6D4" },
+  { id: 7, name: "DG4973.MP4", time: "06:45", dur: 14.5, tag: "Chưa xếp", ai: false, star: false, inS: 1.4, outS: 4.9, src: "sug", reason: "Bỏ 1.4s đầu · Độ rung thấp 0.5", color: "#6366F1" },
+  { id: 8, name: "DG4977.MP4", time: "06:49", dur: 19.0, tag: "Gia đình", ai: true, star: false, inS: 2.2, outS: 5.7, src: "sug", reason: "Đoạn đầu out nét · Lấy từ 2.2s (3.5s)", color: "#F97316" },
+  { id: 9, name: "DG4981.MP4", time: "06:53", dur: 11.2, tag: "Decor", ai: true, star: false, inS: 1.2, outS: 4.7, src: "sug", reason: "Bỏ 1.2s đầu · Nét đều 3.5s", color: "#14B8A6" },
+  { id: 10, name: "DG4987.MP4", time: "06:58", dur: 22.0, tag: "Beauty cô dâu", ai: true, star: true, inS: 5.0, outS: 8.5, src: "man", reason: "Đặt tay · Khoảnh khắc cười đẹp", color: "#D946EF" },
+  { id: 11, name: "DG4998.MP4", time: "07:02", dur: 16.0, tag: "Rước dâu", ai: true, star: false, inS: 1.4, outS: 4.9, src: "sug", reason: "Bỏ 1.4s đầu · Lia theo đoàn êm", color: "#EAB308" },
+  { id: 12, name: "DG5000.MP4", time: "07:05", dur: 28.0, tag: "Rước dâu", ai: false, star: false, inS: 3.1, outS: 6.6, src: "sug", reason: "Giây 0-3 rung mạnh · Lấy 3.1s - 6.6s", color: "#EF4444" }
+];
+
+let curId = 1;
+let selected = new Set([1]);
+let playTime = 1.4;
+let playRate = 0; // 0 = pause, 1/2/4 = forward, -1/-2/-4 = reverse
+let hoverTime = null;
+
+function curClip() { return CLIPS.find(c => c.id === curId) || CLIPS[0]; }
+
+/* Vẽ ảnh giả lập chuyển động theo thời gian t để thấy rõ Hover Scrub */
+function drawFakeFrame(canvas, clip, t) {
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  const ratio = Math.min(1, Math.max(0, t / clip.dur));
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, "#1E1E24");
+  grad.addColorStop(1, clip.color + "55");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Vẽ hình khối di chuyển theo thời gian t để cảm nhận tốc độ lướt
+  const cx = 30 + (w - 60) * ratio;
+  const cy = h * 0.5 + Math.sin(ratio * Math.PI * 3) * (h * 0.16);
+  ctx.fillStyle = clip.color;
+  ctx.beginPath(); ctx.arc(cx, cy, Math.max(10, h * 0.12), 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.font = `600 ${Math.max(10, Math.round(h * 0.08))}px sans-serif`;
+  ctx.fillText(`${clip.name} @ ${t.toFixed(2)}s`, 10, h - 12);
+}
+
+/* Render lưới thumbnail */
+function renderGrid() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = CLIPS.map(c => {
+    const inPct = (c.inS / c.dur * 100).toFixed(1);
+    const wPct = ((c.outS - c.inS) / c.dur * 100).toFixed(1);
+    const cls = "card" + (c.id === curId ? " cur" : "") + (selected.has(c.id) ? " picked" : "");
+    return `
+      <div class="${cls}" data-id="${c.id}">
+        <div class="thumb">
+          <canvas width="240" height="135"></canvas>
+          <span class="badge-tl">${c.time}</span>
+          <span class="badge-br">${c.dur.toFixed(1)}s</span>
+          ${c.star ? '<span class="star-b">★</span>' : ''}
+          <div class="scrub-line"></div>
+          <div class="scrub-time">0.0s</div>
+        </div>
+        <div class="card-io-bar">
+          <div class="card-io-fill ${c.src}" style="left:${inPct}%; width:${wPct}%"></div>
+        </div>
+        <div class="card-foot">
+          <span class="card-name">${c.name}</span>
+          <span class="tag ${c.ai ? 'ai' : ''}">${c.ai ? 'AI · ' : ''}${c.tag}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  document.querySelectorAll("#grid .card").forEach(card => {
+    const id = +card.dataset.id;
+    const c = CLIPS.find(x => x.id === id);
+    const cv = card.querySelector("canvas");
+    drawFakeFrame(cv, c, c.inS);
+
+    const thumb = card.querySelector(".thumb");
+    const line = card.querySelector(".scrub-line");
+    const tLabel = card.querySelector(".scrub-time");
+
+    thumb.addEventListener("mousemove", (e) => {
+      const r = thumb.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      const t = pct * c.dur;
+      line.style.left = (pct * 100) + "%";
+      tLabel.textContent = t.toFixed(1) + "s";
+      drawFakeFrame(cv, c, t);
+      if (c.id === curId) {
+        hoverTime = t;
+        updatePlayerDisplay(t);
+      }
+    });
+
+    thumb.addEventListener("mouseleave", () => {
+      drawFakeFrame(cv, c, c.inS);
+      hoverTime = null;
+    });
+
+    card.addEventListener("click", (e) => {
+      if (e.ctrlKey) {
+        selected.has(id) ? selected.delete(id) : selected.add(id);
+      } else {
+        selected = new Set([id]);
+      }
+      curId = id;
+      playTime = c.inS;
+      playRate = 0;
+      renderGrid();
+      renderRight();
+    });
+  });
+  document.getElementById("selCount").textContent = `Đang chọn ${selected.size} clip`;
+}
+
+function renderWave(clip) {
+  const cv = document.getElementById("waveCanvas");
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = "#52525B";
+  for (let x = 0; x < cv.width; x += 4) {
+    const h = 8 + Math.abs(Math.sin(x * 0.13 + clip.id)) * 38;
+    ctx.fillRect(x, (cv.height - h) / 2, 2, h);
+  }
+}
+
+function updatePlayerDisplay(t) {
+  const c = curClip();
+  drawFakeFrame(document.getElementById("pvCanvas"), c, t);
+  document.getElementById("tcText").textContent = `${t.toFixed(2)}s / ${c.dur.toFixed(2)}s`;
+  document.getElementById("hoverSec").textContent = t.toFixed(2) + "s";
+  const pct = (t / c.dur * 100);
+  document.getElementById("playhead").style.left = `calc(${pct}% - 1px)`;
+}
+
+function renderRight() {
+  const c = curClip();
+  document.getElementById("curTitle").textContent = c.name;
+  document.getElementById("curMeta").textContent = `50fps · ${c.dur.toFixed(1)}s`;
+  document.getElementById("lblIn").textContent = `In: ${c.inS.toFixed(2)}s`;
+  document.getElementById("lblOut").textContent = `Out: ${c.outS.toFixed(2)}s`;
+  document.getElementById("lblDur").textContent = `Giữ: ${(c.outS - c.inS).toFixed(2)}s`;
+  document.getElementById("reasonBox").innerHTML = `<b>Lý do gợi ý In/Out:</b><br>• ${c.reason}`;
+
+  const box = document.getElementById("ioRangeBox");
+  box.className = "io-box-range " + c.src;
+  box.style.left = (c.inS / c.dur * 100) + "%";
+  box.style.width = ((c.outS - c.inS) / c.dur * 100) + "%";
+
+  const lblColor = c.src === "man" ? "var(--accent)" : "var(--green)";
+  document.getElementById("lblIn").style.color = lblColor;
+  document.getElementById("lblOut").style.color = lblColor;
+
+  document.getElementById("jklState").textContent =
+    playRate === 0 ? "Tạm dừng (K)" : (playRate > 0 ? `Tua tới ${playRate}× (L)` : `Tua lùi ${Math.abs(playRate)}× (J)`);
+
+  renderWave(c);
+  updatePlayerDisplay(playTime);
+}
+
+/* Rê chuột trên sóng âm KHÔNG CẦN GIỮ CHUỘT TRÁI */
+const waveArea = document.getElementById("waveArea");
+waveArea.addEventListener("mousemove", (e) => {
+  const r = waveArea.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  const c = curClip();
+  playTime = pct * c.dur;
+  hoverTime = playTime;
+  playRate = 0;
+  updatePlayerDisplay(playTime);
+});
+waveArea.addEventListener("mouseleave", () => { hoverTime = null; });
+
+/* Zoom In/Out Thumbnail ở Page 1 & 2 */
+const zoomSlider = document.getElementById("zoomSlider");
+function setZoom(val) {
+  const v = Math.max(120, Math.min(320, +val));
+  zoomSlider.value = v;
+  document.documentElement.style.setProperty("--thumb-w", v + "px");
+  document.getElementById("zoomVal").textContent = v + "px";
+}
+zoomSlider.addEventListener("input", () => setZoom(zoomSlider.value));
+document.getElementById("zoomOut").onclick = () => setZoom(+zoomSlider.value - 25);
+document.getElementById("zoomIn").onclick = () => setZoom(+zoomSlider.value + 25);
+document.getElementById("gridWrap").addEventListener("wheel", (e) => {
+  if (e.ctrlKey) { e.preventDefault(); setZoom(+zoomSlider.value + (e.deltaY < 0 ? 20 : -20)); }
+}, { passive: false });
+
+/* Quét chuột chọn nhiều clip (Marquee Selection) */
+const gridWrap = document.getElementById("gridWrap");
+const marquee = document.getElementById("marquee");
+let mDrag = null;
+gridWrap.addEventListener("mousedown", (e) => {
+  if (e.target.closest(".card")) return;
+  mDrag = { x0: e.clientX, y0: e.clientY };
+  marquee.style.display = "block";
+  marquee.style.left = e.clientX + "px"; marquee.style.top = e.clientY + "px";
+  marquee.style.width = "0px"; marquee.style.height = "0px";
+});
+document.addEventListener("mousemove", (e) => {
+  if (!mDrag) return;
+  const x = Math.min(mDrag.x0, e.clientX), y = Math.min(mDrag.y0, e.clientY);
+  const w = Math.abs(e.clientX - mDrag.x0), h = Math.abs(e.clientY - mDrag.y0);
+  marquee.style.left = x + "px"; marquee.style.top = y + "px";
+  marquee.style.width = w + "px"; marquee.style.height = h + "px";
+  const mr = marquee.getBoundingClientRect();
+  selected = new Set();
+  document.querySelectorAll("#grid .card").forEach(card => {
+    const cr = card.getBoundingClientRect();
+    const hit = !(cr.right < mr.left || cr.left > mr.right || cr.bottom < mr.top || cr.top > mr.bottom);
+    if (hit) selected.add(+card.dataset.id);
+  });
+  document.querySelectorAll("#grid .card").forEach(card => {
+    card.classList.toggle("picked", selected.has(+card.dataset.id));
+  });
+  document.getElementById("selCount").textContent = `Đang chọn ${selected.size} clip`;
+});
+document.addEventListener("mouseup", () => {
+  if (mDrag) { mDrag = null; marquee.style.display = "none"; }
+});
+
+/* Phím tắt chuẩn DaVinci: J K L, I O, P gắn sao */
+document.addEventListener("keydown", (e) => {
+  const c = curClip();
+  const targetT = hoverTime !== null ? hoverTime : playTime;
+  if (e.code === "KeyL") { playRate = playRate <= 0 ? 1 : Math.min(4, playRate * 2); renderRight(); }
+  else if (e.code === "KeyJ") { playRate = playRate >= 0 ? -1 : Math.max(-4, playRate * 2); renderRight(); }
+  else if (e.code === "KeyK" || e.code === "Space") { e.preventDefault(); playRate = 0; renderRight(); }
+  else if (e.code === "KeyI") {
+    c.inS = Math.min(targetT, c.outS - 0.3); c.src = "man";
+    document.getElementById("statusTxt").textContent = `Đã đặt In = ${c.inS.toFixed(2)}s tại vị trí chuột!`;
+    renderGrid(); renderRight();
+  }
+  else if (e.code === "KeyO") {
+    c.outS = Math.max(targetT, c.inS + 0.3); c.src = "man";
+    document.getElementById("statusTxt").textContent = `Đã đặt Out = ${c.outS.toFixed(2)}s tại vị trí chuột!`;
+    renderGrid(); renderRight();
+  }
+  else if (e.code === "KeyP") {
+    c.star = !c.star;
+    document.getElementById("statusTxt").textContent = c.star ? `★ Đã gắn sao cho ${c.name}` : `Đã bỏ sao ${c.name}`;
+    renderGrid();
+  }
+});
+
+document.getElementById("btnStar").onclick = () => { const c = curClip(); c.star = !c.star; renderGrid(); };
+document.getElementById("btnConfirmIo").onclick = () => { const c = curClip(); c.src = "man"; renderGrid(); renderRight(); };
+
+/* Vòng lặp phát mô phỏng J/K/L */
+setInterval(() => {
+  if (playRate !== 0) {
+    const c = curClip();
+    playTime = Math.max(0, Math.min(c.dur, playTime + playRate * 0.05));
+    if (playTime === 0 || playTime === c.dur) playRate = 0;
+    updatePlayerDisplay(playTime);
+  }
+}, 50);
+
+/* Chuyển tab */
+document.querySelectorAll(".step").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".step").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    const t = btn.dataset.tab;
+    document.getElementById("mainView").classList.toggle("hidden", t === "p3");
+    document.getElementById("camView").classList.toggle("hidden", t !== "p3");
+    document.getElementById("p1Timeline").classList.toggle("hidden", t !== "p1");
+    document.getElementById("gridTitle").textContent = t === "p1" ? "Source · Chọn mốc giai đoạn & Zoom" : "Giai đoạn 01 · Phân loại & In/Out nhanh";
+  };
+});
+
+renderGrid();
+renderRight();
+</script>
+</body>
+</html>

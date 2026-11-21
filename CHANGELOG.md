@@ -1,5 +1,14 @@
 # Nhật ký thay đổi
 
+## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **Giai đoạn 1 (`troly_vision_io.py`, `troly_core.py`, `troly_api.py`, `app.js`, `player.js`, `index.html`, `style.css`):**
+  - Kiểm chứng 30 clip thật của LV_A: 88.5% bỏ >1s đầu (trung vị 1.42s), 63.3% đoạn giữ êm/nét hơn đoạn bỏ.
+  - Tích hợp phân tích Hình ảnh (Laplacian Sharpness + Farneback Optical Flow) và Silero VAD vào `compute_sug` / `inout_suggest_start` (chỉ gợi ý, không ghi DaVinci).
+  - Giao diện: thêm thanh Zoom thumbnail Page 1 & Page 2 (`Ctrl + Lăn chuột`), Live Hover Scrub không cần giữ chuột trái trên `waveBox` & `ioBar`, đặt `I`/`O` ngay tại vị trí con trỏ chuột ở Bước 2 & 3, trả lại cụm `J-K-L` tua, đổi phím gắn sao sang `P`, kéo quét vùng chọn nhiều clip.
+- **Giai đoạn 2 (`troly_ai.py`):** Tải model `ViT-B-16-SigLIP` về `D:\VideoAI\data\models\siglip_vitb16` (cài `transformers`, `sentencepiece` vào venv AI `C:\VideoAI_ai_venv`), tách cache `troly_embed_siglip`, tự fallback OpenCLIP nếu thiếu. Đã thử nạp chạy trên GPU RTX 3060.
+- **Giai đoạn 3 (`multicam.js`, `index.html`, `style.css`):** Bổ sung Trang 2 nhiều camera (lọc theo máy A–D, chế độ Làn ngang) và Trang 3 (khung "Các máy khác lúc này" + công tắc gợi ý theo giờ chung mặc định TẮT).
+- Kiểm thử: 584 bài test đạt (`test_giai_doan_1_moi.py`, `test_giai_doan_2_va_3.py` và toàn bộ bộ test nền). Chưa mở kiểm tra trực tiếp trong cửa sổ pywebview thật với DaVinci thật.
+
 ## 2026-11-20 – Tool học từ 5 project cũ (tools/hoc_tu_cu.py), CHỜ ANH CHẠY
 - Một lệnh, hỏi Y trước khi chạy. Chỉ đọc: xuất .drp bản gốc, nhập project tạm _hoc_tu_cu_*, đọc timeline+clip, lấy mẫu thưa bằng ffmpeg (âm thanh + khung nhỏ, không chạy model), phân tích ra số (In/Out, "sao" = clip có trên timeline chính, điểm chuyển, lệch đồng hồ giữa máy). Nhớ tiến độ, chạy lại là làm tiếp.
 - Tên khách thật chỉ ở hoc_tu_cu.local.json (đã vào .gitignore); mã và báo cáo dùng LV_A..LV_E. Test: tests/test_hoc_tu_cu.py. Chưa chạy thật trên DaVinci và ổ đĩa của anh.

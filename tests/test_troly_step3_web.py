@@ -32,7 +32,7 @@ class Step3Web(unittest.TestCase):
     def test_chu_huong_dan_co_chuc_nang_that(self):
         keys = self.html[self.html.index('<span class="keys p3-keys">'):]
         keys = keys[:keys.index("</span>")]
-        for k in ("Space", "KeyI", "KeyO", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "KeyJ"):
+        for k in ("Space", "KeyI", "KeyO", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "KeyP"):
             self.assertIn('"%s"' % k, self.pl + self.app, k)                                        # mỗi phím nêu trên trang có code xử lý
         self.assertIn('e.code !== "KeyA"', self.s3)                                                 # A nhận gợi ý (Bước 3)
         for t in ("←/→", "↑/↓", "<b>A</b> nhận gợi ý"):
@@ -52,8 +52,10 @@ class Step3Web(unittest.TestCase):
         self.assertNotIn("digitOf", p3)                                                             # phím số không xếp bin ở Bước 3
         self.assertIn('/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range"', self.pl)
 
-    def test_i_o_chi_chay_o_buoc_3(self):
-        self.assertIn('page !== 3 && (e.code === "KeyI" || e.code === "KeyO")', self.pl)
+    def test_i_o_chay_o_buoc_2_va_3(self):
+        self.assertIn('e.code === "KeyI"', self.pl)
+        self.assertIn('e.code === "KeyO"', self.pl)
+        self.assertIn('page !== 2 && page !== 3', self.pl)
 
     def test_khong_goi_ghi_davinci_tu_trang_nay(self):
         for src in (self.s3, self.html):

@@ -20,7 +20,11 @@ Ai làm xong việc gì thì sửa file này (xem `AGENTS.md` mục 5). Đầu m
 4. Lời nói/Whisper: model đáng thử (cần người dùng DUYỆT trước khi tải): whisper large-v3-turbo, Qwen3-ASR-1.7B, PANNs/YAMNet, SigLIP so với OpenCLIP. Không dùng InsightFace (cần giấy phép thương mại). Tài liệu: `nghien_cuu/` trong project Claude (slide FramePilot_nghien_cuu).
 
 ## Đang chờ người dùng thử / quyết (đừng tự đặt "Xong")
-- B7: Space phát/dừng clip ở Bước 2 (nếu chưa commit thì xem `git status`). Phát khi không có proxy cần mở rộng máy chủ phát sang file gốc: chưa làm, chờ quyết.
+- **21/11 (Antigravity làm 3 giai đoạn, 584 test đạt):**
+  - Giai đoạn 1: Gợi ý In/Out bằng Hình ảnh (độ nét + độ rung, bỏ ~1.3s đầu) + VAD (`troly_vision_io.py`), thanh Zoom ảnh Page 1/2, Hover Scrub không cần giữ chuột, cụm `J-K-L` tua / `I-O` tại con trỏ chuột (cả Bước 2 & 3), `P` gắn sao ★, quét chuột chọn nhiều clip.
+  - Giai đoạn 2: SigLIP (`ViT-B-16-SigLIP`) đã tải về `D:\VideoAI\data\models\siglip_vitb16` và nối vào `troly_ai.py` (đã thử chạy GPU thật, chờ anh bấm Tự phân loại trên project thật).
+  - Giai đoạn 3: Nhiều camera Trang 2 (làn ngang + lọc máy) & Trang 3 (Các máy khác lúc này + công tắc giờ chung mặc định TẮT) trong `multicam.js` — mới kiểm thử tự động, CHƯA thử trên DaVinci + pywebview thật.
+- B7: Space phát/dừng clip ở Bước 2 (đã commit d93de1f). Phát khi không có proxy cần mở rộng máy chủ phát sang file gốc: chưa làm, chờ quyết.
 - Tự phân loại AI Bước 2 xếp 0 clip: đã sửa (bỏ ràng buộc proxy), chờ người dùng bấm Tự phân loại lại.
 - Bước 1 chọn mốc với NHIỀU máy THẬT trên panel pywebview: mới thử bằng DaVinci giả.
 - Các mục "CHƯA CHẠY THẬT" trong `docs/RA_SOAT_19_11.md`.

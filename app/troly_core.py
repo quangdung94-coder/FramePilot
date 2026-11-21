@@ -1072,13 +1072,16 @@ def sug_signature(plan, label):
     return "|".join(str(x) for x in (plan.get("shoot_style") or "", t[1], t[2], t[3], trad_default(plan), trad_for(plan, label), sug_pad(plan)))
 
 
-def compute_sug(plan, clip, label, lines):
-    """Gợi ý cho một clip: mức 2 nếu có chữ Whisper, không thì mức 1. Trả dict {in, out, src: 'speech'|'rule', rule, sig, pad} hoặc None."""
+def compute_sug(plan, clip, label, lines, vision=None):
+    """Gợi ý cho một clip: ưu tiên chữ Whisper / VAD (nếu có), rồi đến phân tích Hình ảnh (nét + êm), cuối cùng là quy tắc bin.
+    Trả dict {in, out, src: 'speech'|'vision'|'rule', rule, sig, pad} hoặc None."""
     dur = float(clip.dur or 0)
     pad = sug_pad(plan)
     sp = speech_span(lines, dur, pad) if lines else None
     if sp:
         return {"in": sp[0], "out": sp[1], "src": "speech", "rule": "Theo lời nói (đệm %g s)" % pad, "sig": sug_signature(plan, label), "pad": pad}
+    if vision and vision.get("in") is not None and vision.get("out") is not None:
+        return {"in": vision["in"], "out": vision["out"], "src": "vision", "rule": vision.get("rule") or "Hình ảnh (Nét + Êm)", "sig": sug_signature(plan, label), "pad": pad}
     r = suggest_plan(plan, dur, label)
     if r is None:
         return None

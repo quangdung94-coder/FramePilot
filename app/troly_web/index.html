@@ -76,7 +76,7 @@
         <div class="tree-note">Chọn bin mẹ, rồi bấm clip đầu và clip cuối của từng giai đoạn.<label class="vcam" title="Mặc định TẮT: chỉ nhóm máy theo track (kích thước mã hoá gốc + tiền tố tên file, bỏ qua cờ xoay). Bật thì tách thêm theo hướng sau xoay."><input type="checkbox" id="vertCams"> Có máy quay dọc</label></div>
       </div>
       <div class="pane">
-        <div class="pane-h"><span id="g1Title">Source</span><span class="r" id="g1Count"></span></div>
+        <div class="pane-h"><span id="g1Title">Source</span><div class="zoom-ctl" title="Phóng to / thu nhỏ thumbnail (hoặc Ctrl + Lăn chuột)"><span>−</span><input type="range" id="g1Zoom" min="80" max="260" value="118" aria-label="Cỡ thumbnail trang 1"><span>+</span></div><span class="r" id="g1Count"></span></div>
         <div class="keybar" id="keybar"></div>
         <div class="pane-b g1" id="g1" tabindex="0"></div>
       </div>
@@ -102,8 +102,11 @@
         <h1 class="h20" id="gridTitle">Chưa chọn giai đoạn</h1>
         <span class="dim13" id="gridHint">Kéo thumbnail vào bin bên trái, hoặc bấm phím số. Mỗi lần bạn xếp, AI ghi lại để học.</span>
       </div>
+      <div class="zoom-ctl" title="Phóng to / thu nhỏ thumbnail (hoặc Ctrl + Lăn chuột)"><span>Cỡ ảnh</span><input type="range" id="g2Zoom" min="120" max="320" value="200" aria-label="Cỡ thumbnail trang 2"></div>
       <span class="dim13b" id="doneText"></span>
     </div>
+    <div class="mc-bar hidden" id="mcBar2"></div>
+    <div class="mc-lanes hidden" id="mcLanes2"></div>
     <div class="grid-scroll" id="gridScroll" tabindex="0">
       <div class="grid" id="grid"></div>
     </div>
@@ -156,7 +159,7 @@
       <div class="ai-acts" id="aiActs"></div>
       <span class="ai-msg">Phím <b>A</b> nhận hạng 1 · <b>X</b> bỏ qua. Tự phân loại chỉ gán nhãn, chưa chuyển clip trong DaVinci.</span>
     </div>
-    <button class="btn btn-star btn-44" id="starToggleBtn">☆ Gắn sao (phím J)</button>
+    <button class="btn btn-star btn-44" id="starToggleBtn">☆ Gắn sao (phím P)</button>
     <span class="dim12">Đặt điểm In / Out ở bước 3 · In / Out (có sóng âm và bảng quy tắc).</span>
     <div class="info-box">
       <span class="dim12">Clip đang chọn</span>
@@ -210,8 +213,9 @@
       <div class="p3-txh"><b id="p3TxT">Lời nói (Whisper)</b><span class="p3-txpill" id="p3TxPill"></span><span class="p3-txhint" id="p3TxHint">Bấm một câu để đặt In/Out theo câu đó · Shift + bấm câu khác để nối dài</span></div>
       <div class="p3-txl" id="p3TxList"></div>
     </div>
+    <div class="mc-box hidden" id="mcLanes3"></div>
     <div class="inline8 io-write">
-      <button class="btn flex1" id="p3Star" title="Bật/tắt sao của clip đang xem (phím J)">☆ Gắn sao (J)</button>
+      <button class="btn flex1" id="p3Star" title="Bật/tắt sao của clip đang xem (phím P)">☆ Gắn sao (P)</button>
       <button class="btn flex1 p3-acc" id="p3Accept" title="Biến gợi ý xanh của clip đang xem thành In/Out đặt tay (cam) rồi sang clip kế (phím A). Chỉ trong Trợ lý, chưa ghi vào DaVinci.">Nhận gợi ý (A)</button>
       <button class="btn flex1" id="ioWriteStar" title="Ghi In/Out đặt tay của các clip có sao vào Media Pool (có hộp xác nhận)">Ghi In/Out clip sao</button>
       <button class="btn flex1" id="ioWriteSel" title="Ghi In/Out đặt tay của clip đang xem (hoặc các clip chọn ở bước 2)">Ghi clip đang chọn</button>
@@ -394,5 +398,6 @@
 <script src="step3.js"></script>
 <script src="ai.js"></script>
 <script src="step5.js"></script>
+<script src="multicam.js"></script>
 </body>
 </html>

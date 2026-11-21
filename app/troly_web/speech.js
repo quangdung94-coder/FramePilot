@@ -257,7 +257,7 @@ $("lnBar").addEventListener("mousedown", (ev) => {
 function lnKey(e) {
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
   if (e.ctrlKey && e.code === "KeyA") { e.preventDefault(); LN.pick = new Set(LN.rows.filter(inStage).map((r) => r.uid)); renderRows(); renderExportBtns(); return; }
-  if (e.code === "KeyJ" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleStar(); return; }
+  if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleStar(); return; }
   const dir = { ArrowUp: -1, ArrowDown: 1 }[e.key];
   if (!dir) return;
   e.preventDefault();

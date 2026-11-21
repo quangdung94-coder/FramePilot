@@ -30,6 +30,7 @@ import troly_dur as td            # noqa: E402
 import troly_tl as ttl            # noqa: E402
 import troly_lut as tl            # noqa: E402
 import troly_kf as tkf            # noqa: E402
+import troly_vision_io as tvio    # noqa: E402
 
 AI_AUTO_BY = "ai_auto"                 # dấu riêng của nhãn do AI tự xếp (Việc 3, ADR-0023)
 AI_AUTO_DEFAULT = 0.5
@@ -1509,17 +1510,27 @@ class TrolyApi(object):
             self._sug_run = {"n": 0, "total": len(todo)}
 
         def go():
-            res, n_speech = {}, 0
+            res, n_speech, n_vision = {}, 0, 0
             try:
                 for i, (c, lb) in enumerate(todo):
                     if self._closed:
                         return
                     _has, lines = self._speech_lines_for(c)
+                    vis = None
+                    if not lines and getattr(c, "proxy", None) and os.path.exists(c.proxy):
+                        lb_low = (lb or "").lower()
+                        if any(k in lb_low for k in ("phỏng vấn", "phong van", "lễ", "gia tiên", "phát biểu", "vows")):
+                            lines = tvio.analyze_proxy_vad(c.proxy, c.dur)
+                        if not lines:
+                            vis = tvio.analyze_proxy_vision(c.proxy, c.dur, target_len=3.5)
                     with self._lock:
-                        r = tc.compute_sug(self._plan, c, lb, lines)
+                        r = tc.compute_sug(self._plan, c, lb, lines, vision=vis)
                     if r:
                         res[c.rel] = dict(r, at=datetime.datetime.now().isoformat(timespec="seconds"))
-                        n_speech += r["src"] == "speech"
+                        if r["src"] == "speech":
+                            n_speech += 1
+                        elif r["src"] == "vision":
+                            n_vision += 1
                     self._sug_run["n"] = i + 1
                     if i % 8 == 0:
                         self._emit("inout_sug_progress", {"n": i + 1, "total": len(todo)})
@@ -1531,7 +1542,7 @@ class TrolyApi(object):
             finally:
                 with self._lock:
                     self._sug_run = None
-                self._emit("inout_sug_done", {"total": len(todo), "speech": n_speech, "rule": len(res) - n_speech})
+                self._emit("inout_sug_done", {"total": len(todo), "speech": n_speech, "vision": n_vision, "rule": len(res) - n_speech - n_vision})
         threading.Thread(target=go, daemon=True).start()
         return {"ok": True, "total": len(todo), "kept": kept}
 

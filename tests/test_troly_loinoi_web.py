@@ -35,7 +35,7 @@ class TabsLoiNoi(unittest.TestCase):
 
     def test_phim_tat_loi_noi_dung_event_code_va_bo_qua_o_nhap(self):
         key = self.sp[self.sp.index("function lnKey"):][:600]
-        self.assertIn('e.code === "KeyJ"', key)
+        self.assertIn('e.code === "KeyP"', key)
         self.assertNotRegex(key, r"e\.key\s*===?\s*[\"']j[\"']")
         self.assertIn("INPUT|SELECT|TEXTAREA", key)
         self.assertIn("if (page === 4) { lnKey(e); return; }", self.js)
