@@ -9,8 +9,16 @@ import json
 import os
 import sys
 
-APP = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(APP)
+if getattr(sys, "frozen", False):
+    _EXE_DIR = os.path.dirname(os.path.abspath(sys.executable))
+    APP = getattr(sys, "_MEIPASS", _EXE_DIR)
+    # Nếu chạy từ dist/FramePilot/FramePilot.exe cạnh repo thì ưu tiên config.json ở cạnh exe, không có mới lùi lên repo
+    _cfg_here = os.path.join(_EXE_DIR, "config.json")
+    _repo_guess = os.path.abspath(os.path.join(_EXE_DIR, "..", ".."))
+    ROOT = _EXE_DIR if os.path.isfile(_cfg_here) else (_repo_guess if os.path.isfile(os.path.join(_repo_guess, "config.json")) else _EXE_DIR)
+else:
+    APP = os.path.dirname(os.path.abspath(__file__))
+    ROOT = os.path.dirname(APP)
 CONFIG = os.path.join(ROOT, "config.json")
 
 

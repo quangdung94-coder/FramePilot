@@ -185,6 +185,39 @@ function plNudge(frames) {                                     // mũi tên: ch�
   } else plSeek(PL.vid.currentTime + d);
 }
 
+function snapSilence(t, dur) {
+  if (!$("waveSnap") || !$("waveSnap").checked || !PL.wave || !PL.wave.length || !(dur > 0)) return t;
+  const arr = PL.wave, n = arr.length;
+  const idx = Math.round((t / dur) * (n - 1));
+  const win = Math.max(1, Math.round((0.35 / dur) * n));
+  let best = idx, bestV = arr[idx] || 0;
+  for (let k = Math.max(0, idx - win); k <= Math.min(n - 1, idx + win); k++) {
+    if (arr[k] < bestV) { bestV = arr[k]; best = k; }
+  }
+  return bestV < 0.14 ? Math.max(0, Math.min(dur, (best / Math.max(1, n - 1)) * dur)) : t;
+}
+
+(function initWaveZoom() {
+  const sc = $("waveScroll"), wb = $("waveBox"), ib = $("ioBar"), zt = $("waveZTxt");
+  if (!sc || !wb || !ib) return;
+  let wz = 100;
+  const setWz = (v) => {
+    wz = Math.max(100, Math.min(1200, Math.round(v / 25) * 25));
+    wb.style.width = wz + "%";
+    ib.style.width = wz + "%";
+    if (zt) zt.textContent = (wz / 100).toFixed(wz % 100 === 0 ? 0 : 1) + "x";
+    if (typeof waveDraw === "function") waveDraw();
+  };
+  if ($("waveZIn")) $("waveZIn").onclick = () => setWz(wz + 100);
+  if ($("waveZOut")) $("waveZOut").onclick = () => setWz(wz - 100);
+  if ($("waveZFit")) $("waveZFit").onclick = () => { setWz(100); sc.scrollLeft = 0; };
+  sc.addEventListener("wheel", (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    setWz(wz + (e.deltaY < 0 ? 100 : -100));
+  }, { passive: false });
+})();
+
 /* ---- kéo hai mép bằng chuột; bấm vào thanh để lướt tới đó ---- */
 $("ioBar").addEventListener("mousedown", (ev) => {
   const c = curClip(); if (!c || !(c.dur > 0)) return;
@@ -202,7 +235,7 @@ $("ioBar").addEventListener("mousedown", (ev) => {
   let a = spans.length ? spans[actIdx][0] : (c.sug ? c.sug.in_s : 0);
   let b = spans.length ? spans[actIdx][1] : (c.sug ? c.sug.out_s : dur);
   const move = (m) => {
-    const t = tAt(m.clientX), s = plStep();
+    const t = snapSilence(tAt(m.clientX), dur), s = plStep();
     if (which === "in") a = Math.min(t, b - s); else b = Math.max(t, a + s);
     if (spans.length) { spans[actIdx] = [a, b]; c.inouts = spans; c.in_s = spans[0][0]; c.out_s = spans[0][1]; }
     else { c.in_s = a; c.out_s = b; }

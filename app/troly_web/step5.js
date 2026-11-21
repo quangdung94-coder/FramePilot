@@ -144,6 +144,7 @@ function d5Paint() {
   const w = $("d5Warn");
   if (ws.length) { w.innerHTML = ws.map((x) => `<span>⚠ ${esc(x.text)}</span>`).join(""); w.classList.remove("hidden"); } else w.classList.add("hidden");
   $("d5Create").disabled = !v.items.length;
+  if ($("d5CamTrackWrap")) $("d5CamTrackWrap").classList.toggle("hidden", !((v.n_machines || 0) > 1));
   $("d5CreateHint").innerHTML = `Timeline mới có 2 track hình V1, V2 đúng như trên màn hình, tên “Rough Cut sao ${esc(v.project || "")} &lt;ngày giờ&gt;”. Không sửa timeline đang có.`;
   $("d5FootL").textContent = `${v.n_starred} clip sao · V1 ${d5mm(v.total_s)}${v.v2_s > 0 ? ` · V2 chồng ${d5mm(v.v2_s)}` : ""} · mục tiêu ${d5mm(v.target_s)}`;
   if (keep) {
@@ -168,7 +169,9 @@ function d5PaintOrder(v) {
     const subHtml = exp ? `<div class="tl-subclips">${subItems.length ? subItems.map((it) => {
       const durIt = it.dur != null ? it.dur : Math.max(0, (it.out_s || 0) - (it.in_s || 0));
       const clName = it.name || (S && S.clips && (S.clips.find((x) => x.uid === it.uid) || {}).name) || it.uid;
-      return `<div class="tl-sc" data-jump-uid="${esc(it.uid)}" title="Bấm để mở clip này ở Bước 3"><b>${esc(clName)}</b><span class="sc-io">${d5mm(it.in_s || 0)} → ${d5mm(it.out_s || 0)}</span><span class="sc-len">${d5mm(durIt)}</span></div>`;
+      const mkChip = it.mk ? `<span class="cam-chip sm">${esc(it.mk)}</span>` : "";
+      const ovTag = it.overlap ? `<span class="sc-ov" title="Cùng bin này có máy khác quay trùng khoảnh khắc">trùng giờ</span>` : "";
+      return `<div class="tl-sc" data-jump-uid="${esc(it.uid)}" title="Bấm để mở clip này ở Bước 3"><b>${mkChip}${esc(clName)}</b>${ovTag}<span class="sc-io">${d5mm(it.in_s || 0)} → ${d5mm(it.out_s || 0)}</span><span class="sc-len">${d5mm(durIt)}</span></div>`;
     }).join("") : '<div class="dim12">Không có clip nào trong khối này.</div>'}</div>` : "";
     return `<div class="tl-tb${b.key === D5.hl ? " hl" : ""}${b.cluster !== b.stage ? " foreign" : ""}" data-row="${esc(k)}" data-idx="${idx}">
       <span class="tl-c0">${idx + 1}</span><span class="tl-cg tl-grip" data-rowgrab="${esc(k)}" title="Kéo để đổi thứ tự">${SVG_GRIP}</span>
@@ -529,8 +532,19 @@ $("d5Create").addEventListener("click", async () => {
     `<div>Thứ tự: theo cách bạn xếp trên màn hình (V1 rồi V2 chồng)</div><br>Chỉ tạo <b>MỘT timeline MỚI</b> có 2 track hình V1, V2. Không sửa hay xóa timeline đang có, không ghi In/Out lên clip gốc. Slow giữ nguyên In/Out nên clip dài hơn và các clip sau V1 bị đẩy ra sau. Tắt tiếng chỉ tắt clip tiếng của khối (A1 cho V1, A2 cho V2), không đụng A3 trở lên. Trợ lý ghi nhật ký trước khi tạo và đọc lại vị trí để kiểm.`,
     "Tạo timeline mới");
   if (!ok) return status("Đã hủy, chưa tạo gì trong DaVinci.", "info");
-  const r = await api().dur_create_timeline();
+  const multiTrack = !!($("d5CamTrack") && $("d5CamTrack").checked);
+  const r = await api().dur_create_timeline(multiTrack);
   if (r.error) return status(r.error, "warn");
   status(`Đang tạo timeline “${r.name}”...`, "info");
 });
+if ($("d5Presets")) {
+  $("d5Presets").querySelectorAll("[data-min]").forEach((b) => {
+    b.onclick = async () => {
+      const r = await api().dur_set_target(+b.dataset.min);
+      if (r && r.error) return status(r.error, "warn");
+      D5.v = r; d5Paint();
+      status(`Đã đặt mục tiêu ${b.textContent}.`, "ok");
+    };
+  });
+}
 window.addEventListener("resize", () => { if (page === 5) d5Paint(); });

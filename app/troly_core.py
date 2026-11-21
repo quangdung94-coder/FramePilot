@@ -835,6 +835,22 @@ def toggle_star(plan, clip):
     return True
 
 
+def is_rejected(plan, clip):
+    return bool((plan.get("rejected") or {}).get(clip.rel))
+
+
+def set_rejected(plan, clip, val=None):
+    """Đặt hoặc đảo cờ Bỏ (rejected) trong kế hoạch JSON. Không bao giờ đụng file thật hay Media Pool."""
+    rej = plan.setdefault("rejected", {})
+    cur = bool(rej.get(clip.rel))
+    nxt = (not cur) if val is None else bool(val)
+    if nxt:
+        rej[clip.rel] = True
+    else:
+        rej.pop(clip.rel, None)
+    return nxt
+
+
 def load_plan(data_root, project):
     """Nạp kế hoạch của project. File chính hỏng thì GIỮ NGUYÊN file hỏng (đổi tên .corrupt-<giờ>) rồi nạp .bak; cả hai hỏng
     mới trả kế hoạch rỗng. Không bao giờ để lần lưu sau ghi đè mất file hỏng. plan['_note'] ghi chú việc đã làm (không lưu)."""

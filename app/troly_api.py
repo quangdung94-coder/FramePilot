@@ -15,6 +15,7 @@ import datetime
 import json
 import os
 import queue
+import shutil
 import sys
 import threading
 import time
@@ -32,6 +33,7 @@ import troly_lut as tl            # noqa: E402
 import troly_kf as tkf            # noqa: E402
 import troly_vision_io as tvio    # noqa: E402
 import troly_env as te            # noqa: E402
+import troly_hw as hw             # noqa: E402
 
 AI_AUTO_BY = "ai_auto"                 # dấu riêng của nhãn do AI tự xếp (Việc 3, ADR-0023)
 AI_AUTO_DEFAULT = 0.5
@@ -250,7 +252,7 @@ class TrolyApi(object):
                               "manual": bool(tc.manual_of(self._plan, c)), "camera": c.camera, "src": c.t_src, "lut": self._effective_lut(c) or "", "bin_path": c.bin_path,
                               "thumb": c.uid in self._thumb_done and bool(self._thumb_done[c.uid][0]),
                               "in_s": in_s, "out_s": out_s, "inouts": [[a, b] for a, b in tc.manual_inouts(self._plan, c)], "io_src": io_src, "dv": dv, "fps": fps, "tc": c.tc or "", "sug": sug,
-                              "star": tc.is_starred(self._plan, c)})
+                              "star": tc.is_starred(self._plan, c), "rejected": tc.is_rejected(self._plan, c)})
             gap = None
             if self._day0 and self._clips:
                 gs = tc.gaps(self._clips, self._day0, self._plan["offsets"])
@@ -264,13 +266,18 @@ class TrolyApi(object):
                     "n": len(self._clips), "new_n": self._new_n, "gone_n": self._gone_n,
                     "n_manual": sum(1 for c in self._clips if tc.manual_of(self._plan, c)),
                     "n_starred": sum(1 for c in self._clips if tc.is_starred(self._plan, c)),
+                    "n_rejected": sum(1 for c in self._clips if tc.is_rejected(self._plan, c)),
                     "inout_sug": self._sug_state(),
                     "shoot_style": self._plan.get("shoot_style") or "",
                     "rules": self._rules_state(),
                     "stages": stages, "outside": outside, "clips": clips, "gap": gap,
                     "cameras": [{"cam": k, "n": v, "off": self._plan["offsets"].get(k, 0)} for k, v in
                                 cams.most_common()],
-                    "src": self._src_view(), "machines": [{k: m[k] for k in ("key", "letter", "name", "color", "prefix", "n")} for m in self._machines],
+                    "src": self._src_view(),
+                    "machines": [{**{k: m[k] for k in ("key", "letter", "color", "prefix", "n")},
+                                  "name": (self._plan.get("machine_names") or {}).get(m["key"]) or m["name"]}
+                                 for m in self._machines],
+                    "hw": hw.detect(),
                     "audio": self._audio_view(), "events": self._events_view(),
                     "template": self._plan.get("template") if self._tl_want else (self._plan.get("template") or tc.DEFAULT_TEMPLATE),
                     "templates": list(tc.templates(self._root, custom_path=self._tpl_custom())),
@@ -1913,7 +1920,7 @@ class TrolyApi(object):
         return (self._thumb_done.get(uid) or (None, ""))[1] or ""
 
     def toggle_star(self, uids):
-        """Bật / tắt dấu sao ★ cho danh sách clip uid (phím J hoặc nút bấm)."""
+        """Bật / tắt dấu sao ★ cho danh sách clip uid (phím P hoặc nút bấm)."""
         with self._lock:
             for uid in uids:
                 c = self._by_uid.get(uid)
@@ -1921,6 +1928,136 @@ class TrolyApi(object):
                     tc.toggle_star(self._plan, c)
             self._save_soon()
         return self.state()
+
+    def toggle_reject(self, uids, val=None):
+        """Gắn / bỏ cờ Bỏ (phím X) trong kế hoạch JSON. Không bao giờ đụng file thật hay Media Pool."""
+        with self._lock:
+            for uid in (uids or []):
+                c = self._by_uid.get(uid)
+                if c:
+                    tc.set_rejected(self._plan, c, val)
+            self._save_soon()
+        return self.state()
+
+    def rename_machine(self, key, name):
+        """Đặt tên gợi nhớ cho máy quay A/B/C/D (lưu trong kế hoạch project)."""
+        nm = " ".join(str(name or "").split())[:28]
+        if not nm:
+            return {"error": "Tên máy không được để trống."}
+        with self._lock:
+            mp = self._plan.setdefault("machine_names", {})
+            mp[str(key)] = nm
+            self._save_soon()
+        return self.state()
+
+    def hw_info(self):
+        return hw.detect(refresh=True)
+
+    def _cache_base(self):
+        return (te.config().get("cache_root") or "").strip() or self._root
+
+    def cache_list(self):
+        """Liệt kê dung lượng các thư mục cache tái tạo được (KHÔNG chạm plan/*.json)."""
+        root = self._cache_base()
+        if not root or not os.path.isdir(root):
+            return {"root": root or "", "items": [], "total_mb": 0.0}
+        buckets = ("thumbs", "wave", "kf", "ram", "ai_embed")
+        by_proj = collections.defaultdict(int)
+        other_bytes = 0
+        for b in buckets:
+            bd = os.path.join(root, "troly", b)
+            if not os.path.isdir(bd):
+                continue
+            try:
+                for entry in os.scandir(bd):
+                    if entry.is_dir():
+                        sz = 0
+                        for dp, _dn, fns in os.walk(entry.path):
+                            for fn in fns:
+                                try:
+                                    sz += os.path.getsize(os.path.join(dp, fn))
+                                except OSError:
+                                    pass
+                        by_proj[entry.name] += sz
+                    elif entry.is_file():
+                        try:
+                            other_bytes += entry.stat().st_size
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+        items = [{"slug": k, "mb": round(v / (1024 * 1024), 1), "is_current": k == tc._safe(self._project)}
+                 for k, v in sorted(by_proj.items(), key=lambda kv: -kv[1])]
+        total = round((sum(by_proj.values()) + other_bytes) / (1024 * 1024), 1)
+        return {"root": root, "items": items, "total_mb": total}
+
+    def cache_clear(self, slug=None):
+        """Xóa cache thumbnail/sóng âm/keyframe/AI embed của project `slug` (mặc định: project hiện tại). KHÔNG đụng file kế hoạch JSON."""
+        root = self._cache_base()
+        target = slug or tc._safe(self._project)
+        if not root or not target:
+            return {"error": "Không xác định được thư mục cache."}
+        removed = 0
+        for b in ("thumbs", "wave", "kf", "ram", "ai_embed"):
+            p = os.path.join(root, "troly", b, target)
+            if os.path.isdir(p):
+                shutil.rmtree(p, ignore_errors=True)
+                removed += 1
+        if target == tc._safe(self._project):
+            with self._lock:
+                self._thumb_done.clear()
+                self._ai_cache = {}
+        return {"ok": True, "removed": removed, "cache": self.cache_list()}
+
+    def ai_search(self, query, limit=40):
+        """Tìm clip theo mô tả tự nhiên (kết hợp tên/bin + gợi ý SigLIP/OpenCLIP đã lưu sẵn)."""
+        q = (query or "").strip().lower()
+        if not q:
+            return {"uids": [], "mode": "empty"}
+        with self._lock:
+            _vec, desc = self._ai_data()
+            words = [w for w in q.split() if w]
+            scored = []
+            # Map từ khóa query sang tên bin gần nhất nếu có gợi ý AI
+            ai_bins = desc.get("bins") if isinstance(desc, dict) else None
+            for c in self._clips:
+                s = 0.0
+                txt = (c.name + " " + (c.bin_path or "") + " " + (tc.label_of(self._plan, c) or {}).get("bin", "")).lower()
+                for w in words:
+                    if w in txt:
+                        s += 2.0
+                if isinstance(ai_bins, dict):
+                    row = ai_bins.get(c.rel) or {}
+                    bname = str(row.get("bin") or "").lower()
+                    if any(w in bname for w in words):
+                        s += 1.5 * float(row.get("score") or 0.5)
+                if s > 0:
+                    scored.append((s, c.uid))
+            scored.sort(key=lambda x: -x[0])
+            return {"uids": [u for _, u in scored[:int(limit)]], "mode": "ai+text" if ai_bins else "text"}
+
+    def ai_similar(self, uid, limit=24):
+        """Tìm các clip có góc/bối cảnh tương đồng nhất bằng vector SigLIP/OpenCLIP đã lưu (hoặc cùng bin/máy nếu chưa có vector)."""
+        with self._lock:
+            cur = self._by_uid.get(uid)
+            if cur is None:
+                return {"uids": [], "mode": "none"}
+            vec, _desc = self._ai_data()
+            if vec and cur.rel in vec:
+                import numpy as np
+                v0 = vec[cur.rel]
+                hits = []
+                for c in self._clips:
+                    if c.uid == uid or c.rel not in vec:
+                        continue
+                    sim = float(np.dot(v0, vec[c.rel]))
+                    hits.append((sim, c.uid))
+                hits.sort(key=lambda x: -x[0])
+                return {"uids": [u for _, u in hits[:int(limit)]], "mode": "vector"}
+            # Fallback nhẹ khi chưa chạy AI vector: cùng bin con hoặc cùng máy & gần giờ quay
+            cur_lab = (tc.label_of(self._plan, cur) or {}).get("bin")
+            hits = [c.uid for c in self._clips if c.uid != uid and ((tc.label_of(self._plan, c) or {}).get("bin") == cur_lab if cur_lab else c.camera == cur.camera)]
+            return {"uids": hits[:int(limit)], "mode": "fallback"}
 
     def append_starred(self):
         """Đưa toàn bộ clip có sao ★ vào timeline của DaVinci (theo thứ tự giờ quay)."""
@@ -1967,6 +2104,26 @@ class TrolyApi(object):
             b["color"] = next((x["color"] for x in r["stages"][si]["bins"] if x["name"] == b["bin"]), "#888")
             b["si"] = si
         r["tl"] = lay
+        # Gắn thông tin máy & cảnh báo trùng giờ cho từng khúc clip ở Bước 5
+        m_by_uid = {}
+        if self._day0:
+            for c in self._clips:
+                mm = tc.clip_minutes(c, self._day0, self._plan["offsets"])
+                m_by_uid[c.uid] = (self._mk_letter.get(c.uid, ""), mm[0] if mm else None, mm[1] if mm else None)
+        by_bin_items = collections.defaultdict(list)
+        for it in r.get("items") or []:
+            mk, m0, m1 = m_by_uid.get(it["uid"], (self._mk_letter.get(it["uid"], ""), None, None))
+            it["mk"], it["m0"], it["m1"], it["overlap"] = mk, m0, m1, False
+            if m0 is not None and m1 is not None:
+                by_bin_items[it["key"]].append(it)
+        for k, grp in by_bin_items.items():
+            for idx_a in range(len(grp)):
+                for idx_b in range(idx_a + 1, len(grp)):
+                    a, b = grp[idx_a], grp[idx_b]
+                    if a["mk"] and b["mk"] and a["mk"] != b["mk"] and a["m0"] < b["m1"] and b["m0"] < a["m1"]:
+                        a["overlap"] = True
+                        b["overlap"] = True
+        r["n_machines"] = len(self._machines)
         r["tl_summary"] = ttl.summary(r, self._plan)
         r["tl_manual"] = ttl.is_manual(self._plan)
         r["tl_fps_known"] = self._tl_fps
@@ -2161,9 +2318,9 @@ class TrolyApi(object):
             self._save_soon()
             return self._dur_view()
 
-    def dur_create_timeline(self):
+    def dur_create_timeline(self, multi_track=False):
         """Nút "Đưa lên Timeline mới" (giao diện đã hỏi xác nhận). Tính lại kế hoạch NGAY lúc bấm rồi tạo đúng bản đó (không còn bước cắt gọt riêng).
-        Ghi nhật ký (số clip, tổng giây) TRƯỚC khi tạo; chỉ tạo timeline mới, không SetMarkInOut lên clip gốc."""
+        multi_track=True khi nhiều máy: A->V1, B->V2, C->V3, D->V4. Ghi nhật ký TRƯỚC khi tạo; chỉ tạo timeline mới, không SetMarkInOut lên clip gốc."""
         import re
         with self._lock:
             if self._busy or not self._clips:
@@ -2172,16 +2329,20 @@ class TrolyApi(object):
             if not r["items"]:
                 return {"error": "Không có clip nào để đưa lên (chưa gắn sao ★ hoặc đã bị cắt hết)."}
             fps = float(self._tl_fps or 25.0)
+            use_cam_tracks = bool(multi_track) and len(self._machines) > 1
+            cam_map = {m["letter"]: idx + 1 for idx, m in enumerate(self._machines[:4])}
             segs, rows = [], []
             for x in ttl.placements(r, self._plan):          # theo bố cục: V1 theo thứ tự cụm/khối, V2 theo vị trí; mỗi đoạn có Slow, tiếng
                 c = self._by_uid.get(x["uid"])
                 if c is None or not c.fps:
                     continue
                 a, b = tc.cut_frames(x["in_s"], x["out_s"], c.fps, c.frames)
-                segs.append({"uid": c.uid, "a": a, "b": b, "pct": x["pct"], "track": x["track"], "start_f": int(round(x["start_s"] * fps)),
+                mk = self._mk_letter.get(c.uid, "")
+                tr_name = ("V%d" % cam_map[mk]) if (use_cam_tracks and mk in cam_map) else x["track"]
+                segs.append({"uid": c.uid, "a": a, "b": b, "pct": x["pct"], "track": tr_name, "start_f": int(round(x["start_s"] * fps)),
                              "mute": bool(x["mute"])})
                 rows.append({"rel": c.rel, "stage": x["stage"], "bin": x["bin"], "in_s": x["in_s"], "out_s": x["out_s"], "in_frame": a, "out_frame": b,
-                             "pct": x["pct"], "track": x["track"], "start_s": x["start_s"], "mute": bool(x["mute"])})
+                             "pct": x["pct"], "track": tr_name, "start_s": x["start_s"], "mute": bool(x["mute"])})
             if not segs:
                 return {"error": "Không có đoạn nào hợp lệ (clip thiếu fps)."}
             stamp = datetime.datetime.now()
@@ -2281,8 +2442,8 @@ class TrolyApi(object):
             return {"dir": cfg.get("dir"), "lang": cfg.get("lang", "vi"), "running": self._speech_run is not None,
                     "counts": st.counts(keys) if st else None, "last": self._speech_last}
 
-    def speech_start(self):
-        """Chép lời mọi clip của bin đang đọc. Chạy nền, chạy tiếp được; xong báo qua sự kiện 'speech_done'."""
+    def speech_start(self, bins=None, cams=None):
+        """Chép lời các clip (lọc theo danh sách bin con `bins` và/hoặc máy `cams` nếu truyền). Chạy nền; xong báo qua 'speech_done'."""
         import troly_speech as sp
         import troly_speech_run as sr
         with self._lock:
@@ -2295,6 +2456,27 @@ class TrolyApi(object):
                 return {"error": "Chưa chọn thư mục kho lời nói."}
             cfg = self._speech_cfg()
             items = self._speech_items()
+            if bins or cams:
+                bin_set = {str(b).strip().lower() for b in (bins or []) if str(b).strip()}
+                cam_set = {str(m).strip().upper() for m in (cams or []) if str(m).strip()}
+                by_rel = {c.rel: c for c in self._clips}
+                kept = []
+                for it in items:
+                    c = by_rel.get(it["key"])
+                    if c is None:
+                        continue
+                    if bin_set:
+                        lb = ((tc.label_of(self._plan, c) or {}).get("bin") or "").strip().lower()
+                        if lb not in bin_set:
+                            continue
+                    if cam_set:
+                        mk = (self._mk_letter.get(c.uid) or "").upper()
+                        if mk not in cam_set:
+                            continue
+                    kept.append(it)
+                items = kept
+            if not items:
+                return {"error": "Không có clip nào khớp các bin/máy đã tick chọn."}
             name, vad = sp.load_vad()
             if vad is None:
                 return {"error": "Thiếu thư viện silero-vad."}
@@ -2370,9 +2552,8 @@ class TrolyApi(object):
         return {"in_s": round(a, 2), "out_s": round(b, 2), "src": src,
                 "tc_in": ss.add_timecode(row.get("tc"), a, fps), "tc_out": ss.add_timecode(row.get("tc"), b, fps)}
 
-    def speech_clips(self, only_keys=False, min_speech=0.0, text=""):
-        """Bản đồ lời nói: mỗi clip một dòng (không có chữ từng câu) + bộ lọc. 'all' = mọi clip đã có dòng (cho đếm X / Y),
-        'summary' = số liệu cả project."""
+    def speech_clips(self, only_keys=False, min_speech=0.0, text="", cam="all", only_golden=False):
+        """Bản đồ lời nói: mỗi clip một dòng (không có chữ từng câu) + bộ lọc + nhãn máy & phát hiện câu trùng giữa các máy."""
         with self._lock:
             st = self._speech_store()
             if st is None:
@@ -2380,25 +2561,54 @@ class TrolyApi(object):
             by_rel = {c.rel: c for c in self._clips}
             flags = st.line_flags()
             hits = st.search(text) if (text or "").strip() else None
+            golden_kw = ("cảm ơn", "hạnh phúc", "yêu thương", "trọn đời", "hứa", "cha mẹ", "bố mẹ", "ba mẹ", "gia đình", "chúc", "vợ chồng", "trăm năm")
             rows, all_ = [], []
             for r in st.clip_rows():
                 c = by_rel.get(r["key"])
                 if c is None or r["status"] not in ("done", "silent"):
                     continue
-                all_.append({"uid": c.uid, "stage": self._assign.get(c.uid), "spoken_s": 0.0})
+                mk = self._mk_letter.get(c.uid, "")
+                m = tc.clip_minutes(c, self._day0, self._plan["offsets"]) if self._day0 else None
+                all_.append({"uid": c.uid, "stage": self._assign.get(c.uid), "spoken_s": 0.0, "mk": mk})
                 spoken = round(sum(b - a for a, b in r["speech"]), 1)
                 all_[-1]["spoken_s"] = spoken
-                if (only_keys and not r["n_keys"]) or spoken < float(min_speech or 0) or (hits is not None and r["key"] not in hits):
+                hl = (r["headline"] or "").lower()
+                is_golden = bool(r["n_keys"]) or any(k in hl for k in golden_kw)
+                if (only_keys and not r["n_keys"]) or (only_golden and not is_golden) or spoken < float(min_speech or 0) or (hits is not None and r["key"] not in hits):
+                    continue
+                if cam and cam != "all" and mk != cam:
                     continue
                 fl = flags.get(r["key"], [])
-                rows.append({"uid": c.uid, "key": r["key"], "name": c.name, "stage": self._assign.get(c.uid),
+                rows.append({"uid": c.uid, "key": r["key"], "name": c.name, "stage": self._assign.get(c.uid), "mk": mk,
+                             "m0": m[0] if m else None, "m1": m[1] if m else None,
                              "time": c.t_start.strftime("%H:%M:%S") if c.t_start else None,
                              "t_sort": c.t_start.isoformat() if c.t_start else "",
                              "dur": r["dur"] or c.dur or 0, "fps": c.fps or 25.0, "tc": r["tc"], "spoken_s": spoken, "lang": r["lang"], "n_keys": r["n_keys"],
+                             "golden": is_golden, "dup_of": None, "dup_count": 0,
                              "headline": r["headline"] or "", "suspect": bool(r["suspect"]), "silent": r["status"] == "silent",
                              "segs": self._seg_colors(r["speech"], fl, (r["gain_db"] or 0) > 18.0),
                              "span": self._span(r["key"], r, fl, c), "star": tc.is_starred(self._plan, c)})
             rows.sort(key=lambda x: (x["t_sort"], x["key"]))
+            # Phát hiện clip trùng lời nói giữa các máy quay cùng lúc (chồng giờ chung & không phải câm)
+            for i in range(len(rows)):
+                ri = rows[i]
+                if ri["dup_of"] or ri["silent"] or ri["m0"] is None or ri["m1"] is None:
+                    continue
+                dups = []
+                for j in range(i + 1, len(rows)):
+                    rj = rows[j]
+                    if rj["dup_of"] or rj["silent"] or rj["m0"] is None or rj["m1"] is None:
+                        continue
+                    if ri["mk"] and rj["mk"] and ri["mk"] != rj["mk"]:
+                        ov = min(ri["m1"], rj["m1"]) - max(ri["m0"], rj["m0"])
+                        if ov >= 0.08:      # chồng nhau >= ~5 giây
+                            dups.append(rj)
+                if dups:
+                    best = max([ri] + dups, key=lambda x: (x["spoken_s"], x["n_keys"]))
+                    for x in [ri] + dups:
+                        if x is not best:
+                            x["dup_of"] = best["uid"]
+                    best["dup_count"] = len(dups)
             return {"rows": rows, "all": all_, "summary": st.counts([c.rel for c in self._clips])}
 
     def speech_detail(self, uid):

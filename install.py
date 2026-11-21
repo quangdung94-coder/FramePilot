@@ -45,6 +45,28 @@ subprocess.Popen(args, cwd=os.path.dirname(PANEL), env=env, close_fds=True,
 '''
 
 
+EXE_DEFAULT = os.path.join(ROOT, "dist", "FramePilot", "FramePilot.exe")
+EXE_NAME = "FramePilot (EXE).py"
+EXE_LAUNCHER = '''# FramePilot (EXE) - file khởi chạy bản đóng gói .exe (song song với bản Python).
+{marker}
+import os
+import subprocess
+
+EXE = r"{exe}"
+args = [EXE]
+try:
+    _proj = resolve.GetProjectManager().GetCurrentProject()   # noqa: F821
+    if _proj:
+        args += ["--project", _proj.GetName()]
+except Exception:
+    pass
+kw = dict(cwd=os.path.dirname(EXE), close_fds=True)
+if os.name == "nt":
+    kw["creationflags"] = 0x00000008 | 0x00000200
+subprocess.Popen(args, **kw)
+'''
+
+
 def scripts_dir():
     try:
         with open(os.path.join(ROOT, "config.json"), "r", encoding="utf-8-sig") as f:
@@ -53,6 +75,8 @@ def scripts_dir():
             return os.path.join(p, "Utility")
     except Exception:                         # noqa: BLE001
         pass
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility")
     appdata = os.environ.get("APPDATA")
     if not appdata:
         sys.exit("Không đọc được biến APPDATA của Windows.")
@@ -81,6 +105,7 @@ def old_entry(dirpath, remove, check):
 def main():
     a_ = argparse.ArgumentParser(description="Cài FramePilot vào Workspace > Scripts của DaVinci")
     a_.add_argument("--check", action="store_true", help="chỉ kiểm tra, không ghi")
+    a_.add_argument("--exe", action="store_true", help="cài thêm mục menu \"FramePilot (EXE)\" song song với bản Python")
     a_.add_argument("--remove-old", action="store_true", help="xóa mục menu tên cũ \"VideoAI Trợ lý File Quay\" (chỉ khi file do install.py tạo)")
     a = a_.parse_args()
     try:
@@ -118,6 +143,15 @@ def main():
         f.write(want)
     os.replace(dst + ".tmp", dst)
     old_entry(os.path.dirname(dst), a.remove_old, a.check)
+    if a.exe:
+        if not os.path.isfile(EXE_DEFAULT):
+            sys.exit("Chưa thấy " + EXE_DEFAULT + ". Hãy chạy build_exe.py trước.")
+        edst = os.path.join(scripts_dir(), EXE_NAME)
+        ewant = EXE_LAUNCHER.format(marker=MARKER, exe=EXE_DEFAULT)
+        with open(edst + ".tmp", "w", encoding="utf-8") as f:
+            f.write(ewant)
+        os.replace(edst + ".tmp", edst)
+        print("Đã cài thêm bản EXE song song: " + edst)
     print("KẾT QUẢ: %s." % ("đã cài mới, khởi động lại DaVinci nếu chưa thấy mục menu" if have is None
                            else "menu đã trỏ sang thư mục TroLyFileQuay"))
 

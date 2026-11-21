@@ -10,7 +10,9 @@ import json
 import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+if not os.path.isdir(os.path.join(HERE, "troly_web")) and os.path.isdir(os.path.join(HERE, "app", "troly_web")):
+    HERE = os.path.join(HERE, "app")
 sys.path.insert(0, HERE)
 import troly_api as ta       # noqa: E402
 
@@ -98,7 +100,7 @@ def main():
     api.pick_file_fn = lambda ft=("LUT files (*.cube;*.3dl)", "All files (*.*)"): (lambda r: r[0] if r else None)(win.create_file_dialog(webview.OPEN_DIALOG, file_types=ft))
     win.events.closed += lambda: api.close()
     win.events.shown += lambda: set_window_icon(win)
-    webview.start(debug=a.debug, gui="edgechromium")
+    webview.start(debug=a.debug, gui="edgechromium" if os.name == "nt" else None)
 
 
 if __name__ == "__main__":

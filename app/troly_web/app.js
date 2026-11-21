@@ -300,6 +300,14 @@ function renderTree() {
   }
   $("tree").innerHTML = h;
 }
+$("tree").addEventListener("dblclick", async (e) => {
+  const n = e.target.closest(".tn[data-m]"); if (!n || !S) return;
+  const m = S.machines.find((x) => x.letter === n.dataset.m); if (!m) return;
+  const nm = await ask("Đổi tên máy " + m.letter, `<input class="inp" style="width:100%" value="${esc(m.name)}" maxlength="28">`, "Lưu tên", () => $("mBody").querySelector("input").value.trim());
+  if (!nm) return;
+  const r = await api().rename_machine(m.key, nm);
+  if (r && r.error) status(r.error, "warn"); else if (r) setState(r);
+});
 $("tree").addEventListener("click", (e) => {
   const n = e.target.closest(".tn"); if (!n) return;
   if (n.dataset.m !== undefined) { mFilter = mFilter === n.dataset.m ? "all" : n.dataset.m; renderTree(); renderGrid1(); return; }
@@ -531,11 +539,20 @@ function ask(title, html, yes, getter) {
 /* ------------------------------------------------------------------ BƯỚC 2: phân loại */
 function stageObj() { return S && gStage !== null && gStage >= 0 ? S.stages[gStage] : null; }
 /* Danh sách uid của lưới đang xem. Cùng nguồn với số đếm cạnh mỗi bin (Api.state: stage.uids / none / bins[].uids). */
+window.p2CamFilter = "all";
+window.p2SearchUids = null;
 function viewUids() {
-  const base = viewUidsBase();
-  if (!$("onlyStar") || !$("onlyStar").checked || !S) return base;
-  const st = new Set(S.clips.filter((c) => c.star).map((c) => c.uid));
-  return base.filter((u) => st.has(u));
+  let out = viewUidsBase();
+  if (!S) return out;
+  const byUid = new Map(S.clips.map((c) => [c.uid, c]));
+  if ($("onlyStar") && $("onlyStar").checked) out = out.filter((u) => { const c = byUid.get(u); return c && c.star; });
+  if ($("hideRej") && $("hideRej").checked) out = out.filter((u) => { const c = byUid.get(u); return c && !c.rejected; });
+  if (window.p2CamFilter && window.p2CamFilter !== "all") out = out.filter((u) => { const c = byUid.get(u); return c && c.mk === window.p2CamFilter; });
+  if (Array.isArray(window.p2SearchUids)) {
+    const order = new Map(window.p2SearchUids.map((u, idx) => [u, idx]));
+    out = out.filter((u) => order.has(u)).sort((a, b) => order.get(a) - order.get(b));
+  }
+  return out;
 }
 function viewUidsBase() {
   if (!S || gStage === null) return [];
@@ -601,6 +618,7 @@ function renderPage2b(s, nk, rebuild) {
   $("gridHint").textContent = s ? `Bấm bin bên trái để XEM. Muốn xếp clip: kéo thumbnail vào bin, hoặc phím số 1–${nk}; F1–F12 chuyển sang giai đoạn khác. Mỗi lần bạn xếp, AI ghi lại để học.`
     : "Clip ngoài giai đoạn: phím F1–F12 hoặc kéo thả vào bin giai đoạn bên trái để chuyển.";
   $("starCount").textContent = S.n_starred || 0;
+  if ($("rejCount")) $("rejCount").textContent = S.n_rejected || 0;
   $("doneText").textContent = s ? `${s.done} / ${s.count} đã xếp` : "";
   $("keyList").innerHTML = (s ? s.bins.filter((b) => b.key).map((b) => `<div class="key-row" data-bin="${esc(b.name)}"><span class="l"><i style="background:${b.color}"></i>${esc(b.name)}</span><span class="r">phím ${b.key} · ${b.count} clip</span></div>`).join("") : "") +
     `<div class="key-stages">${S.stages.slice(0, MAX_F).map((x, i) => `<span class="ks" data-stage="${i}" title="Chuyển clip đang chọn sang ${esc(x.bin)}"><b>F${i + 1}</b> ${esc(x.name)}</span>`).join("")}</div>` +
@@ -639,8 +657,8 @@ function setThumb(box, src) {
 const PLAY = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5l4 2.5-4 2.5z"></path></svg>';
 function renderGrid() {
   $("grid").innerHTML = items.length ? items.map((c, i) => `
-    <div class="card${i === cur ? " cur" : sel.has(i) ? " picked" : ""}${c.star ? " starred" : ""}${aiWait(c) ? " wait" : ""}" data-i="${i}" data-uid="${esc(c.uid)}" data-label="${esc(cardKey(c))}" draggable="true">
-      <div class="thumb">${thumbs[c.uid] ? `<img src="${thumbs[c.uid]}" draggable="false">` : PLAY}<span class="badge tl">${c.time}</span><span class="badge br">${durTxt(c.dur)}</span>${c.star ? '<span class="star-badge">★</span>' : ""}</div>
+    <div class="card${i === cur ? " cur" : sel.has(i) ? " picked" : ""}${c.star ? " starred" : ""}${c.rejected ? " rejected" : ""}${aiWait(c) ? " wait" : ""}" data-i="${i}" data-uid="${esc(c.uid)}" data-label="${esc(cardKey(c))}" draggable="true">
+      <div class="thumb">${thumbs[c.uid] ? `<img src="${thumbs[c.uid]}" draggable="false">` : PLAY}<span class="badge tl">${c.mk ? chip(c.mk) : ""}${c.time}</span><span class="badge br">${durTxt(c.dur)}</span>${c.star ? '<span class="star-badge">★</span>' : ""}${c.rejected ? '<span class="rej-badge">BỎ</span>' : ""}</div>
       <div class="card-foot"><span class="f">${esc(c.name)}</span>${tagHtml(c)}</div>
     </div>`).join("") : `<div class="empty">${S && S.n ? "Không có clip." : 'Bấm "Đọc clip" ở bước 1 trước.'}</div>`;
   observeCards();
@@ -648,10 +666,12 @@ function renderGrid() {
 function patchGrid() {
   document.querySelectorAll("#grid .card").forEach((el) => {
     const i = +el.dataset.i, c = items[i]; if (!c) return;
-    const cls = "card" + (i === cur ? " cur" : sel.has(i) ? " picked" : "") + (c.star ? " starred" : "") + (aiWait(c) ? " wait" : "");
+    const cls = "card" + (i === cur ? " cur" : sel.has(i) ? " picked" : "") + (c.star ? " starred" : "") + (c.rejected ? " rejected" : "") + (aiWait(c) ? " wait" : "");
+    if (el.className !== cls) el.className = cls;               // chỉ đổi class, không dựng lại ô
     const hasStar = !!el.querySelector(".star-badge");
     if (!!c.star !== hasStar) { if (c.star) el.querySelector(".thumb").insertAdjacentHTML("beforeend", '<span class="star-badge">★</span>'); else el.querySelector(".star-badge").remove(); }
-    if (el.className !== cls) el.className = cls;               // chỉ đổi class, không dựng lại ô
+    const hasRej = !!el.querySelector(".rej-badge");
+    if (!!c.rejected !== hasRej) { if (c.rejected) el.querySelector(".thumb").insertAdjacentHTML("beforeend", '<span class="rej-badge">BỎ</span>'); else el.querySelector(".rej-badge").remove(); }
     const key = cardKey(c);
     if (el.dataset.label !== key) { el.dataset.label = key; el.querySelector(".tag").outerHTML = tagHtml(c); }
   });
@@ -844,6 +864,53 @@ document.addEventListener("mousedown", (e) => {
 
 $("onlyNew").addEventListener("change", () => { saveUi(); renderPage2(true); });
 $("onlyStar").addEventListener("change", () => renderPage2(true));
+if ($("hideRej")) $("hideRej").addEventListener("change", () => renderPage2(true));
+if ($("p2Find")) {
+  let _fTimer = null;
+  $("p2Find").addEventListener("input", () => {
+    clearTimeout(_fTimer);
+    _fTimer = setTimeout(async () => {
+      const q = $("p2Find").value.trim();
+      if (!q) { window.p2SearchUids = null; if ($("p2FindClear")) $("p2FindClear").classList.add("hidden"); renderPage2(true); return; }
+      const r = await api().ai_search(q);
+      window.p2SearchUids = (r && Array.isArray(r.uids)) ? r.uids : [];
+      if ($("p2FindClear")) $("p2FindClear").classList.remove("hidden");
+      renderPage2(true);
+    }, 180);
+  });
+}
+if ($("p2SimBtn")) $("p2SimBtn").onclick = async () => {
+  const c = items[cur];
+  if (!c) return status("Hãy chọn một clip để tìm góc tương tự.", "warn");
+  const r = await api().ai_similar(c.uid);
+  window.p2SearchUids = [c.uid].concat((r && Array.isArray(r.uids)) ? r.uids : []);
+  if ($("p2Find")) $("p2Find").value = "Giống: " + c.name;
+  if ($("p2FindClear")) $("p2FindClear").classList.remove("hidden");
+  renderPage2(true);
+  status(r && r.mode === "vector" ? "Đã xếp các clip có góc/bối cảnh giống nhất lên đầu." : "Đã lọc các clip cùng bin/máy với clip đang chọn.", "info");
+};
+if ($("p2FindClear")) $("p2FindClear").onclick = () => {
+  window.p2SearchUids = null;
+  if ($("p2Find")) $("p2Find").value = "";
+  $("p2FindClear").classList.add("hidden");
+  renderPage2(true);
+};
+
+/* Cờ Bỏ (phím X): chỉ lưu trong kế hoạch JSON, tuyệt đối không xóa file gốc hay Media Pool. */
+async function toggleReject() {
+  if (!items.length) return;
+  const idx = sel.size ? [...sel] : [cur];
+  const cs = idx.map((i) => items[i]).filter(Boolean);
+  if (!cs.length) return;
+  const target = !cs.every((c) => c.rejected);
+  const uids = cs.map((c) => c.uid);
+  const st = await api().toggle_reject(uids, target);
+  if (st && !st.error) {
+    keepCur = cur;
+    setState(st);
+    status((target ? "Đã gắn cờ Bỏ (chỉ ẩn trong kế hoạch) " : "Đã bỏ cờ Bỏ ") + uids.length + " clip.", "ok");
+  }
+}
 
 /* Dấu sao ★ (phím P): chọn nhiều clip thì đặt đồng loạt. Có clip chưa sao -> gắn sao cho tất cả; tất cả đã sao -> bỏ sao. */
 async function toggleStar() {
@@ -916,8 +983,17 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") $("mNo").click(); else if (e.key === "Enter") $("mYes").click();
     return;
   }
+  if ($("helpModal") && !$("helpModal").classList.contains("hidden")) {
+    if (e.key === "Escape" || e.key === "?") { e.preventDefault(); $("helpModal").classList.add("hidden"); }
+    return;
+  }
   if ($("settingsModal") && !$("settingsModal").classList.contains("hidden")) {
     if (e.key === "Escape") $("settingsModal").classList.add("hidden");
+    return;
+  }
+  if (e.key === "?" && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !e.target.isContentEditable) {
+    e.preventDefault();
+    if (typeof openHelpModal === "function") openHelpModal();
     return;
   }
   if (e.ctrlKey && !e.altKey && !e.metaKey && e.code === "KeyZ") {
@@ -934,6 +1010,7 @@ document.addEventListener("keydown", (e) => {
   if (page === 3) {                                                  // Bước 3: P sao, 4 phím mũi tên di chuyển source, Enter; số KHÔNG xếp bin ở đây
     if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.code === "KeyP" && !e.shiftKey) { e.preventDefault(); toggleStar(); return; }
+    if (e.code === "KeyX" && !e.shiftKey) { e.preventDefault(); toggleReject(); return; }
     if (e.code === "ArrowUp" || e.code === "ArrowDown" || e.code === "ArrowLeft" || e.code === "ArrowRight") {
       e.preventDefault();
       let step = (e.code === "ArrowLeft" || e.code === "ArrowUp") ? -1 : 1;
@@ -953,6 +1030,7 @@ document.addEventListener("keydown", (e) => {
   }
   if (page !== 2 || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
   if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { cancelPending(); e.preventDefault(); toggleStar(); return; }
+  if (e.code === "KeyX" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { cancelPending(); e.preventDefault(); toggleReject(); return; }
   const d = digitOf(e);
   if (pending && d !== null && !e.ctrlKey && !e.altKey) {          // số sau phím F: vào bin con
     e.preventDefault();
@@ -1198,8 +1276,48 @@ $("styleSel").onchange = async (e) => {
     }
     if (stSel && S) stSel.value = S.shoot_style || "";
     renderLutRows(r && r.camera_luts, r && r.detected_prefixes);
+    if ($("setHwBadge") && S && S.hw) {
+      const h = S.hw;
+      $("setHwBadge").textContent = `${h.os === "mac" ? "macOS" : "Windows"} · ${h.gpu_name}${h.vram_gb ? " (" + h.vram_gb + "GB)" : ""}`;
+    }
+    async function renderCacheRows() {
+      const box = $("setCacheList");
+      if (!box) return;
+      const cl = await api().cache_list();
+      const its = (cl && cl.items) || [];
+      box.innerHTML = its.length ? its.map((x) => `<div class="inline8" style="justify-content:space-between">
+        <span class="dim12">${esc(x.slug)}${x.is_current ? " <b>(đang mở)</b>" : ""} · <b>${x.mb} MB</b></span>
+        <button class="btn-sm cache-del" type="button" data-slug="${esc(x.slug)}">Xóa cache</button>
+      </div>`).join("") : `<div class="dim12">Chưa có cache (Tổng: ${(cl && cl.total_mb) || 0} MB).</div>`;
+      box.querySelectorAll(".cache-del").forEach((b) => {
+        b.onclick = async () => {
+          const res = await api().cache_clear(b.dataset.slug);
+          if (res && res.error) return status(res.error, "warn");
+          status(`Đã xóa cache của ${b.dataset.slug} (kế hoạch JSON giữ nguyên).`, "ok");
+          renderCacheRows();
+        };
+      });
+    }
+    renderCacheRows();
     modal.classList.remove("hidden");
   };
+  window.openHelpModal = (tab) => {
+    const m = $("helpModal"); if (!m) return;
+    const active = tab || String(page || 1);
+    const tabs = m.querySelectorAll("#helpTabs .help-tab");
+    const secs = m.querySelectorAll("#helpBody .help-sec");
+    tabs.forEach((b) => b.classList.toggle("on", b.dataset.hp === active));
+    secs.forEach((s) => {
+      const hp = s.dataset.hp;
+      s.classList.toggle("hidden", active !== "all" && hp !== active && hp !== "common");
+    });
+    m.classList.remove("hidden");
+  };
+  if ($("helpTabs")) $("helpTabs").querySelectorAll(".help-tab").forEach((b) => {
+    b.onclick = () => window.openHelpModal(b.dataset.hp);
+  });
+  if ($("btnHelp") && $("helpModal")) $("btnHelp").onclick = () => window.openHelpModal();
+  if ($("helpClose") && $("helpModal")) $("helpClose").onclick = () => $("helpModal").classList.add("hidden");
   if ($("setLutAdd")) $("setLutAdd").onclick = () => {
     const row = addLutRow("", "", "");
     if (row) row.querySelector(".lut-pref").focus();

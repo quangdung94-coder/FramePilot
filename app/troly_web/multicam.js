@@ -34,18 +34,16 @@
     bar.innerHTML = pills;
 
     bar.querySelectorAll("[data-cam]").forEach((b) => {
-      b.onclick = () => { mcCam = b.dataset.cam; renderPage2Mc(); };
+      b.onclick = () => {
+        mcCam = b.dataset.cam;
+        window.p2CamFilter = mcCam;
+        if (typeof renderPage2 === "function") renderPage2(true);
+        else renderPage2Mc();
+      };
     });
     const mg = document.getElementById("mcModeGrid"), ml = document.getElementById("mcModeLane");
     if (mg) mg.onclick = () => { mcLaneMode = false; renderPage2Mc(); };
     if (ml) ml.onclick = () => { mcLaneMode = true; renderPage2Mc(); };
-
-    // Lọc thẻ trên lưới theo máy nếu đang ở chế độ lưới
-    document.querySelectorAll("#grid .card").forEach((el) => {
-      const i = +el.dataset.i, c = items[i];
-      const hide = (!mcLaneMode && mcCam !== "all" && c && c.mk !== mcCam);
-      el.style.display = hide ? "none" : "";
-    });
 
     if (!mcLaneMode) {
       lanes.classList.add("hidden");
@@ -53,17 +51,18 @@
       return;
     }
 
-    // Chế độ làn ngang theo từng máy
+    // Chế độ làn ngang theo từng máy (có thumbnail + đa chọn Ctrl/Shift + Click)
     gridScroll.classList.add("hidden");
     lanes.classList.remove("hidden");
     const showMs = mcCam === "all" ? ms : ms.filter((m) => m.letter === mcCam);
     lanes.innerHTML = showMs.map((m) => {
       const mClips = items.map((c, idx) => ({ c, idx })).filter(({ c }) => c.mk === m.letter);
       const chips = mClips.length ? mClips.map(({ c, idx }) => {
-        const cls = "mc-lclip" + (idx === cur ? " cur" : "") + (c.star ? " star" : "");
+        const cls = "mc-lclip" + (idx === cur ? " cur" : sel.has(idx) ? " picked" : "") + (c.star ? " star" : "") + (c.rejected ? " rejected" : "");
+        const th = (typeof thumbs !== "undefined" && thumbs[c.uid]) ? `<img class="mc-lth" src="${thumbs[c.uid]}" draggable="false">` : "";
         return `<div class="${cls}" data-i="${idx}" title="${esc(c.name)} (${c.time})">
-          <div class="mc-ltop"><b>${esc(c.name)}</b>${c.star ? " ★" : ""}</div>
-          <div class="mc-lsub">${c.time} · ${(c.dur || 0).toFixed(1)}s ${c.label ? "· " + esc(c.label) : ""}</div>
+          ${th}<div class="mc-linfo"><div class="mc-ltop"><b>${esc(c.name)}</b>${c.star ? " ★" : ""}${c.rejected ? ' <span class="mc-rej">BỎ</span>' : ""}</div>
+          <div class="mc-lsub">${c.time} · ${(c.dur || 0).toFixed(1)}s ${c.label ? "· " + esc(c.label) : ""}</div></div>
         </div>`;
       }).join("") : `<span class="dim12">Không có clip trong góc này</span>`;
       return `<div class="mc-lane-row">
@@ -73,9 +72,18 @@
     }).join("");
 
     lanes.querySelectorAll(".mc-lclip").forEach((el) => {
-      el.onclick = () => {
+      el.onclick = (e) => {
         const idx = +el.dataset.i;
-        sel = new Set([idx]); cur = idx; anchor = idx;
+        if (e.ctrlKey || e.metaKey) {
+          if (sel.has(idx)) sel.delete(idx); else sel.add(idx);
+          cur = idx; anchor = idx;
+        } else if (e.shiftKey && anchor != null) {
+          const a = Math.min(anchor, idx), b = Math.max(anchor, idx);
+          sel = new Set(); for (let k = a; k <= b; k++) sel.add(k);
+          cur = idx;
+        } else {
+          sel = new Set([idx]); cur = idx; anchor = idx;
+        }
         renderPage2Mc();
         if (typeof showCur === "function") showCur();
       };
@@ -117,7 +125,7 @@
           sugBtn = `<span class="dim12">Phủ &lt; 3s</span>`;
         }
       }
-      return `<div class="mc-other-row">
+      return `<div class="mc-other-row mc-jump" data-uid="${esc(c.uid)}" data-m0="${c.m0}" title="Bấm để nhảy sang xem góc máy này tại đúng khoảnh khắc hiện tại">
         <i class="cam-chip" style="background:${CAM_COLORS[c.mk] || "#888"}">${esc(c.mk)}</i>
         <span class="mc-oname">${esc(c.name)}</span>
         <span class="dim12">trùng ${ovSec.toFixed(0)}s</span>
@@ -126,18 +134,33 @@
       </div>`;
     }).join("") : `<div class="dim12">Không có máy nào khác quay cùng thời điểm clip này.</div>`;
 
+    const audRows = (S.audio || []).filter((a) => (a.items || []).some(([m0, m1]) => m0 < curC.m1 && m1 > curC.m0))
+      .map((a) => `<div class="mc-other-row"><i class="cam-chip" style="background:#6E6E78">A</i><span class="mc-oname">${esc(a.name || ("Audio " + a.track))} (âm thanh rời)</span><span class="flex1"></span></div>`).join("");
+
     box.innerHTML = `
       <div class="row-between center">
         <b>Các máy khác lúc này</b>
         <label class="p3-tg" style="padding:0"><input type="checkbox" id="mcSyncTg"${mcSyncSug ? " checked" : ""}><span class="sw"><i></i></span>Gợi ý In/Out theo giờ chung</label>
       </div>
-      <div class="mc-others">${rows}</div>`;
+      <div class="mc-others">${rows}${audRows}</div>`;
 
     const tg = document.getElementById("mcSyncTg");
     if (tg) tg.onchange = () => { mcSyncSug = tg.checked; renderPage3Mc(); };
 
+    box.querySelectorAll(".mc-jump").forEach((row) => {
+      row.onclick = (e) => {
+        if (e.target.closest(".mc-apply-sug")) return;
+        const uid = row.dataset.uid, m0Other = +row.dataset.m0;
+        const curSec = (typeof PL !== "undefined" && PL.t != null) ? PL.t : 0;
+        const targetSec = Math.max(0, (curC.m0 * 60 + curSec) - m0Other * 60);
+        if (typeof window.p3SelectUid === "function") window.p3SelectUid(uid);
+        setTimeout(() => { if (typeof plSeek === "function") plSeek(targetSec); }, 180);
+      };
+    });
+
     box.querySelectorAll(".mc-apply-sug").forEach((btn) => {
-      btn.onclick = async () => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
         const r = await api().set_inout(btn.dataset.uid, +btn.dataset.in, +btn.dataset.out);
         if (r && r.error) { if (typeof status === "function") status(r.error, "warn"); return; }
         const st = await api().state();

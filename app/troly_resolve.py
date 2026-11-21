@@ -451,8 +451,14 @@ class TrolyWorker(threading.Thread):
         segs = [x for x in segs if x["uid"] in self.items]
         if not segs:
             raise RuntimeError("Không có đoạn nào để đưa lên timeline.")
-        v1 = [x for x in segs if x.get("track", "V1") == "V1"]
-        v2 = sorted([x for x in segs if x.get("track") == "V2"], key=lambda x: x.get("start_f", 0))
+        def _t_idx(x):
+            tr = str(x.get("track") or "V1").upper()
+            if tr.startswith("V") and tr[1:].isdigit():
+                return max(1, int(tr[1:]))
+            return 1
+
+        v1 = [x for x in segs if _t_idx(x) == 1]
+        v_more = sorted([x for x in segs if _t_idx(x) >= 2], key=lambda x: (_t_idx(x), x.get("start_f", 0)))
 
         def info(x):
             return {"mediaPoolItem": self.items[x["uid"]][1], "startFrame": int(x["a"]), "endFrame": int(x["b"])}
@@ -472,7 +478,7 @@ class TrolyWorker(threading.Thread):
             try:
                 tl = pool.CreateEmptyTimeline(name)
                 created_empty = bool(tl)
-                if tl and (infos or v2) and not self._make_current(tl):
+                if tl and (infos or v_more) and not self._make_current(tl):
                     why.append("không chuyển được sang timeline mới, KHÔNG thêm đoạn để khỏi chèn nhầm vào timeline đang mở")
                     tl = None
                 elif tl and infos and not pool.AppendToTimeline(infos):
@@ -486,18 +492,20 @@ class TrolyWorker(threading.Thread):
         if not tl:
             extra = " Một timeline rỗng có thể đã được tạo, bạn xóa tay nếu thấy (Trợ lý không xóa timeline)." if created_empty else ""
             raise RuntimeError("DaVinci không tạo được timeline mới (%d đoạn). Chi tiết: %s.%s" % (len(segs), "; ".join(why), extra))
-        notes = self._finish_layout(tl, v1, v2, info)
+        notes = self._finish_layout(tl, v1, v_more, info, _t_idx)
         after = self._timeline_names()
         res = {"name": name, "n": len(segs), "before": None if before is None else len(before), "after": None if after is None else len(after),
                "old_intact": None, "verified": False, "layout_ok": notes["layout_ok"], "layout_msgs": notes["msgs"], "n_slow": notes["n_slow"],
-               "n_muted": notes["n_muted"], "n_v2": len(v2)}
+               "n_muted": notes["n_muted"], "n_v2": len(v_more)}
         if before is not None and after is not None:
             res["old_intact"] = all(after.count(n) >= before.count(n) for n in set(before))
             res["verified"] = len(after) == len(before) + 1 and bool(res["old_intact"]) and name in after
         self.post("cut_timeline_created", res)
 
-    def _finish_layout(self, tl, v1, v2, info):
-        """Slow ở V1, khối V2, tắt tiếng, đọc lại kiểm (xem do_create_cut_timeline). Mọi lỗi nhỏ được ghi lại, không làm hỏng timeline đã tạo."""
+    def _finish_layout(self, tl, v1, v2, info, _t_idx=None):
+        """Slow ở V1, khối V2..V4, tắt tiếng, đọc lại kiểm (xem do_create_cut_timeline). Mọi lỗi nhỏ được ghi lại, không làm hỏng timeline đã tạo."""
+        if _t_idx is None:
+            _t_idx = lambda x: 2 if str(x.get("track") or "").upper() == "V2" else 1
         notes = {"layout_ok": None, "msgs": [], "n_slow": 0, "n_muted": 0}
         need = any(float(x.get("pct", 100)) < 99.95 for x in segs_all(v1, v2)) or v2 or any(x.get("mute") for x in segs_all(v1, v2))
         if not need:
@@ -521,63 +529,71 @@ class TrolyWorker(threading.Thread):
                     notes["msgs"].append("SetSpeed %g%% không được ở clip V1 số %d." % (pct, i + 1))
             except Exception as e:                            # noqa: BLE001
                 notes["msgs"].append("SetSpeed lỗi ở clip V1 số %d: %s" % (i + 1, e))
-        # 2) V2
+        # 2) V2..V4
         v2_start = {}
         if v2:
+            max_t = max(_t_idx(x) for x in v2)
             try:
-                while int(tl.GetTrackCount("video")) < 2:
+                while int(tl.GetTrackCount("video")) < max_t:
                     tl.AddTrack("video")
-                while int(tl.GetTrackCount("audio")) < 2:
+                while int(tl.GetTrackCount("audio")) < max_t:
                     tl.AddTrack("audio", "stereo")
             except Exception as e:                            # noqa: BLE001
                 notes["msgs"].append("Không thêm được track: %s" % e)
             s0 = tl.GetStartFrame()
             for j, x in enumerate(v2):
+                ti = _t_idx(x)
                 rec = int(s0) + int(x.get("start_f", 0))
                 ci = info(x)
-                ci.update({"trackIndex": 2, "recordFrame": rec})
+                ci.update({"trackIndex": ti, "recordFrame": rec})
                 try:
                     pool.AppendToTimeline([ci])
                 except Exception as e:                        # noqa: BLE001
-                    notes["msgs"].append("Không đặt được clip V2 số %d: %s" % (j + 1, e))
+                    notes["msgs"].append("Không đặt được clip V%d số %d: %s" % (ti, j + 1, e))
                     continue
                 pct = float(x.get("pct", 100))
-                its2 = [it for it in (tl.GetItemListInTrack("video", 2) or []) if int(it.GetStart()) == rec]
+                its2 = [it for it in (tl.GetItemListInTrack("video", ti) or []) if int(it.GetStart()) == rec]
                 if not its2:
-                    notes["msgs"].append("Không thấy clip V2 số %d sau khi đặt." % (j + 1))
+                    notes["msgs"].append("Không thấy clip V%d số %d sau khi đặt." % (ti, j + 1))
                     continue
                 if pct < 99.95:
                     locked = []
                     try:
-                        for kind, t in (("video", 1), ("audio", 1)):           # chỉ V1/A1 có clip (A3 trở lên không đụng); mở khóa lại ngay bên dưới
-                            if tl.SetTrackLock(kind, t, True):
-                                locked.append((kind, t))
+                        for t in range(1, max_t + 1):
+                            if t == ti:
+                                continue
+                            for kind in ("video", "audio"):
+                                if tl.SetTrackLock(kind, t, True):
+                                    locked.append((kind, t))
                         ok = its2[0].SetSpeed({"Percentage": pct, "RippleTimeline": True})
                         notes["n_slow"] += 1 if ok else 0
                         if not ok:
-                            notes["msgs"].append("SetSpeed %g%% không được ở clip V2 số %d." % (pct, j + 1))
+                            notes["msgs"].append("SetSpeed %g%% không được ở clip V%d số %d." % (pct, ti, j + 1))
                     except Exception as e:                    # noqa: BLE001
-                        notes["msgs"].append("SetSpeed lỗi ở clip V2 số %d: %s" % (j + 1, e))
+                        notes["msgs"].append("SetSpeed lỗi ở clip V%d số %d: %s" % (ti, j + 1, e))
                     finally:
                         for kind, t in locked:
                             try:
                                 tl.SetTrackLock(kind, t, False)
                             except Exception:                 # noqa: BLE001
                                 notes["msgs"].append("CẢNH BÁO: chưa mở khóa lại track %s%d, bạn mở tay." % ("V" if kind == "video" else "A", t))
-                v2_start[j] = rec
+                v2_start[j] = (ti, rec)
         # 3) tắt tiếng đúng khối (clip tiếng cùng vị trí với clip hình)
         try:
             v1_items = tl.GetItemListInTrack("video", 1) or []
-            a1 = {int(it.GetStart()): it for it in (tl.GetItemListInTrack("audio", 1) or [])}
-            a2 = {int(it.GetStart()): it for it in (tl.GetItemListInTrack("audio", 2) or [])} if v2 else {}
+            a_by_track = {1: {int(it.GetStart()): it for it in (tl.GetItemListInTrack("audio", 1) or [])}}
+            if v2:
+                for ti in {_t_idx(x) for x in v2}:
+                    a_by_track[ti] = {int(it.GetStart()): it for it in (tl.GetItemListInTrack("audio", ti) or [])}
             for i, x in enumerate(v1):
                 if x.get("mute") and i < len(v1_items):
-                    ai = a1.get(int(v1_items[i].GetStart()))
+                    ai = a_by_track[1].get(int(v1_items[i].GetStart()))
                     if ai is not None and ai.SetClipEnabled(False):
                         notes["n_muted"] += 1
             for j, x in enumerate(v2):
                 if x.get("mute") and j in v2_start:
-                    ai = a2.get(v2_start[j])
+                    ti, rec = v2_start[j]
+                    ai = a_by_track.get(ti, {}).get(rec)
                     if ai is not None and ai.SetClipEnabled(False):
                         notes["n_muted"] += 1
         except Exception as e:                                # noqa: BLE001
@@ -586,8 +602,10 @@ class TrolyWorker(threading.Thread):
         try:
             import troly_tl
             got = [("V1", int(it.GetStart()), int(it.GetEnd())) for it in (tl.GetItemListInTrack("video", 1) or [])]
-            got += [("V2", int(it.GetStart()), int(it.GetEnd())) for it in (tl.GetItemListInTrack("video", 2) or [])] if v2 else []
-            pl = [{"track": "V1"} for _ in v1] + [{"track": "V2"} for _ in v2]
+            if v2:
+                for ti in sorted({_t_idx(x) for x in v2}):
+                    got += [("V%d" % ti, int(it.GetStart()), int(it.GetEnd())) for it in (tl.GetItemListInTrack("video", ti) or [])]
+            pl = [{"track": "V1"} for _ in v1] + [{"track": "V%d" % _t_idx(x)} for x in v2]
             notes["layout_ok"], more = troly_tl.verify_readback(pl, got)
             notes["msgs"] += more
         except Exception as e:                                # noqa: BLE001

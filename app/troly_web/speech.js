@@ -2,7 +2,7 @@
    Python (troly_api.speech_*). Dùng chung $, api, S, esc, status, setState, page từ app.js. Chữ chép lời chỉ hiện trên màn hình. */
 "use strict";
 
-const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", sub: "all", onlyStar: false, onlyKey: false, min20: false, hideBad: false, find: "",
+const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", sub: "all", cam: "all", onlyStar: false, onlyGolden: false, dedup: true, onlyKey: false, min20: false, hideBad: false, find: "",
   detail: null, edit: null, run: null, lastRefresh: 0, timer: null, vid: null, mediaUid: null, spanIdx: 0, newSpan: false, hoverT: null, jklRate: 0, jklTimer: 0 };
 const mmss = (s) => Math.floor((s || 0) / 60) + ":" + String(Math.round((s || 0) % 60)).padStart(2, "0");
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -22,6 +22,9 @@ const inStage = (r) => {
   if (LN.stage !== "all" && stageOf(r) !== +LN.stage) return false;
   const cm = clipMeta(r.uid);
   if (LN.onlyStar && !(cm ? cm.star : r.star)) return false;
+  if (LN.onlyGolden && !r.golden) return false;
+  if (LN.dedup && r.dup_of) return false;
+  if (LN.cam !== "all" && (r.mk || (cm && cm.mk) || "") !== LN.cam) return false;
   if (LN.hideBad && r.suspect && !r.headline) return false;
   if (LN.sub !== "all") {
     const lb = cm ? (cm.label || "") : "";
@@ -90,7 +93,16 @@ function renderSpeech() {
   const st = stages[+LN.stage];
   $("lnTitle").textContent = LN.stage === "all" ? "Lời nói · Cả project" : (st ? `Lời nói · ${st.name} · ${st.range || ""}` : "Lời nói · Ngoài mọi giai đoạn");
   if ($("lnStarOnly")) $("lnStarOnly").setAttribute("aria-pressed", LN.onlyStar);
+  if ($("lnGolden")) $("lnGolden").setAttribute("aria-pressed", LN.onlyGolden);
+  if ($("lnDedup")) $("lnDedup").setAttribute("aria-pressed", LN.dedup);
   if ($("lnHideBad")) $("lnHideBad").setAttribute("aria-pressed", LN.hideBad);
+  const camSel = $("lnCam");
+  if (camSel && window.S && Array.isArray(S.machines) && S.machines.length > 1) {
+    camSel.classList.remove("hidden");
+    const cHtml = ['<option value="all">Tất cả máy</option>'].concat(S.machines.map((m) => `<option value="${esc(m.letter)}">${esc(m.letter + " · " + m.name)}</option>`)).join("");
+    if (camSel.dataset.sig !== cHtml) { camSel.innerHTML = cHtml; camSel.dataset.sig = cHtml; }
+    camSel.value = LN.cam;
+  } else if (camSel) { camSel.classList.add("hidden"); LN.cam = "all"; }
   $("lnKey").setAttribute("aria-pressed", LN.onlyKey); $("lnMin").setAttribute("aria-pressed", LN.min20);
   renderSummary(); renderStore(); renderRows(); renderRight();
 }
@@ -132,9 +144,10 @@ function renderRows() {
   }
   box.innerHTML = rows.map((r) => {
     const hl = r.silent ? '<span class="ln-text none">Không có tiếng nói</span>'
-      : `${r.suspect ? '<span class="ln-flag">có thể sai</span>' : ""}<span class="ln-text${r.headline ? (r.n_keys ? "" : " dim") : " none"}">${esc(r.headline || "Có tiếng nhưng chưa ra chữ")}</span>`;
+      : `${r.suspect ? '<span class="ln-flag">có thể sai</span>' : ""}${r.dup_count ? `<span class="ln-dup">+${r.dup_count} máy</span>` : ""}<span class="ln-text${r.headline ? (r.n_keys ? "" : " dim") : " none"}">${esc(r.headline || "Có tiếng nhưng chưa ra chữ")}</span>`;
+    const mChip = r.mk ? `<span class="cam-chip sm">${esc(r.mk)}</span>` : "";
     return `<button class="ln-row${r.uid === LN.sel ? " on" : ""}${LN.pick.has(r.uid) ? " pk" : ""}" data-uid="${esc(r.uid)}">
-      <span class="ln-id"><b${r.star ? ' class="star"' : ""}>${esc(r.name)}</b><span>${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · nói ${Math.round(r.spoken_s)}s</span></span>
+      <span class="ln-id"><b${r.star ? ' class="star"' : ""}>${mChip}${esc(r.name)}</b><span>${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · nói ${Math.round(r.spoken_s)}s</span></span>
       <span class="ln-bar">${barHtml(r, false)}</span>
       <span class="ln-hl">${hl}</span>
       <span class="ln-k${r.n_keys ? "" : " zero"}">${r.n_keys || "·"}</span>
@@ -298,11 +311,37 @@ async function lnPick() {
   await lnRefresh();
 }
 
+function lnRenderPickBox() {
+  const pb = $("lnPickBins"), pc = $("lnPickCams");
+  if (!pb || !pc || !window.S) return;
+  const defSpeech = ["phỏng vấn", "nghi lễ", "gia tiên", "trao nhẫn", "phát biểu", "vows"];
+  const bins = [];
+  (S.stages || []).forEach((s) => (s.bins || []).forEach((b) => { if (!bins.includes(b.name)) bins.push(b.name); }));
+  pb.innerHTML = bins.map((b) => {
+    const chk = defSpeech.some((k) => b.toLowerCase().includes(k));
+    return `<label class="chk"><input type="checkbox" class="ln-pbin" value="${esc(b)}"${chk ? " checked" : ""}> ${esc(b)}</label>`;
+  }).join("") || '<span class="dim12">Chưa có bin con</span>';
+  pc.innerHTML = (S.machines && S.machines.length > 1)
+    ? `<span>Máy nguồn tiếng:</span>` + S.machines.map((m, idx) => `<label class="chk"><input type="checkbox" class="ln-pcam" value="${esc(m.letter)}"${idx === 0 ? " checked" : ""}> ${esc(m.letter + " · " + m.name)}</label>`).join("")
+    : "";
+}
+if ($("lnPickRunBtn") && $("lnPickBox")) $("lnPickRunBtn").onclick = () => {
+  $("lnPickBox").classList.toggle("hidden");
+  if (!$("lnPickBox").classList.contains("hidden")) lnRenderPickBox();
+};
+
 $("lnRun").onclick = async () => {
   if (LN.info && LN.info.running) { await api().speech_stop(); status("Đang dừng sau nhóm clip hiện tại...", "info"); return; }
   if (!LN.info || !LN.info.dir) { await lnPick(); if (!LN.info || !LN.info.dir) return; }
   if (!S || !S.n) return status("Chưa có clip. Hãy sang bước 1 và bấm “Đọc clip” trước.", "warn");
-  const r = await api().speech_start();
+  let bins = null, cams = null;
+  if ($("lnPickBox") && !$("lnPickBox").classList.contains("hidden")) {
+    bins = [...document.querySelectorAll(".ln-pbin:checked")].map((x) => x.value);
+    cams = [...document.querySelectorAll(".ln-pcam:checked")].map((x) => x.value);
+    if (!bins.length) bins = null;
+    if (!cams.length) cams = null;
+  }
+  const r = await api().speech_start(bins, cams);
   if (r && r.error) return status(r.error, "warn");
   LN.run = { n: 0, total: r.count };
   status(`Bắt đầu chép lời ${r.count} clip (clip đã chép và file không đổi sẽ được bỏ qua).`, "info");
@@ -325,6 +364,27 @@ if ($("lnSub")) $("lnSub").onchange = (e) => {
 };
 if ($("lnStarOnly")) $("lnStarOnly").onclick = () => {
   LN.onlyStar = !LN.onlyStar;
+  const f = LN.rows.find(inStage);
+  LN.sel = f ? f.uid : null; LN.detail = null; LN.edit = null;
+  renderSpeech();
+  if (LN.sel) lnLoadDetail(LN.sel);
+};
+if ($("lnGolden")) $("lnGolden").onclick = () => {
+  LN.onlyGolden = !LN.onlyGolden;
+  const f = LN.rows.find(inStage);
+  LN.sel = f ? f.uid : null; LN.detail = null; LN.edit = null;
+  renderSpeech();
+  if (LN.sel) lnLoadDetail(LN.sel);
+};
+if ($("lnDedup")) $("lnDedup").onclick = () => {
+  LN.dedup = !LN.dedup;
+  const f = LN.rows.find(inStage);
+  LN.sel = f ? f.uid : null; LN.detail = null; LN.edit = null;
+  renderSpeech();
+  if (LN.sel) lnLoadDetail(LN.sel);
+};
+if ($("lnCam")) $("lnCam").onchange = (e) => {
+  LN.cam = e.target.value;
   const f = LN.rows.find(inStage);
   LN.sel = f ? f.uid : null; LN.detail = null; LN.edit = null;
   renderSpeech();

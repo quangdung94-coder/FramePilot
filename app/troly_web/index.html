@@ -44,7 +44,10 @@
       <button class="seg-off" disabled title="Sắp có">Tầng 2 · Đọc kỹ</button>
     </div>
   </div>
-  <button class="btn btn-gear" id="btnSettings" title="Cài đặt thư mục Cache &amp; file SRT" aria-label="Cài đặt">⚙</button>
+  <div class="top-icons">
+    <button class="btn btn-gear" id="btnHelp" title="Bảng phím tắt nhanh (?)" aria-label="Phím tắt nhanh">?</button>
+    <button class="btn btn-gear" id="btnSettings" title="Cài đặt thư mục Cache &amp; file SRT" aria-label="Cài đặt">⚙</button>
+  </div>
 </header>
 
 <!-- ======================= BƯỚC 1: CHỌN MỐC GIAI ĐOẠN BẰNG THUMBNAIL (ADR-0033, theo design/trang1_chon_moc) ======================= -->
@@ -100,6 +103,11 @@
         <h1 class="h20" id="gridTitle">Chưa chọn giai đoạn</h1>
         <span class="dim13 hidden" id="gridHint"></span>
       </div>
+      <div class="inline8">
+        <input id="p2Find" class="inp" style="width:170px;height:28px" placeholder="Tìm cảnh / tên clip..." title="Tìm theo tên clip, bin hoặc mô tả AI đã chạy">
+        <button class="btn" id="p2SimBtn" title="Tìm các clip có góc/bối cảnh giống clip đang chọn">Góc tương tự</button>
+        <button class="btn hidden" id="p2FindClear" title="Xóa bộ lọc tìm kiếm">✕</button>
+      </div>
       <div class="zoom-ctl" title="Phóng to / thu nhỏ thumbnail (hoặc Ctrl + Lăn chuột)"><span>Cỡ ảnh</span><input type="range" id="g2Zoom" min="120" max="320" value="200" aria-label="Cỡ thumbnail trang 2"></div>
       <span class="dim13b" id="doneText"></span>
     </div>
@@ -114,6 +122,7 @@
       <span><i class="pill-none"></i>Chưa xếp</span>
       <span class="flex1"></span>
       <button class="btn-link hidden" id="undoBtn2">Hoàn tác lần chuyển gần nhất</button>
+      <label class="chk" title="Ẩn các clip đã gắn cờ Bỏ (phím X)"><input type="checkbox" id="hideRej" checked> Ẩn clip bỏ (<b id="rejCount">0</b>)</label>
       <label class="chk"><input type="checkbox" id="onlyStar"> Chỉ clip có sao ★ (<b id="starCount">0</b>)</label>
       <label class="chk"><input type="checkbox" id="onlyNew"> Chỉ clip chưa xếp</label>
     </div>
@@ -200,12 +209,23 @@
   <section class="p3-center" id="p3Center">
     <div class="row-between baseline">
       <h1 class="h20" id="p3Name">Chọn một clip</h1>
-      <span class="dim13" id="p3Meta"></span>
+      <div class="inline8">
+        <div class="wave-tools" id="waveTools">
+          <button class="btn-sm" id="waveZOut" type="button" title="Thu nhỏ sóng âm">−</button>
+          <span class="dim12" id="waveZTxt">1x</span>
+          <button class="btn-sm" id="waveZIn" type="button" title="Phóng to sóng âm (hoặc Ctrl + Cuộn chuột)">+</button>
+          <button class="btn-sm" id="waveZFit" type="button" title="Vừa khung sóng âm">Vừa</button>
+          <label class="chk" title="Khi kéo mép In/Out gần khoảng nghỉ giọng, tự hút nhẹ vào khoảng lặng"><input type="checkbox" id="waveSnap" checked> Hút lặng</label>
+        </div>
+        <span class="dim13" id="p3Meta"></span>
+      </div>
     </div>
     <div id="stageHost3"></div>
     <span class="dim12 hidden">Sóng âm (từ proxy) · bấm vào để lướt tới đó</span>
-    <div class="wave" id="waveBox"><canvas id="waveCv"></canvas><div class="wave-head" id="waveHead"></div><div class="wave-note" id="waveNote"></div></div>
-    <div class="io-bar" id="ioBar"><div class="io-empty" id="ioEmpty">Chưa đặt In / Out</div></div>
+    <div class="wave-scroll" id="waveScroll">
+      <div class="wave" id="waveBox"><canvas id="waveCv"></canvas><div class="wave-head" id="waveHead"></div><div class="wave-note" id="waveNote"></div></div>
+      <div class="io-bar" id="ioBar"><div class="io-empty" id="ioEmpty">Chưa đặt In / Out</div></div>
+    </div>
     <div class="row-between dim12"><span class="io-in" id="ioIn">In --:--:--</span><span id="ioDur">Giữ --:--:--</span><span class="io-in" id="ioOut">Out --:--:--</span></div>
     <div class="p3-legend">
       <span><i class="lg-man"></i>Cam: đặt tay / có trong DaVinci</span>
@@ -275,7 +295,12 @@
       </div>
       <button class="btn" id="lnExport" title="Mỗi giai đoạn một file SRT, giờ nối tiếp liên tục qua các clip, mã clip + số dòng nằm trong dòng chữ">Xuất SRT theo giai đoạn</button>
     </div>
-    <div class="ln-store dim12"><span class="ln-storeinfo" id="lnStore"></span><button class="btn" id="lnRun" title="Chép lời mọi clip của bin đang đọc; chạy tiếp được nếu bị ngắt">Chép lời cả bin</button></div>
+    <div class="ln-store dim12"><span class="ln-storeinfo" id="lnStore"></span><button class="btn" id="lnPickRunBtn" type="button" title="Chọn riêng các bin và máy cần chép lời Whisper">Chọn bin/máy…</button><button class="btn" id="lnRun" title="Chép lời các clip đã chọn (hoặc cả bin); chạy tiếp được nếu bị ngắt">Chép lời</button></div>
+    <div class="ln-pickbox hidden" id="lnPickBox">
+      <div class="row-between center"><b>Chọn bin &amp; máy nguồn tiếng để chép Whisper</b><span class="dim12" id="lnPickCnt"></span></div>
+      <div class="ln-pick-grid" id="lnPickBins"></div>
+      <div class="ln-pick-cams" id="lnPickCams"></div>
+    </div>
     <div class="ln-analyze">
       <span class="dim12" id="anText">Phân tích cả project = chép lời cả bin rồi làm sẵn thumbnail.</span>
       <label class="chk" title="Mặc định TẮT. Khi bật: xong thì Trợ lý lưu project DaVinci, đếm ngược 2 phút (có nút Huỷ) rồi tắt máy. Bị dừng giữa chừng hoặc lưu lỗi thì KHÔNG tắt máy."><input type="checkbox" id="anShut"> Tắt máy khi xong</label>
@@ -284,7 +309,10 @@
     <div class="ln-filters">
       <select id="lnStage" class="sel" title="Giai đoạn (bin mẹ)"></select>
       <select id="lnSub" class="sel" title="Bin con"><option value="all">Tất cả bin con</option></select>
+      <select id="lnCam" class="sel hidden" title="Lọc theo máy quay"><option value="all">Tất cả máy</option></select>
       <button class="pill" id="lnStarOnly" aria-pressed="false">Chỉ clip sao ★</button>
+      <button class="pill" id="lnGolden" aria-pressed="false" title="Lọc các câu thề, cảm ơn, lời chúc đắt giá">Câu đắt giá ★</button>
+      <button class="pill" id="lnDedup" aria-pressed="true" title="Gom các máy quay cùng thời điểm, chỉ hiện 1 câu rõ nhất">Ẩn trùng máy</button>
       <button class="pill" id="lnKey" aria-pressed="false">Chỉ clip có cụm key</button>
       <button class="pill" id="lnMin" aria-pressed="false">Tiếng nói từ 20 giây</button>
       <button class="pill" id="lnHideBad" aria-pressed="false" title="Ẩn các câu nghi Whisper tự bịa / có thể sai">Ẩn câu sai</button>
@@ -351,6 +379,12 @@
         <h1 class="tl-h1">Xếp cụm sự kiện lên timeline</h1>
         <span class="tl-caps"><label for="durTarget">VIDEO MỤC TIÊU</label></span>
         <input id="durTarget" class="tl-inp big" type="text" inputmode="numeric" value="12:00" autocomplete="off" aria-label="Video mục tiêu, phút:giây" title="Gõ phút:giây, ví dụ 12:00. Mục tiêu chỉ là con số nhắm tới, không phải giới hạn cứng. Gõ số không có dấu hai chấm = phút.">
+        <div class="d5-presets" id="d5Presets">
+          <button class="tl-bn" type="button" data-min="1">Teaser 1:00</button>
+          <button class="tl-bn" type="button" data-min="4">Highlight 4:00</button>
+          <button class="tl-bn" type="button" data-min="10">Phóng sự 10:00</button>
+          <button class="tl-bn" type="button" data-min="18">Truyền thống 18:00</button>
+        </div>
         <div class="tl-res" id="d5Res"></div>
         <div class="zoom-ctl" title="Zoom In/Out Timeline (hoặc Ctrl + Lăn chuột)"><span>Zoom</span><input type="range" id="d5Zoom" min="100" max="2000" step="25" value="100" aria-label="Phóng to thu nhỏ timeline"></div>
         <button class="tl-bn" id="d5Fit" title="Phóng vừa khít theo các clip đang có (Shift+Z)">Vừa khung</button>
@@ -376,6 +410,7 @@
           <button class="tl-sug" id="d5SugC"><b></b><span></span></button>
           <button class="tl-sug" id="d5SugD"><b></b><span></span></button>
           <button class="tl-sug" id="d5SugE"><b></b><span></span></button>
+          <label class="chk hidden" id="d5CamTrackWrap" style="margin-bottom:6px" title="Khi project có nhiều máy: đặt Cam A lên V1/A1, Cam B lên V2/A2, Cam C lên V3/A3... trên timeline mới"><input type="checkbox" id="d5CamTrack"> Xếp theo track máy (A→V1, B→V2…)</label>
           <button class="tl-go" id="d5Create" disabled>Đưa lên Timeline mới</button>
           <div class="tl-hint" id="d5CreateHint"></div>
         </aside>
@@ -459,6 +494,13 @@
         </div>
         <div id="setLutList" class="v6" style="max-height:150px;overflow-y:auto"></div>
       </div>
+      <div class="v6">
+        <div class="row-between center">
+          <label class="lbl">Quản lý dung lượng Cache (không đụng file kế hoạch JSON)</label>
+          <span class="dim12" id="setHwBadge"></span>
+        </div>
+        <div id="setCacheList" class="v6" style="max-height:110px;overflow-y:auto"></div>
+      </div>
       <div class="dim12" id="setNote">Thay đổi có hiệu lực ngay với các lượt tạo cache / xuất SRT mới.</div>
     </div>
     <div class="row-between center">
@@ -470,6 +512,80 @@
     </div>
   </div>
 </div>
+</div>
+<!-- Bảng phím tắt nhanh (?) -->
+<div class="modal hidden" id="helpModal">
+  <div class="modal-box" style="width:660px;max-width:95vw">
+    <div class="row-between center" style="margin-bottom:8px">
+      <h2>Bảng phím tắt nhanh FramePilot</h2>
+      <button class="btn" id="helpClose" type="button">Đóng (<kbd class="kb">Esc</kbd>)</button>
+    </div>
+    <div class="help-tabs" id="helpTabs">
+      <button class="help-tab on" data-hp="1" type="button">1 · Giai đoạn</button>
+      <button class="help-tab" data-hp="2" type="button">2 · Phân loại bin</button>
+      <button class="help-tab" data-hp="3" type="button">3 · In / Out</button>
+      <button class="help-tab" data-hp="4" type="button">4 · Lời nói</button>
+      <button class="help-tab" data-hp="5" type="button">5 · Thời lượng</button>
+      <button class="help-tab" data-hp="all" type="button">Tất cả</button>
+    </div>
+    <div class="help-grid" id="helpBody">
+      <div class="help-sec" data-hp="1">
+        <b>Trang 1 · Giai đoạn (chọn mốc)</b>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">F1</kbd> – <kbd class="kb">F9</kbd></span><span class="hk-desc">Đặt mốc ĐẦU giai đoạn tại clip đang chọn</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Shift</kbd> + <kbd class="kb">F1</kbd>–<kbd class="kb">F9</kbd></span><span class="hk-desc">Đặt mốc CUỐI giai đoạn tại clip đang chọn</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">←</kbd> <kbd class="kb">→</kbd> <kbd class="kb">↑</kbd> <kbd class="kb">↓</kbd></span><span class="hk-desc">Di chuyển chọn clip trên lưới</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Esc</kbd></span><span class="hk-desc">Bỏ chọn clip hiện tại</span></div>
+      </div>
+      <div class="help-sec" data-hp="2">
+        <b>Trang 2 · Phân loại bin</b>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">1</kbd> – <kbd class="kb">9</kbd></span><span class="hk-desc">Gán clip đang chọn vào bin con tương ứng</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">0</kbd></span><span class="hk-desc">Bỏ nhãn bin con (trả về Chưa xếp)</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">F1</kbd> – <kbd class="kb">F12</kbd></span><span class="hk-desc">Chuyển clip sang giai đoạn khác (rồi bấm số bin con)</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">P</kbd></span><span class="hk-desc">Gắn / bỏ sao ★ cho các clip đang chọn</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">X</kbd></span><span class="hk-desc">Gắn / bỏ cờ Bỏ (chỉ ẩn trong kế hoạch, không xóa file)</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">A</kbd></span><span class="hk-desc">Nhận gợi ý bin từ AI cho clip đang chọn</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Space</kbd> / <kbd class="kb">J</kbd> <kbd class="kb">K</kbd> <kbd class="kb">L</kbd></span><span class="hk-desc">Phát / Dừng và tua lùi · dừng · tua tới</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">I</kbd> / <kbd class="kb">O</kbd></span><span class="hk-desc">Đặt nhanh điểm In / Out ngay tại điểm phát</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Ctrl</kbd> + <kbd class="kb">A</kbd></span><span class="hk-desc">Chọn tất cả clip đang hiển thị trong lưới</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Enter</kbd></span><span class="hk-desc">Mở thư mục chứa clip trong Explorer</span></div>
+      </div>
+      <div class="help-sec" data-hp="3">
+        <b>Trang 3 · Đặt In / Out</b>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Space</kbd></span><span class="hk-desc">Phát / Dừng video đang xem</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">J</kbd> / <kbd class="kb">K</kbd> / <kbd class="kb">L</kbd></span><span class="hk-desc">Tua lùi · Dừng · Tua tới nhanh (nhiều tốc độ)</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">←</kbd> / <kbd class="kb">→</kbd></span><span class="hk-desc">Nhảy từng frame (giữ <kbd class="kb">Shift</kbd>: 10 frame)</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">I</kbd> / <kbd class="kb">O</kbd></span><span class="hk-desc">Đặt điểm In / Out của khúc hiện tại</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Shift</kbd> + <kbd class="kb">I</kbd> / <kbd class="kb">O</kbd></span><span class="hk-desc">Thêm khúc In/Out mới trong cùng 1 clip</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Del</kbd></span><span class="hk-desc">Xóa khúc In/Out đang chọn</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Ctrl</kbd> + <kbd class="kb">Cuộn</kbd></span><span class="hk-desc">Phóng to / thu nhỏ thanh sóng âm</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">P</kbd> / <kbd class="kb">X</kbd> / <kbd class="kb">A</kbd></span><span class="hk-desc">Gắn sao ★ · Gắn cờ Bỏ · Nhận gợi ý In/Out</span></div>
+      </div>
+      <div class="help-sec" data-hp="4">
+        <b>Trang 4 · Lời nói (Whisper)</b>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Space</kbd></span><span class="hk-desc">Nghe / Dừng video &amp; sóng âm</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">J</kbd> / <kbd class="kb">K</kbd> / <kbd class="kb">L</kbd></span><span class="hk-desc">Tua lùi · Dừng · Tua tới</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">←</kbd> / <kbd class="kb">→</kbd></span><span class="hk-desc">Nhảy từng frame hình</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">I</kbd> / <kbd class="kb">O</kbd></span><span class="hk-desc">Đặt In / Out ngay trên sóng âm</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Shift</kbd> + <kbd class="kb">I</kbd> / <kbd class="kb">O</kbd></span><span class="hk-desc">Thêm khúc In/Out mới cho clip lời nói</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Del</kbd></span><span class="hk-desc">Xóa khúc In/Out đang chọn</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">P</kbd></span><span class="hk-desc">Gắn / bỏ sao ★ clip đang nghe</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">↑</kbd> / <kbd class="kb">↓</kbd></span><span class="hk-desc">Chuyển lên / xuống clip trong bảng lời nói</span></div>
+      </div>
+      <div class="help-sec" data-hp="5">
+        <b>Trang 5 · Thời lượng &amp; Timeline</b>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Shift</kbd> + <kbd class="kb">Z</kbd></span><span class="hk-desc">Vừa khung (phóng khít theo các clip đang có)</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">←</kbd> / <kbd class="kb">→</kbd></span><span class="hk-desc">Chuyển cụm sự kiện trước / sau</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Ctrl</kbd> + <kbd class="kb">Cuộn</kbd></span><span class="hk-desc">Phóng to / thu nhỏ timeline</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Alt</kbd> / <kbd class="kb">Shift</kbd> + <kbd class="kb">Cuộn</kbd></span><span class="hk-desc">Cuộn ngang thanh timeline</span></div>
+      </div>
+      <div class="help-sec" data-hp="common">
+        <b>Phím chung mọi trang</b>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">?</kbd></span><span class="hk-desc">Mở / đóng bảng phím tắt nhanh</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Ctrl</kbd> + <kbd class="kb">Z</kbd></span><span class="hk-desc">Hoàn tác thao tác gần nhất</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">Esc</kbd></span><span class="hk-desc">Đóng hộp thoại đang mở</span></div>
+      </div>
+    </div>
+  </div>
 </div>
 <script src="app.js"></script>
 <script src="player.js"></script>
