@@ -14,6 +14,7 @@ import hashlib
 import html
 import json
 import os
+import re
 import sys
 import time
 import unicodedata
@@ -43,60 +44,226 @@ def _norm(s):
     return unicodedata.normalize("NFC", (s or "")).casefold()
 
 
+def strip_accents(s):
+    """Chuẩn hóa tiếng Việt không dấu, bỏ số thứ tự đầu, đổi _/- thành khoảng trắng, viết thường.
+    Ví dụ: '02_Làm lễ tại gia' -> 'lam le tai gia', 'CDCR' -> 'cdcr'."""
+    t = str(s or "").replace("đ", "d").replace("Đ", "D")
+    t = unicodedata.normalize("NFD", t)
+    t = "".join(ch for ch in t if unicodedata.category(ch) != "Mn")
+    t = t.casefold()
+    t = re.sub(r"^\s*\d+\s*[._\-)\s]+", "", t)
+    t = re.sub(r"[^a-z0-9&]+", " ", t)
+    return " ".join(t.split())
+
+
 # ---------------------------------------------------------------------------
-# Mô tả tiếng Anh từng bin (2-4 câu). Bin lạ: tạo câu chung từ tên bin.
+# Bộ Thẻ cảnh chuẩn nghề cưới VN (Phương án B): tách tên bin hiển thị khỏi loại cảnh AI hiểu.
+# Thứ tự ưu tiên so khớp: cụm dài/cụ thể trước (vd 'co dau chu re' trước 'co dau' / 'chu re').
 # ---------------------------------------------------------------------------
-PROMPT_RULES = (
-    (("phỏng vấn",), ["a person being interviewed, looking at the camera and talking",
-                      "a person speaking into a microphone",
-                      "an interview shot of one person sitting and talking at a wedding"]),
-    (("cô dâu chú rể", "cô dâu và chú rể", "cặp đôi", "cô dâu & chú rể"), ["a bride and groom together, a wedding couple",
-                                                                          "the newlyweds holding hands and smiling at each other",
-                                                                          "a couple in wedding clothes during the ceremony"]),
-    (("sân khấu",), ["a wedding stage with lights, screen and flower arch",
-                     "the bride and groom standing on a stage in a banquet hall",
-                     "a wedding stage with a master of ceremonies"]),
-    (("phát biểu", "diễn văn"), ["a person giving a speech with a microphone at a wedding",
-                                 "a speaker standing at a podium in front of guests"]),
-    (("lễ vật", "trao lễ"), ["relatives carrying red gift trays with offerings for a Vietnamese wedding",
-                             "people in ao dai holding trays covered with red cloth",
-                             "exchanging wedding gifts between two families"]),
-    (("nhà trai", "nhà gái", "rước"), ["a group of people in formal clothes arriving in a procession at a house",
-                                       "the groom's family walking in a line carrying gifts",
-                                       "a wedding procession arriving with cars and people"]),
-    (("khách", "đón khách"), ["wedding guests sitting and standing in a hall",
-                              "guests arriving, greeting and signing the guest book at a wedding",
-                              "a crowd of wedding guests at tables"]),
-    (("gia đình", "họ hàng", "người thân"), ["family members standing together at a wedding",
-                                              "a group of relatives posing for a photo",
-                                              "parents and relatives with the bride and groom"]),
-    (("chú rể",), ["a groom in a black suit posing for a portrait",
-                   "a groom wearing a suit and boutonniere getting ready",
-                   "a man in a suit at a wedding, groom close-up"]),
-    (("cô dâu", "beauty"), ["a bride in a white wedding dress posing for a portrait",
-                            "a bride getting her makeup done by a makeup artist",
-                            "a beautiful bride close-up, bridal portrait",
-                            "a bride putting on her dress and veil"]),
-    (("decor", "chi tiết", "trang trí"), ["wedding decoration with flowers and candles",
-                                          "a close-up of wedding details such as table setting, backdrop and rings",
-                                          "an empty wedding venue with decorations and no people"]),
-    (("nghi lễ", "gia tiên", "lễ"), ["a traditional Vietnamese wedding ceremony with an altar, incense and offerings",
-                                     "a couple bowing at an ancestral altar",
-                                     "a formal wedding ceremony with relatives"]),
-    (("chào bàn", "tiệc", "nhà hàng"), ["a wedding reception in a restaurant with guests at round tables",
-                                        "the bride and groom toasting with champagne at a banquet",
-                                        "a wedding banquet hall with a stage and lights"]),
-    (("khác",), ["a blurry or dark frame of the floor, ceiling or camera equipment",
+CONCEPTS = (
+    {"id": "cap_doi", "label": "Cô dâu chú rể", "group": "Chung", "default": "Cô dâu chú rể",
+     "keys": ("co dau chu re", "co dau va chu re", "co dau & chu re", "cdcr", "cd cr", "cap doi", "couple", "first look", "chup doi", "portrait doi"),
+     "prompts": ["a bride and groom together, a wedding couple",
+                 "the newlyweds holding hands and smiling at each other",
+                 "a couple in wedding clothes posing together"]},
+    {"id": "phong_van", "label": "Phỏng vấn", "group": "Chung", "default": "Phỏng vấn",
+     "keys": ("phong van", "interview", "chia se", "tam su", "cam nghi", "pv"),
+     "prompts": ["a person being interviewed, looking at the camera and talking",
+                 "a person speaking into a microphone",
+                 "an interview shot of one person sitting and talking at a wedding"]},
+    {"id": "nghi_le_san_khau", "label": "Nghi lễ sân khấu", "group": "Nhà hàng", "default": "Nghi lễ sân khấu",
+     "keys": ("nghi le san khau", "nghi le nha hang", "lam le san khau", "san khau", "rot ruou", "cat banh", "vows", "loi the", "trao nhan", "le duong", "khai tiec", "tung hoa", "tien vao le duong"),
+     "prompts": ["a wedding stage with lights, screen and flower arch in a banquet hall",
+                 "the bride and groom pouring champagne tower or cutting wedding cake on stage",
+                 "a bride and groom exchanging rings and vows on a wedding stage with a master of ceremonies"]},
+    {"id": "nghi_le_tai_gia", "label": "Nghi lễ tại gia", "group": "Gia tiên", "default": "Nghi lễ tại gia",
+     "keys": ("nghi le tai gia", "lam le tai gia", "nghi le gia tien", "gia tien", "ban tho", "nhang", "vu quy", "tan hon", "thanh hon", "dang tra", "len den", "trao vang", "trao qua", "lay ong ba", "an hoi", "dam ngo", "tai gia"),
+     "prompts": ["a traditional Vietnamese wedding ceremony at home with an ancestral altar, red backdrop, incense and offerings",
+                 "a bride and groom in traditional ao dai bowing at an ancestral altar",
+                 "a Vietnamese family ceremony inside a house exchanging tea and gold jewelry"]},
+    {"id": "le_nha_tho", "label": "Lễ nhà thờ", "group": "Đặc thù", "default": "Lễ nhà thờ",
+     "keys": ("nha tho", "thanh le", "cha xu", "church", "hon phoi", "le nha tho"),
+     "prompts": ["a wedding ceremony inside a church with pews, altar and priest",
+                 "a bride and groom walking down a church aisle",
+                 "a Catholic wedding ceremony at a church altar"]},
+    {"id": "phat_bieu", "label": "Phát biểu", "group": "Nhà hàng", "default": "Phát biểu",
+     "keys": ("phat bieu", "dien van", "loi cam on", "speech", "mc"),
+     "prompts": ["a person giving a speech with a microphone at a wedding",
+                 "parents or a speaker standing at a podium in front of wedding guests"]},
+    {"id": "le_vat", "label": "Lễ vật / Mâm quả", "group": "Gia tiên", "default": "Lễ vật",
+     "keys": ("le vat", "mam qua", "be trap", "trao le", "sinh le", "trap"),
+     "prompts": ["relatives carrying red gift trays with offerings for a Vietnamese wedding",
+                 "people in ao dai holding trays covered with red cloth",
+                 "exchanging wedding gift trays between two families"]},
+    {"id": "ruoc_dau", "label": "Rước dâu / Nhà trai đến", "group": "Gia tiên", "default": "Rước dâu",
+     "keys": ("ruoc dau", "don dau", "nha trai", "nha gai", "xe hoa", "doan ruoc", "ruoc", "di chuyen"),
+     "prompts": ["a group of people in formal clothes arriving in a procession at a house",
+                 "the groom's family walking in a line carrying wedding gifts",
+                 "a wedding procession arriving with decorated wedding cars and people"]},
+    {"id": "don_khach", "label": "Đón khách", "group": "Nhà hàng", "default": "Đón khách",
+     "keys": ("don khach", "chup cong", "ky ten", "tiep tan", "check in", "khach"),
+     "prompts": ["wedding guests arriving, greeting and taking photos at the entrance arch",
+                 "guests signing the guest book at a wedding reception desk",
+                 "a crowd of wedding guests sitting and mingling in a hall"]},
+    {"id": "gia_dinh", "label": "Gia đình", "group": "Chung", "default": "Gia đình",
+     "keys": ("gia dinh", "ho hang", "nguoi than", "bo me", "ba me", "cha me", "family", "tap the", "phu dau", "phu re", "ban be"),
+     "prompts": ["family members standing together at a wedding",
+                 "a group of relatives posing for a group photo at a wedding",
+                 "parents and relatives with the bride and groom"]},
+    {"id": "chu_re", "label": "Chú rể", "group": "Chuẩn bị", "default": "Chú rể",
+     "keys": ("chu re", "groom", "vest", "thay do chu re", "cr"),
+     "prompts": ["a groom in a black suit posing for a portrait",
+                 "a groom wearing a suit and boutonniere getting ready",
+                 "a man in a suit at a wedding, groom close-up"]},
+    {"id": "co_dau", "label": "Cô dâu / Beauty", "group": "Chuẩn bị", "default": "Beauty cô dâu",
+     "keys": ("co dau", "beauty", "makeup", "make up", "trang diem", "bridal", "vay cuoi", "thay vay", "cd"),
+     "prompts": ["a bride in a white wedding dress posing for a portrait",
+                 "a bride getting her makeup done by a makeup artist",
+                 "a beautiful bride close-up, bridal portrait",
+                 "a bride putting on her wedding dress and veil"]},
+    {"id": "decor", "label": "Decor / Chi tiết", "group": "Chung", "default": "Decor",
+     "keys": ("decor", "trang tri", "chi tiet", "detail", "broll", "b roll", "gallery", "cong hoa", "backdrop", "khong gian", "venue", "flycam", "drone", "nhan cuoi", "hoa cuoi"),
+     "prompts": ["wedding decoration with flowers, candles and floral arch",
+                 "a close-up of wedding details such as table setting, backdrop, bouquet and rings",
+                 "an empty wedding venue with decorations and no people"]},
+    {"id": "chao_ban", "label": "Chào bàn / Tiệc", "group": "Nhà hàng", "default": "Chào bàn",
+     "keys": ("chao ban", "nang ly", "cung ly", "moi ruou", "di ban", "tiec man", "tiec toi", "an tiec", "banquet", "tiec", "nha hang"),
+     "prompts": ["a wedding reception in a restaurant with guests at round dining tables",
+                 "the bride and groom toasting glasses with guests at banquet tables",
+                 "a wedding banquet hall with round tables and lights"]},
+    {"id": "choi_game", "label": "Chơi game / Tiệc vui", "group": "Đặc thù", "default": "Chơi game",
+     "keys": ("choi game", "game", "tro choi", "after party", "party", "nhay", "ca hat", "van nghe", "quay", "karaoke"),
+     "prompts": ["wedding guests playing fun party games on stage and laughing",
+                 "people dancing and celebrating at a wedding after party with colorful lights",
+                 "guests singing and cheering at a lively wedding reception"]},
+    {"id": "mua_lan", "label": "Múa lân / Biểu diễn", "group": "Đặc thù", "default": "Múa lân",
+     "keys": ("mua lan", "lan su rong", "bieu dien", "mua hat", "ca si", "ban nhac"),
+     "prompts": ["traditional colorful Vietnamese lion dance performance at a wedding",
+                 "lion dancers and drummers performing at a wedding entrance or banquet hall",
+                 "a live stage performance or dancers at a wedding reception"]},
+    {"id": "khac", "label": "Khác", "group": "Chung", "default": "Khác",
+     "keys": ("khac", "other", "rac", "loi", "out net", "nhap"),
+     "prompts": ["a blurry or dark frame of the floor, ceiling or camera equipment",
                  "people walking around, a random behind-the-scenes moment",
-                 "an out-of-focus or unclear photo"]),
+                 "an out-of-focus or unclear photo"]},
 )
 
+CONCEPT_BY_ID = {c["id"]: c for c in CONCEPTS}
+_STAGE_HALL_HINTS = ("nha hang", "tiec", "toi", "gala", "san khau", "le duong", "reception", "banquet")
+_STAGE_CHURCH_HINTS = ("nha tho", "thanh le", "church")
+_GENERIC_CEREMONY = ("nghi le", "lam le", "le cuoi", "le", "nl")
 
-def prompts_for(bin_name):
-    n = _norm(bin_name)
-    for keys, texts in PROMPT_RULES:
-        if any(k in n for k in keys):
-            return list(texts)
+
+def concept_list():
+    """Danh sách thẻ cảnh chuẩn cho giao diện (Page 1 menu sổ ra & Page 2 menu chuột phải)."""
+    return [{"id": c["id"], "label": c["label"], "group": c["group"], "default": c["default"]} for c in CONCEPTS]
+
+
+def _has_phrase(norm_text, phrase):
+    if not norm_text or not phrase:
+        return False
+    return re.search(r"(?:^|\s)" + re.escape(phrase) + r"(?:$|\s)", norm_text) is not None
+
+
+def synonyms_path(data_root):
+    """File từ nhớ riêng của editor (<data_root>/troly/ai_synonyms.json), KHÔNG nằm trong cache xóa được."""
+    return os.path.join(data_root, "troly", "ai_synonyms.json")
+
+
+def load_synonyms(data_root):
+    p = synonyms_path(data_root)
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        if isinstance(d, dict):
+            return {
+                "by_bin": dict(d.get("by_bin") or {}),
+                "by_stage_bin": dict(d.get("by_stage_bin") or {}),
+                "custom_names": list(d.get("custom_names") or []),
+            }
+    except (OSError, ValueError):
+        pass
+    return {"by_bin": {}, "by_stage_bin": {}, "custom_names": []}
+
+
+def save_synonym(data_root, bin_name, concept_id, stage_name=""):
+    """Lưu từ nhớ riêng của editor (ánh xạ tên bin -> thẻ cảnh chuẩn + nhớ tên bin để gợi ý lại ở Page 1)."""
+    if not data_root or not bin_name:
+        return None
+    nb = strip_accents(bin_name)
+    ns = strip_accents(stage_name)
+    if not nb:
+        return None
+    d = load_synonyms(data_root)
+    if concept_id and concept_id in CONCEPT_BY_ID:
+        d["by_bin"][nb] = concept_id
+        if ns:
+            d["by_stage_bin"][ns + "|" + nb] = concept_id
+    elif concept_id == "":
+        d["by_bin"].pop(nb, None)
+        if ns:
+            d["by_stage_bin"].pop(ns + "|" + nb, None)
+    clean_name = " ".join(str(bin_name).split()).strip()
+    if clean_name and clean_name not in d["custom_names"]:
+        d["custom_names"].append(clean_name)
+        d["custom_names"] = d["custom_names"][-60:]
+    p = synonyms_path(data_root)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p + ".tmp", "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False, indent=2)
+    os.replace(p + ".tmp", p)
+    return d
+
+
+def infer_concept(bin_name, stage_name="", custom_map=None):
+    """Đoán Thẻ cảnh chuẩn từ tên bin (có dấu hoặc không dấu/viết tắt) + ngữ cảnh Cụm sự kiện mẹ + từ nhớ riêng."""
+    nb = strip_accents(bin_name)
+    ns = strip_accents(stage_name)
+    if not nb:
+        return None
+    if isinstance(custom_map, dict):
+        by_sb = custom_map.get("by_stage_bin") or {}
+        by_b = custom_map.get("by_bin") or {}
+        if ns and (ns + "|" + nb) in by_sb and by_sb[ns + "|" + nb] in CONCEPT_BY_ID:
+            return by_sb[ns + "|" + nb]
+        if nb in by_b and by_b[nb] in CONCEPT_BY_ID:
+            return by_b[nb]
+    # 1. Các nhóm hành động đặc thù luôn thắng từ chỉ người đi kèm (vd 'PV Khách', 'Phỏng vấn cô dâu' -> phong_van)
+    for priority_id in ("phong_van", "phat_bieu", "mua_lan", "choi_game", "le_nha_tho"):
+        c = CONCEPT_BY_ID[priority_id]
+        if any(_has_phrase(nb, kw) for kw in c["keys"]):
+            return priority_id
+    # 2. Cụm nghi lễ ('nghi le', 'lam le', 'le cuoi') ưu tiên phân loại theo sân khấu / nhà thờ / tại gia trước 'chu re'/'co dau'
+    if any(_has_phrase(nb, g) for g in ("nghi le", "lam le", "le cuoi", "nl")):
+        if any(_has_phrase(nb, kw) for kw in CONCEPT_BY_ID["nghi_le_san_khau"]["keys"]) or any(_has_phrase(ns, h) for h in _STAGE_HALL_HINTS):
+            return "nghi_le_san_khau"
+        if any(_has_phrase(nb, kw) for kw in CONCEPT_BY_ID["le_nha_tho"]["keys"]) or any(_has_phrase(ns, h) for h in _STAGE_CHURCH_HINTS):
+            return "le_nha_tho"
+        return "nghi_le_tai_gia"
+    # 3. Khớp theo cụm từ khóa chuẩn (ưu tiên cụm dài trước, theo ranh giới từ)
+    best = None
+    best_len = 0
+    for c in CONCEPTS:
+        for kw in c["keys"]:
+            if _has_phrase(nb, kw) and len(kw) > best_len:
+                best = c["id"]
+                best_len = len(kw)
+    if best:
+        return best
+    # 4. Chữ 'le' đứng riêng -> phân biệt theo ngữ cảnh cụm mẹ (Stage)
+    if _has_phrase(nb, "le"):
+        if any(_has_phrase(ns, h) for h in _STAGE_CHURCH_HINTS):
+            return "le_nha_tho"
+        if any(_has_phrase(ns, h) for h in _STAGE_HALL_HINTS):
+            return "nghi_le_san_khau"
+        return "nghi_le_tai_gia"
+    return None
+
+
+def prompts_for(bin_name, stage_name="", custom_map=None):
+    cid = infer_concept(bin_name, stage_name=stage_name, custom_map=custom_map)
+    if cid and cid in CONCEPT_BY_ID:
+        return list(CONCEPT_BY_ID[cid]["prompts"])
     return ["a photo of %s at a wedding" % bin_name, "a video frame showing %s" % bin_name]
 
 
@@ -341,22 +508,34 @@ def run_suggest(project, data_root, proxy_root):
     with np.load(npz, allow_pickle=False) as z:
         keys, vecs = list(z["keys"]), z["vecs"].copy()
     model, _, tok, dev = load_model(data_root)
+    syn = load_synonyms(data_root)
     tvecs = []
+    cvecs = []
     with torch.no_grad():
         for b in bins:
-            t = model.encode_text(tok(prompts_for(b)).to(dev))
+            t = model.encode_text(tok(prompts_for(b, custom_map=syn)).to(dev))
             t = t / t.norm(dim=-1, keepdim=True)
             m = t.mean(0)
             tvecs.append((m / m.norm()).float().cpu().numpy())
+        for c_def in CONCEPTS:
+            tc_v = model.encode_text(tok(c_def["prompts"]).to(dev))
+            tc_v = tc_v / tc_v.norm(dim=-1, keepdim=True)
+            mc = tc_v.mean(0)
+            cvecs.append((mc / mc.norm()).float().cpu().numpy())
     T = np.stack(tvecs)                                     # [bins, 512]
     logits = TEMPERATURE * vecs @ T.T
     e = np.exp(logits - logits.max(1, keepdims=True))
     prob = e / e.sum(1, keepdims=True)
+    TC = np.stack(cvecs)                                    # [concepts, 512]
+    clogits = TEMPERATURE * vecs @ TC.T
+    ce = np.exp(clogits - clogits.max(1, keepdims=True))
+    cprob = ce / ce.sum(1, keepdims=True)
+    c_ids = [c["id"] for c in CONCEPTS]
     clips, _ = match_thumbs(project, data_root, proxy_root)
     by_key = {c["key"]: c for c in clips}
     lab = labels_by_stem(plan)
     items = []
-    for k, p in zip(keys, prob):
+    for k, p, cp in zip(keys, prob, cprob):
         c = by_key.get(k)
         if not c:
             continue
@@ -365,9 +544,11 @@ def run_suggest(project, data_root, proxy_root):
         items.append({"clip": c["rel"], "name": c["name"], "thumb": c["thumb"],
                       "top": [{"bin": bins[j], "score": round(float(p[j]), 4)} for j in order],
                       "scores": [round(float(x), 4) for x in p],
+                      "c_scores": [round(float(x), 4) for x in cp],
                       "label": lab.get(stem_key)})
     out = {"project_tag": project[:10], "model": ("SigLIP %s" % SIGLIP_ARCH if has_siglip(data_root) else "OpenCLIP %s laion2b_s34b_b79k" % MODEL_ARCH), "bins": bins,
-           "prompts": {b: prompts_for(b) for b in bins}, "count": len(items), "items": items,
+           "concepts": c_ids,
+           "prompts": {b: prompts_for(b, custom_map=syn) for b in bins}, "count": len(items), "items": items,
            "eval": evaluate(items, bins)}
     d = os.path.join(data_root, "troly", "ai_suggest")
     os.makedirs(d, exist_ok=True)
@@ -506,33 +687,96 @@ def load_suggest(data_root, project):
     return d.get("bins", []), out
 
 
+def load_concept_scores(data_root, project):
+    """(concept_ids, {ck: c_scores}) từ file ai_suggest, hoặc None nếu bản cũ chưa có."""
+    p = os.path.join(data_root, "troly", "ai_suggest", tc._safe(project) + ".json")
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return None
+    c_ids = d.get("concepts")
+    if not isinstance(c_ids, list) or not c_ids:
+        return None
+    out = {}
+    for it in d.get("items", []):
+        if it.get("c_scores"):
+            out[ck(it["clip"])] = it["c_scores"]
+    return (c_ids, out) if out else None
+
+
 def _top3(pairs, skip=()):
     pairs = [(b, s) for b, s in pairs if b not in skip]
     pairs.sort(key=lambda x: -x[1])
     return [{"bin": b, "score": round(float(s), 3)} for b, s in pairs[:3]]
 
 
-def rank_for_clip(key, cand_bins, vectors, labeled, desc, k=KNN_K, temp=KNN_TEMP):
-    """Gợi ý hạng 1-3 cho một clip trong các bin cand_bins (bin của giai đoạn clip đang ở).
-    labeled = {ck: bin} nhãn tay (của anh); desc = (bins, {ck: scores}) theo mô tả.
-    Trả (nguồn 'nhan'|'mo_ta'|None, [{'bin','score'}...]). Điểm đã chuẩn hóa trong các bin của giai đoạn (cộng lại = 1)."""
+MIN_STAGE_SEED = 2                  # chỉ cần 2 clip mẫu xếp tay trong giai đoạn là học nhanh (Ý 3: Chơi game, Múa lân...)
+
+
+def _knn_rank(v, pool, vectors, k, temp):
     import numpy as np
+    M = np.stack([vectors[kk] for kk, _ in pool])
+    sims = M @ v
+    idx = np.argsort(-sims)[:k]
+    w = np.exp(temp * (sims[idx] - sims[idx].max()))
+    sc = {}
+    for j, wi in zip(idx, w):
+        sc[pool[j][1]] = sc.get(pool[j][1], 0.0) + float(wi)
+    tot = sum(sc.values()) or 1.0
+    return _top3([(b, x / tot) for b, x in sc.items()])
+
+
+def rank_for_clip(key, cand_bins, vectors, labeled, desc, k=KNN_K, temp=KNN_TEMP,
+                  stage_name="", bin_tags=None, synonyms=None, concept_scores=None, stage_labeled=None):
+    """Gợi ý hạng 1-3 cho một clip trong các bin cand_bins (bin của giai đoạn clip đang ở).
+    1) Học nhanh theo 2-3 clip mẫu ngay trong giai đoạn (stage_labeled, Ý 3) hoặc >=20 nhãn tay toàn project.
+    2) Điểm theo Thẻ cảnh chuẩn (concept_scores, Phương án B: đổi tên bin cập nhật tức thì 0 giây).
+    3) Dự phòng: bảng mô tả cũ (desc), có đối chiếu đồng nghĩa qua infer_concept nếu bin vừa đổi tên."""
     v = vectors.get(key)
-    if v is not None and len(labeled) >= MIN_FEWSHOT_LABELS:
-        pool = [(kk, b) for kk, b in labeled.items() if b in cand_bins and kk != key and kk in vectors]
-        if len(pool) >= MIN_FEWSHOT_IN_STAGE:
-            M = np.stack([vectors[kk] for kk, _ in pool])
-            sims = M @ v
-            idx = np.argsort(-sims)[:k]
-            w = np.exp(temp * (sims[idx] - sims[idx].max()))
-            sc = {}
-            for j, wi in zip(idx, w):
-                sc[pool[j][1]] = sc.get(pool[j][1], 0.0) + float(wi)
-            tot = sum(sc.values()) or 1.0
-            return "nhan", _top3([(b, x / tot) for b, x in sc.items()])
+    if v is not None:
+        # 1a. Học nhanh từ 2+ clip mẫu ngay trong giai đoạn đang xét (cân được Chơi game, Múa lân, bin lạ...)
+        if stage_labeled:
+            spool = [(kk, b) for kk, b in stage_labeled.items() if b in cand_bins and kk != key and kk in vectors]
+            n_bins_seeded = len({b for _, b in spool})
+            if len(spool) >= MIN_STAGE_SEED and (n_bins_seeded >= 2 or len(spool) >= MIN_FEWSHOT_IN_STAGE):
+                return "nhan", _knn_rank(v, spool, vectors, k, temp)
+        # 1b. Học từ nhãn tay toàn project (>= 20 nhãn)
+        if len(labeled) >= MIN_FEWSHOT_LABELS:
+            pool = [(kk, b) for kk, b in labeled.items() if b in cand_bins and kk != key and kk in vectors]
+            if len(pool) >= MIN_FEWSHOT_IN_STAGE:
+                return "nhan", _knn_rank(v, pool, vectors, k, temp)
+    # 2. Chấm điểm tức thì qua bộ Thẻ cảnh chuẩn (c_scores): đổi tên bin không bao giờ mất điểm
+    if concept_scores and key in concept_scores[1]:
+        c_ids, c_table = concept_scores
+        c_idx = {cid: idx for idx, cid in enumerate(c_ids)}
+        row = c_table[key]
+        sc = []
+        for b in cand_bins:
+            cid = (bin_tags or {}).get(b) or infer_concept(b, stage_name=stage_name, custom_map=synonyms)
+            if cid and cid in c_idx and c_idx[cid] < len(row):
+                sc.append((b, float(row[c_idx[cid]])))
+        tot = sum(x for _, x in sc)
+        if sc and tot > 0:
+            return "mo_ta", _top3([(b, x / tot) for b, x in sc])
+    # 3. Dự phòng file ai_suggest.json bản cũ: khớp trực tiếp hoặc khớp đồng nghĩa theo thẻ cảnh
     if desc and key in desc[1]:
         bins, table = desc
-        sc = [(b, x) for b, x in zip(bins, table[key]) if b in cand_bins]
+        row = table[key]
+        by_name = {b: float(x) for b, x in zip(bins, row)}
+        by_cid = {}
+        for b, x in zip(bins, row):
+            cid0 = infer_concept(b, stage_name=stage_name, custom_map=synonyms)
+            if cid0 and float(x) > by_cid.get(cid0, -1.0):
+                by_cid[cid0] = float(x)
+        sc = []
+        for b in cand_bins:
+            if b in by_name:
+                sc.append((b, by_name[b]))
+            else:
+                cid = (bin_tags or {}).get(b) or infer_concept(b, stage_name=stage_name, custom_map=synonyms)
+                if cid and cid in by_cid:
+                    sc.append((b, by_cid[cid]))
         tot = sum(x for _, x in sc)
         if sc and tot > 0:
             return "mo_ta", _top3([(b, x / tot) for b, x in sc])

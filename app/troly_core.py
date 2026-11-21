@@ -983,6 +983,11 @@ def rename_in_plan(plan, kind, i, old, new, in_stage_keys=()):
         p_old, p_new = bin_prefix(src, i, old), bin_prefix(src, i, new)
     else:
         st["bins"][st["bins"].index(old)] = new          # cùng VỊ TRÍ nên phím số không đổi
+        btags = st.get("bin_tags")
+        if isinstance(btags, dict) and old in btags:
+            if new not in btags:
+                btags[new] = btags[old]
+            btags.pop(old, None)
         for key, lab in labels.items():
             if lab.get("stage") == stage_old and lab.get("bin") == old and mine(key):
                 lab["bin"] = new

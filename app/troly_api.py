@@ -213,6 +213,7 @@ class TrolyApi(object):
         with self._lock:
             self._recount()
             cnt, outside = tc.counts(self._assign, len(self._stages))
+            syn = self._ai_synonyms()
             stages = []
             for i, s in enumerate(self._stages):
                 # MỌI số đếm và lưới xem đều lấy từ cùng các danh sách uid này (đúng thứ tự giờ quay), nên số cạnh
@@ -223,6 +224,16 @@ class TrolyApi(object):
                     by_bin[self._label_in_stage(c, i)].append(c.uid)
                 none = by_bin.get(None, [])
                 letters = sorted({self._mk_letter[c.uid] for c in in_stage if self._mk_letter.get(c.uid)})
+                btags = s.get("bin_tags") or {}
+                bins_view = []
+                ai_tags_view = {}
+                for j, b in enumerate(s["bins"]):
+                    cid = btags.get(b) or ai.infer_concept(b, stage_name=s["name"], custom_map=syn)
+                    cdef = ai.CONCEPT_BY_ID.get(cid) if cid else None
+                    bins_view.append({"name": b, "key": str(j + 1) if j < 9 else "",
+                                      "color": SUB_COLORS[j % len(SUB_COLORS)], "uids": by_bin.get(b, []),
+                                      "count": len(by_bin.get(b, []))})
+                    ai_tags_view[b] = {"tag": cid or "", "label": cdef["label"] if cdef else "", "custom": bool(btags.get(b))}
                 stages.append({"name": s["name"], "start": s["start"], "end": s["end"], "color": s["color"],
                                "count": cnt[i], "bin": "%02d_%s" % (i + 1, s["name"]),
                                "event": self._event_of_stage(s), "mach": letters,
@@ -232,10 +243,8 @@ class TrolyApi(object):
                                "range": self._range_text(i, s),
                                "uids": [c.uid for c in in_stage], "none": none,
                                "done": len(in_stage) - len(none),
-                               "bins": [{"name": b, "key": str(j + 1) if j < 9 else "",
-                                         "color": SUB_COLORS[j % len(SUB_COLORS)], "uids": by_bin.get(b, []),
-                                         "count": len(by_bin.get(b, []))}
-                                        for j, b in enumerate(s["bins"])]})
+                               "ai_tags": ai_tags_view,
+                               "bins": bins_view})
             clips = []
             for c in self._clips:
                 m = tc.clip_minutes(c, self._day0, self._plan["offsets"]) if self._day0 else None
@@ -278,6 +287,8 @@ class TrolyApi(object):
                                   "name": (self._plan.get("machine_names") or {}).get(m["key"]) or m["name"]}
                                  for m in self._machines],
                     "hw": hw.detect(),
+                    "ai_concepts": ai.concept_list(),
+                    "ai_custom_names": syn.get("custom_names", []),
                     "audio": self._audio_view(), "events": self._events_view(),
                     "template": self._plan.get("template") if self._tl_want else (self._plan.get("template") or tc.DEFAULT_TEMPLATE),
                     "templates": list(tc.templates(self._root, custom_path=self._tpl_custom())),
@@ -883,7 +894,17 @@ class TrolyApi(object):
                 s["name"] = new
             if "bins" in fields:
                 bins = [str(x).strip().replace("/", "-") for x in fields["bins"]]
-                s["bins"] = [x for x in bins if x and x != tc.OTHER_BIN] + [tc.OTHER_BIN]
+                new_bins = [x for x in bins if x and x != tc.OTHER_BIN] + [tc.OTHER_BIN]
+                s["bins"] = new_bins
+                # Giữ thẻ cảnh cho các bin còn lại và lưu tên bin mới vào danh sách gợi ý của editor
+                if isinstance(s.get("bin_tags"), dict):
+                    s["bin_tags"] = {k: v for k, v in s["bin_tags"].items() if k in new_bins}
+                for bn in new_bins:
+                    if bn != tc.OTHER_BIN and bn not in {c["default"] for c in ai.CONCEPTS}:
+                        try:
+                            ai.save_synonym(self._root, bn, None, s["name"])
+                        except OSError:
+                            pass
             self._save_soon()
             return self.state()
 
@@ -1153,16 +1174,44 @@ class TrolyApi(object):
         d = ai.embed_dir(self._root, self._project)
         return os.path.join(d, "vectors.npz"), os.path.join(self._root, "troly", "ai_suggest", tc._safe(self._project) + ".json")
 
+    def _ai_synonyms(self):
+        return ai.load_synonyms(self._root)
+
     def _ai_data(self):
-        """(vectors, desc) nạp lại khi file đổi."""
+        """(vectors, desc) nạp lại khi file đổi; đồng thời cache c_scores cho Phương án B."""
         vf, sf = self._ai_files()
         sig = tuple((os.path.getmtime(f) if os.path.isfile(f) else 0) for f in (vf, sf))
         if self._ai_cache.get("sig") != sig:
             try:
-                self._ai_cache = {"sig": sig, "vec": ai.load_vectors(self._root, self._project), "desc": ai.load_suggest(self._root, self._project)}
+                self._ai_cache = {"sig": sig, "vec": ai.load_vectors(self._root, self._project),
+                                  "desc": ai.load_suggest(self._root, self._project),
+                                  "c_scores": ai.load_concept_scores(self._root, self._project)}
             except Exception:                                 # noqa: BLE001  numpy thiếu / file hỏng: coi như chưa có
-                self._ai_cache = {"sig": sig, "vec": {}, "desc": None}
+                self._ai_cache = {"sig": sig, "vec": {}, "desc": None, "c_scores": None}
         return self._ai_cache["vec"], self._ai_cache["desc"]
+
+    def ai_set_bin_concept(self, stage_i, bin_name, concept_id):
+        """Gắn Thẻ cảnh chuẩn (ai_tag) cho một bin con của giai đoạn stage_i và tự lưu từ nhớ riêng của editor (ai_synonyms.json)."""
+        with self._lock:
+            if not isinstance(stage_i, int) or not (0 <= stage_i < len(self._stages)):
+                return {"error": "Không tìm thấy giai đoạn."}
+            s = self._stages[stage_i]
+            if bin_name not in s["bins"]:
+                return {"error": "Không tìm thấy bin con."}
+            cid = str(concept_id or "").strip()
+            if cid and cid not in ai.CONCEPT_BY_ID:
+                return {"error": "Thẻ cảnh AI không hợp lệ."}
+            btags = s.setdefault("bin_tags", {})
+            if cid:
+                btags[bin_name] = cid
+            else:
+                btags.pop(bin_name, None)
+            try:
+                ai.save_synonym(self._root, bin_name, cid, s["name"])
+            except OSError:
+                pass
+            self._save_soon()
+        return self.state()
 
     def _ai_labeled(self):
         out = {}
@@ -1230,9 +1279,20 @@ class TrolyApi(object):
         chưa có dữ liệu -> {}. Chỉ xét các bin của giai đoạn clip đang ở. Clip đã xếp bị bỏ qua trừ khi include_labeled."""
         with self._lock:
             vec, desc = self._ai_data()
-            if not vec and not desc:
+            c_scores = self._ai_cache.get("c_scores")
+            if not vec and not desc and not c_scores:
                 return {}
             lab = self._ai_labeled()
+            syn = self._ai_synonyms()
+            # Gom nhãn tay theo từng giai đoạn (để học nhanh 2-3 clip mẫu và tránh trộn Nghi lễ tại gia vs Nhà hàng)
+            by_stage_lab = collections.defaultdict(dict)
+            for c in self._clips:
+                si_c = self._assign.get(c.uid)
+                if si_c is None:
+                    continue
+                v_lb = tc.label_of(self._plan, c)
+                if isinstance(v_lb, dict) and v_lb.get("bin") and v_lb.get("by") != AI_AUTO_BY:
+                    by_stage_lab[si_c][ai.ck(c.rel or c.name)] = v_lb["bin"]
             skip = self._plan.get("ai_skip") or {}
             out = {}
             for u in uids:
@@ -1245,10 +1305,19 @@ class TrolyApi(object):
                 if skip.get(c.rel or c.name):
                     out[u] = {"skipped": True}
                     continue
-                cand = self._stages[si]["bins"]
+                st_obj = self._stages[si]
+                cand = st_obj["bins"]
                 key = ai.ck(c.rel or c.name)
                 train = {k: b for k, b in lab.items() if k != key}
-                src, top = ai.rank_for_clip(key, cand, vec, train, desc)
+                s_train = {k: b for k, b in by_stage_lab.get(si, {}).items() if k != key}
+                src, top = ai.rank_for_clip(
+                    key, cand, vec, train, desc,
+                    stage_name=st_obj.get("name", ""),
+                    bin_tags=st_obj.get("bin_tags"),
+                    synonyms=syn,
+                    concept_scores=c_scores,
+                    stage_labeled=s_train,
+                )
                 if top:
                     out[u] = {"src": src, "top": top}
             return out
@@ -2450,8 +2519,17 @@ class TrolyApi(object):
                 return {"ok": True, "same": True}
             self._recount()
             cur = self._stages[i]["name"] if kind == "stage" else old
+            old_cid = None
+            if kind == "bin":
+                st_cur = self._stages[i]
+                old_cid = (st_cur.get("bin_tags") or {}).get(cur) or ai.infer_concept(cur, stage_name=st_cur["name"], custom_map=self._ai_synonyms())
             keys = {c.rel or c.name for c in self._clips if self._assign.get(c.uid) == i}
             tc.rename_in_plan(self._plan, kind, i, cur, chk["name"], keys)
+            if kind == "bin" and old_cid:
+                st_after = self._stages[i]
+                new_cid = ai.infer_concept(chk["name"], stage_name=st_after["name"], custom_map=self._ai_synonyms())
+                if not new_cid:
+                    st_after.setdefault("bin_tags", {})[chk["name"]] = old_cid
             self._save_now()
             self._recount()
         self._emit("state", self.state())

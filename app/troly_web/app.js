@@ -210,7 +210,7 @@ function stageCard(s, i) {
   const mk = (what, h, label) => `<div class="mk${h ? (h.auto ? " auto" : "") : " none"}"><span class="kb">${label}</span><span>${what}</span><span class="nm" title="${h && h.auto ? "Tự suy ra từ khoảng giờ; bấm clip rồi F để đặt mốc" : ""}">${h ? esc(h.name) + (h.auto ? " (tự động)" : "") : "chưa chọn"}</span></div>`;
   const chipHtml = s.incomplete ? `<span class="chip" style="color:#E0A030">thiếu mốc</span>` : `<span class="chip">${s.count} file</span>`;
   const subRows = (s.bins || []).map((b) => `<div class="p1-sub"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span>${b.key ? `<span class="k">${b.key}</span>` : ""}</div>`).join("");
-  const editRows = (s.bins || []).filter((b) => b.name !== "Khác").map((b) => `<div class="p1-bin-row"><input class="inp" data-bin-inp="1" value="${esc(b.name)}"><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`).join("");
+  const editRows = (s.bins || []).filter((b) => b.name !== "Khác").map((b) => `<div class="p1-bin-row"><div class="p1-bin-wrap"><input class="inp p1-bin-inp" data-bin-inp="1" value="${esc(b.name)}" placeholder="Chọn hoặc gõ tên bin..." autocomplete="off"><button type="button" class="p1-bin-ar" data-act="bin-dd" title="Mở danh sách bin gợi ý">▾</button></div><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`).join("");
   return `<div class="stage p1${editIdx === i ? " open" : ""}" data-i="${i}">
     <div class="stage-row"><div class="stage-bar" style="background:${s.color}"></div><div class="stage-txt">
       <div class="inline8" style="justify-content:space-between"><span class="stage-name" title="Bấm đúp để đổi tên giai đoạn">${esc(s.name)}</span>${chipHtml}</div>
@@ -426,9 +426,15 @@ $("stageList").addEventListener("click", async (e) => {
   if (act === "add-bin") {
     const box = card.querySelector(".p1-bin-rows");
     if (box) {
-      box.insertAdjacentHTML("beforeend", `<div class="p1-bin-row"><input class="inp" data-bin-inp="1" placeholder="Tên bin con"><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`);
-      const last = box.querySelector(".p1-bin-row:last-child input"); if (last) last.focus();
+      box.insertAdjacentHTML("beforeend", `<div class="p1-bin-row"><div class="p1-bin-wrap"><input class="inp p1-bin-inp" data-bin-inp="1" placeholder="Chọn hoặc gõ tên bin..." autocomplete="off"><button type="button" class="p1-bin-ar" data-act="bin-dd" title="Mở danh sách bin gợi ý">▾</button></div><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`);
+      const last = box.querySelector(".p1-bin-row:last-child input");
+      if (last) { last.focus(); p1DdOpen(last, true); }
     }
+    return;
+  }
+  if (act === "bin-dd") {
+    const inp = e.target.closest(".p1-bin-wrap") && e.target.closest(".p1-bin-wrap").querySelector("input");
+    if (inp) { inp.focus(); p1DdOpen(inp, true); }
     return;
   }
   if (act === "del-bin") { const r = e.target.closest(".p1-bin-row"); if (r) r.remove(); return; }
@@ -460,8 +466,111 @@ async function saveStage(i, card) {
     if (!(await doRename("stage", i, old, f.name))) return;
     f.name = S.stages[i].name;
   }
-  api().set_stage(i, f).then((st) => { if (st.error) return status(st.error, "warn"); editIdx = null; setState(st); });
+  api().set_stage(i, f).then((st) => {
+    if (st.error) return status(st.error, "warn");
+    editIdx = null; p1DdClose();
+    if (typeof AI !== "undefined") { AI.cache = {}; AI.scoreSig = ""; }
+    setState(st);
+  });
 }
+/* ---- Page 1: menu sổ ra chọn nhanh bin con (gõ chữ cái đầu không dấu tự trỏ tới tên sự kiện) ---- */
+function vnNorm(s) {
+  return String(s || "").replace(/[đĐ]/g, "d").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9&]+/g, " ").trim();
+}
+function vnInitials(norm) {
+  return norm ? norm.split(" ").map((w) => w[0] || "").join("") : "";
+}
+let _p1DdEl = null, _p1DdInp = null, _p1DdList = [], _p1DdIdx = 0;
+function p1DdEnsure() {
+  if (_p1DdEl) return _p1DdEl;
+  _p1DdEl = document.createElement("div");
+  _p1DdEl.className = "p1-dd hidden";
+  document.body.appendChild(_p1DdEl);
+  _p1DdEl.addEventListener("mousedown", (e) => {
+    const it = e.target.closest(".p1-dd-i");
+    if (!it || !_p1DdInp) return;
+    e.preventDefault();
+    _p1DdInp.value = it.dataset.name;
+    p1DdClose();
+  });
+  return _p1DdEl;
+}
+function p1BinOptions() {
+  const out = [], seen = new Set();
+  for (const c of (S && S.ai_concepts) || []) {
+    if (c.id === "khac") continue;
+    const nm = c.default || c.label;
+    if (seen.has(nm.toLowerCase())) continue;
+    seen.add(nm.toLowerCase());
+    const n1 = vnNorm(nm), n2 = vnNorm(c.label);
+    out.push({ name: nm, group: c.group || "", norm: n1, norm2: n2, init: vnInitials(n1) });
+  }
+  for (const nm of (S && S.ai_custom_names) || []) {
+    if (!nm || seen.has(nm.toLowerCase())) continue;
+    seen.add(nm.toLowerCase());
+    const n1 = vnNorm(nm);
+    out.push({ name: nm, group: "Đã dùng", norm: n1, norm2: n1, init: vnInitials(n1) });
+  }
+  return out;
+}
+function p1DdRender(showAll) {
+  const el = p1DdEnsure();
+  if (!_p1DdInp) return;
+  const q = showAll ? "" : vnNorm(_p1DdInp.value);
+  const all = p1BinOptions();
+  let list = all;
+  if (q) {
+    const head = [], mid = [];
+    for (const o of all) {
+      if (o.norm.startsWith(q) || o.norm2.startsWith(q) || o.init.startsWith(q)) head.push(o);
+      else if (o.norm.includes(q) || o.norm2.includes(q)) mid.push(o);
+    }
+    list = head.concat(mid);
+  }
+  _p1DdList = list;
+  _p1DdIdx = list.length ? Math.min(_p1DdIdx, list.length - 1) : -1;
+  if (_p1DdIdx < 0 && list.length) _p1DdIdx = 0;
+  if (!list.length) { el.classList.add("hidden"); return; }
+  el.innerHTML = list.map((o, idx) => `<div class="p1-dd-i${idx === _p1DdIdx ? " on" : ""}" data-idx="${idx}" data-name="${esc(o.name)}"><span>${esc(o.name)}</span><em class="p1-dd-g">${esc(o.group)}</em></div>`).join("");
+  const r = _p1DdInp.getBoundingClientRect();
+  el.style.left = Math.max(8, Math.min(r.left, innerWidth - Math.max(220, r.width) - 8)) + "px";
+  el.style.width = Math.max(210, r.width) + "px";
+  el.style.top = (r.bottom + 3) + "px";
+  el.classList.remove("hidden");
+  const curRow = el.querySelector(".p1-dd-i.on");
+  if (curRow) curRow.scrollIntoView({ block: "nearest" });
+}
+function p1DdOpen(inp, showAll) {
+  _p1DdInp = inp;
+  _p1DdIdx = 0;
+  p1DdRender(!!showAll);
+}
+function p1DdClose() {
+  if (_p1DdEl) _p1DdEl.classList.add("hidden");
+  _p1DdInp = null;
+}
+$("stageList").addEventListener("focusin", (e) => {
+  if (e.target && e.target.matches("input[data-bin-inp]")) p1DdOpen(e.target, true);
+});
+$("stageList").addEventListener("input", (e) => {
+  if (e.target && e.target.matches("input[data-bin-inp]")) { _p1DdInp = e.target; _p1DdIdx = 0; p1DdRender(false); }
+});
+$("stageList").addEventListener("keydown", (e) => {
+  if (!e.target || !e.target.matches("input[data-bin-inp]")) return;
+  if (!_p1DdEl || _p1DdEl.classList.contains("hidden")) {
+    if (e.code === "ArrowDown") { e.preventDefault(); p1DdOpen(e.target, true); }
+    return;
+  }
+  if (e.code === "ArrowDown") { e.preventDefault(); _p1DdIdx = (_p1DdIdx + 1) % _p1DdList.length; p1DdRender(false); }
+  else if (e.code === "ArrowUp") { e.preventDefault(); _p1DdIdx = (_p1DdIdx - 1 + _p1DdList.length) % _p1DdList.length; p1DdRender(false); }
+  else if (e.code === "Enter") {
+    if (_p1DdIdx >= 0 && _p1DdList[_p1DdIdx]) { e.preventDefault(); e.target.value = _p1DdList[_p1DdIdx].name; }
+    p1DdClose();
+  } else if (e.code === "Escape") { e.preventDefault(); p1DdClose(); }
+});
+document.addEventListener("mousedown", (e) => {
+  if (_p1DdEl && !_p1DdEl.classList.contains("hidden") && !e.target.closest(".p1-dd") && !e.target.closest(".p1-bin-wrap")) p1DdClose();
+});
 $("clearManual").onclick = async () => {
   if (await ask("Bỏ chọn tay", `Bỏ chọn tay của ${S.n_manual} clip? Các clip này quay về giai đoạn tính theo giờ quay.<br>(Nhãn bin con đã xếp vẫn giữ, chỉ có hiệu lực khi clip về đúng giai đoạn của nhãn.)`, "Bỏ chọn tay")) {
     setState(await api().clear_manual()); status("Đã bỏ chọn tay.", "ok");
@@ -755,10 +864,63 @@ $("pool").addEventListener("click", (e) => {
     inp.className = "inp sub-input"; inp.placeholder = "Tên bin mới, Enter để thêm";
     e.target.replaceWith(inp); inp.focus();
     inp.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" && inp.value.trim()) api().add_bin(gStage, inp.value).then((r) => { if (r && r.error) status(r.error, "warn"); else setState(r); });
-      if (ev.key === "Escape") renderPage2();
+      if (ev.code === "Enter" && inp.value.trim()) api().add_bin(gStage, inp.value).then((r) => { if (r && r.error) status(r.error, "warn"); else { if (typeof AI !== "undefined") { AI.cache = {}; AI.scoreSig = ""; } setState(r); } });
+      if (ev.code === "Escape") renderPage2();
     });
   }
+});
+/* Menu chuột phải ẩn trên bin con ở Page 2: chọn Thẻ cảnh AI ("AI hiểu là…") + tự lưu từ nhớ riêng của editor */
+let _poolCtx = null;
+function poolCtxEnsure() {
+  if (_poolCtx) return _poolCtx;
+  _poolCtx = document.createElement("div");
+  _poolCtx.className = "ctx pool-ctx hidden";
+  document.body.appendChild(_poolCtx);
+  _poolCtx.addEventListener("click", async (e) => {
+    const it = e.target.closest(".ctx-i"); if (!it) return;
+    _poolCtx.classList.add("hidden");
+    const si = +it.dataset.si, bn = it.dataset.bin;
+    if (it.dataset.act === "rename") {
+      const el = document.querySelector(`#pool .sub[data-stage="${si}"][data-bin="${CSS.escape(bn)}"] .t`);
+      if (el) inlineRename(el, bn, (v) => doRename("bin", si, bn, v));
+      return;
+    }
+    const cid = it.dataset.cid != null ? it.dataset.cid : "";
+    const st = await api().ai_set_bin_concept(si, bn, cid);
+    if (st && st.error) return status(st.error, "warn");
+    if (typeof AI !== "undefined") { AI.cache = {}; AI.scoreSig = ""; }
+    setState(st);
+    if (typeof aiBoxRender === "function") aiBoxRender();
+    const lbl = it.dataset.lbl || "Tự động theo tên";
+    status(`Đã lưu từ nhớ AI: “${bn}” → ${lbl} (tự áp dụng cho các project sau).`, "ok");
+  });
+  document.addEventListener("mousedown", (e) => {
+    if (_poolCtx && !_poolCtx.classList.contains("hidden") && !e.target.closest(".pool-ctx")) _poolCtx.classList.add("hidden");
+  });
+  return _poolCtx;
+}
+$("pool").addEventListener("contextmenu", (e) => {
+  const sub = e.target.closest(".sub[data-stage][data-bin]");
+  if (!sub || !S) return;
+  e.preventDefault();
+  const si = +sub.dataset.stage, bn = sub.dataset.bin;
+  const st = S.stages[si], bObj = st && (st.bins || []).find((x) => x.name === bn);
+  if (!bObj) return;
+  const tagInfo = (st.ai_tags && st.ai_tags[bn]) || {};
+  const m = poolCtxEnsure();
+  const curTag = tagInfo.tag || "";
+  const opts = (S.ai_concepts || []).map((c) =>
+    `<div class="ctx-i${c.id === curTag ? " on" : ""}" data-si="${si}" data-bin="${esc(bn)}" data-cid="${esc(c.id)}" data-lbl="${esc(c.label)}"><span>${c.id === curTag ? "✓ " : ""}${esc(c.label)}</span><em class="p1-dd-g">${esc(c.group)}</em></div>`
+  ).join("");
+  m.innerHTML =
+    (bn !== "Khác" ? `<div class="ctx-i" data-si="${si}" data-bin="${esc(bn)}" data-act="rename"><span>Đổi tên bin…</span></div><div class="ctx-sep"></div>` : "") +
+    `<div class="ctx-h">AI hiểu “${esc(bn)}” là: ${esc(tagInfo.label || "Chưa rõ")}</div>` +
+    `<div class="ctx-i${!tagInfo.custom ? " on" : ""}" data-si="${si}" data-bin="${esc(bn)}" data-cid="" data-lbl="Tự động theo tên"><span>Tự động theo tên</span></div>` +
+    `<div class="ctx-scroll">${opts}</div>`;
+  m.classList.remove("hidden");
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + "px";
+  m.style.top = Math.max(8, Math.min(e.clientY, innerHeight - r.height - 8)) + "px";
 });
 function viewBin(si, sub) {
   if (si === gStage && sub === gSub) { $("gridScroll").focus(); return; }
@@ -1132,6 +1294,7 @@ async function doRename(kind, i, old, raw) {
   if (r && r.error) { status(r.error, "warn"); return false; }
   if (r && r.same) return true;
   setState(await api().state());
+  if (typeof AI !== "undefined") { AI.cache = {}; AI.scoreSig = ""; if (page === 2 && typeof aiBoxRender === "function") aiBoxRender(); }
   status(`Đã đổi tên ${kind === "stage" ? "giai đoạn" : "bin con"} thành “${r.name}”. Nhãn clip đi theo tên mới.` +
     (r.old_bin_left ? " Bin cũ trong Media Pool sẽ còn lại rỗng sau khi Áp dụng, Trợ lý không tự xóa." : " Bin trong Media Pool chỉ tạo khi bấm Áp dụng."), "ok");
   return true;
