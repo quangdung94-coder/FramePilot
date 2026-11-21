@@ -2,7 +2,7 @@
    Python (troly_api.speech_*). Dùng chung $, api, S, esc, status, setState, page từ app.js. Chữ chép lời chỉ hiện trên màn hình. */
 "use strict";
 
-const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", sub: "all", onlyStar: false, onlyKey: false, min20: false, find: "",
+const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", sub: "all", onlyStar: false, onlyKey: false, min20: false, hideBad: false, find: "",
   detail: null, edit: null, run: null, lastRefresh: 0, timer: null, vid: null, mediaUid: null };
 const mmss = (s) => Math.floor((s || 0) / 60) + ":" + String(Math.round((s || 0) % 60)).padStart(2, "0");
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -22,6 +22,7 @@ const inStage = (r) => {
   if (LN.stage !== "all" && stageOf(r) !== +LN.stage) return false;
   const cm = clipMeta(r.uid);
   if (LN.onlyStar && !(cm ? cm.star : r.star)) return false;
+  if (LN.hideBad && r.suspect && !r.headline) return false;
   if (LN.sub !== "all") {
     const lb = cm ? (cm.label || "") : "";
     if (LN.sub === "__none__") { if (lb) return false; }
@@ -89,6 +90,7 @@ function renderSpeech() {
   const st = stages[+LN.stage];
   $("lnTitle").textContent = LN.stage === "all" ? "Lời nói · Cả project" : (st ? `Lời nói · ${st.name} · ${st.range || ""}` : "Lời nói · Ngoài mọi giai đoạn");
   if ($("lnStarOnly")) $("lnStarOnly").setAttribute("aria-pressed", LN.onlyStar);
+  if ($("lnHideBad")) $("lnHideBad").setAttribute("aria-pressed", LN.hideBad);
   $("lnKey").setAttribute("aria-pressed", LN.onlyKey); $("lnMin").setAttribute("aria-pressed", LN.min20);
   renderSummary(); renderStore(); renderRows(); renderRight();
 }
@@ -171,7 +173,7 @@ function lnEnsureMedia(r) {
       if (LN.sel !== r.uid) return;
       if (!pi || pi.error) { $("lnPlayNote").textContent = (pi && pi.error) || ""; return; }
       const v = document.createElement("video");
-      v.preload = "auto"; v.playsInline = true; v.src = pi.url; v.style.opacity = "0";
+      v.preload = "auto"; v.playsInline = true; v.crossOrigin = "anonymous"; v.src = pi.url; v.style.opacity = "0";
       v.addEventListener("loadeddata", () => { if (LN.sel === r.uid) v.style.opacity = "1"; });
       v.addEventListener("play", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "❚❚"; });
       v.addEventListener("pause", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "▶"; });
@@ -236,12 +238,13 @@ function renderRight() {
     $("lnSuggNote").textContent = e.dirty ? "Đã kéo mép khung. Bấm “Đặt In / Out” để lưu vào kế hoạch của panel." : "Kéo mép khung trắng để chỉnh. Bạn đặt tay thì lấy theo bạn.";
   }
   const lines = (d && d.lines) || [];
+  const visLines = LN.hideBad ? lines.filter((l) => !l.why.length) : lines;
   $("lnLines").innerHTML = !d ? '<span class="dim13" style="padding:8px">Đang tải...</span>'
-    : lines.length ? lines.map((l) => {
+    : visLines.length ? visLines.map((l) => {
       const inside = e && l.t0 >= e.in_s - 0.01 && l.t1 <= e.out_s + 0.01;
       return `<div class="ln-line${l.keys.length && !l.why.length ? " key" : ""}${inside ? " in" : ""}${l.why.length ? " bad" : ""}" data-t="${l.t0}"><span class="t">${fmtSec(l.t0)}</span><span class="x">${esc(l.text)}${l.why.length ? " · nghi sai" : ""}</span></div>`;
     }).join("")
-    : `<span class="dim13" style="padding:8px">${r.silent ? "Clip này không có tiếng nói, chỉ có tiếng nền." : "Có tiếng nói nhưng Whisper không ra chữ."}</span>`;
+    : `<span class="dim13" style="padding:8px">${r.silent ? "Clip này không có tiếng nói, chỉ có tiếng nền." : (lines.length ? "Các câu đều nghi sai (đang bật Ẩn câu sai)." : "Có tiếng nói nhưng Whisper không ra chữ.")}</span>`;
   $("lnStar").textContent = ((d ? d.star : r.star) ? "Bỏ sao (P)" : "Gắn sao (P)");
   renderExportBtns();
 }
@@ -310,6 +313,16 @@ $("lnLines").addEventListener("click", (ev) => {
 });
 $("lnKey").onclick = () => { LN.onlyKey = !LN.onlyKey; lnRefresh(); };
 $("lnMin").onclick = () => { LN.min20 = !LN.min20; lnRefresh(); };
+if ($("lnHideBad")) $("lnHideBad").onclick = () => {
+  LN.hideBad = !LN.hideBad;
+  const cur = curRow();
+  if (LN.hideBad && (!cur || !inStage(cur))) {
+    const f = LN.rows.find(inStage);
+    LN.sel = f ? f.uid : null; LN.detail = null; LN.edit = null;
+  }
+  renderSpeech();
+  if (LN.sel) lnLoadDetail(LN.sel);
+};
 $("lnFind").oninput = (e) => { clearTimeout(LN.timer); LN.find = e.target.value; LN.timer = setTimeout(lnRefresh, 250); };
 $("lnRows").onclick = (e) => {
   const b = e.target.closest(".ln-row"); if (!b) return;

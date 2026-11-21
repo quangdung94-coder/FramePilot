@@ -75,12 +75,12 @@ def check_bin_minmax(mn, mx):
     return True, (round(mn, 1), round(mx, 1))
 
 
-def clip_cut(plan, clip, label):
+def clip_cut(plan, clip, label, span=None):
     """Cách cắt một clip có sao: dict(in_s, out_s, len, lmin, fixed). In/Out anh đặt tay THẮNG (cố định, không rút thêm);
     không thì gợi ý theo bảng quy tắc Bước 3 (rules, kiểu quay, số giây Truyền thống). lmin = độ dài tối thiểu được rút tới:
     min của quy tắc bin; Truyền thống thì không rút (chỉ bỏ clip)."""
     dur = float(clip.dur or 0)
-    m = tc.manual_inout(plan, clip)
+    m = span if span is not None else tc.manual_inout(plan, clip)
     if m:
         a = max(0.0, min(float(m[0]), dur)) if dur else float(m[0])
         b = max(a, min(float(m[1]), dur)) if dur else float(m[1])
@@ -212,13 +212,18 @@ def build(plan, clips, assign, stages, tl_fps=None):
         s = stages[si]
         lab = tc.label_of(plan, c)
         b = lab["bin"] if lab and lab.get("stage") == s["name"] and lab.get("bin") in s["bins"] else None
-        groups.setdefault((si, b or UNSORTED), []).append({"clip": c, "label": b})
+        spans = tc.manual_inouts(plan, c)
+        if spans:
+            for sp in spans:
+                groups.setdefault((si, b or UNSORTED), []).append({"clip": c, "label": b, "span": sp})
+        else:
+            groups.setdefault((si, b or UNSORTED), []).append({"clip": c, "label": b})
     for lst in groups.values():
-        lst.sort(key=lambda e: (e["clip"].t_start is None, e["clip"].t_start))
+        lst.sort(key=lambda e: (e["clip"].t_start is None, e["clip"].t_start, (e.get("span") or (0.0,))[0]))
         for pos, e in enumerate(lst):
             e["pos"] = pos
             e["level"] = star_level(plan, e["clip"])
-            e["cut"] = clip_cut(plan, e["clip"], e["label"])
+            e["cut"] = clip_cut(plan, e["clip"], e["label"], span=e.get("span"))
     ranges = d.get("bins") or {}
     bin_pins = d.get("bin_s") if isinstance(d.get("bin_s"), dict) else {}
     tl = tl_cfg(plan)
@@ -560,7 +565,9 @@ def unstarred_by_bin(plan, clips, assign, stages):
         lab = tc.label_of(plan, c)
         b = lab["bin"] if lab and lab.get("stage") == stages[si]["name"] and lab.get("bin") in stages[si]["bins"] else None
         n, t = out.get((si, b or UNSORTED), (0, 0.0))
-        out[(si, b or UNSORTED)] = (n + 1, t + clip_cut(plan, c, b)["len"])
+        spans = tc.manual_inouts(plan, c) or [None]
+        add_len = sum(clip_cut(plan, c, b, span=sp)["len"] for sp in spans)
+        out[(si, b or UNSORTED)] = (n + len(spans), t + add_len)
     return out
 
 

@@ -200,7 +200,11 @@ def concat_audio(x, chunks, gap=VAD_GAP_S, rate=RATE):
 # ---------------------------------------------------------------------------
 # WHISPER (Const-me main.exe + ggml medium) và câu nghi bịa
 # ---------------------------------------------------------------------------
-HALLU = re.compile(r"subscribe|đăng k[ýí]( cho)? kênh|ghiền mì gõ|bỏ lỡ những video|lalaschool|ủng hộ kênh", re.I)
+HALLU = re.compile(
+    r"subscrib\w*|subrisb\w*|subcrib\w*|đăng k[ýí](?: cho)? kênh|ghiền mì gõ|bỏ lỡ(?: những)? video|lalaschool|ủng hộ kênh"
+    r"|cảm ơn(?: các bạn)? đã xem video|hẹn gặp lại(?: các bạn)? (?:ở|trong)(?: những)? video|(?:nhớ |hãy )?(?:bấm|nhấn) chuông|like(?:,| và)? (?:share|chia sẻ)",
+    re.I,
+)
 SRT_TIME = re.compile(r"(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)")
 
 

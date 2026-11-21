@@ -3,7 +3,7 @@
    (api.set_inout), ghi vào DaVinci chỉ khi bấm nút + xác nhận. Phím đọc bằng event.code, bỏ qua khi đang gõ ô chữ. */
 "use strict";
 
-const PL = { openMs: 0, t0: 0, range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, hoverT: null, jklRate: 0, jklTimer: 0 };
+const PL = { openMs: 0, t0: 0, range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, hoverT: null, jklRate: 0, jklTimer: 0, spanIdx: 0, newSpan: false };
 /* Việc 2 (ADR-0023): lướt mượt. Chỉ gửi lệnh nhảy khi lệnh trước xong (seeked), lệnh mới thay lệnh cũ chưa gửi; đang KÉO thì nhảy theo keyframe
    (giải mã 1 khung), THẢ ra thì nhảy chính xác. Dùng lại MỘT thẻ <video> cho mọi clip. Không tạo proxy mới. */
 const SK = { want: null, fast: false, busy: false, drag: false, timer: 0, sent: 0, seeks: 0, dwell: 0 };
@@ -15,6 +15,12 @@ const fmtF = (t, fps) => {                                   // giây -> mm:ss:f
 const curClip = () => items[cur];
 const plStep = () => 1 / (PL.fps || 25);
 
+function plSpans(c) {
+  if (!c) return [];
+  if (Array.isArray(c.inouts) && c.inouts.length) return c.inouts.map((x) => [x[0], x[1]]);
+  if (c.in_s != null && c.out_s != null) return [[c.in_s, c.out_s]];
+  return [];
+}
 /* ---- vẽ thanh In/Out + đầu phát ---- */
 function plRenderIo(c) {
   const dur = (c && c.dur) || 0, bar = $("ioBar");
@@ -28,24 +34,40 @@ function plRenderIo(c) {
     return;
   }
   const pct = (x) => Math.max(0, Math.min(100, (x / dur) * 100)).toFixed(2);
+  const spans = plSpans(c);
+  if (PL.spanIdx >= spans.length) PL.spanIdx = Math.max(0, spans.length - 1);
   let a = null, b = null, cls = "", rule = "", tcls = "";
-  if (c.in_s != null && c.out_s != null) {
-    a = c.in_s; b = c.out_s;
-    const sameDv = c.dv && Math.abs(c.dv[0] - a) < 0.02 && Math.abs(c.dv[1] - b) < 0.02;
-    if (c.io_src === "manual" && !sameDv) { cls = "io-range man"; tcls = "active"; rule = "Đặt tay trong panel (chưa ghi vào DaVinci)"; }
-    else { cls = "io-range"; tcls = "active"; rule = "Đã đặt trong DaVinci"; }
+  let h = "";
+  if (spans.length) {
+    const active = spans[PL.spanIdx] || spans[0];
+    a = active[0]; b = active[1];
+    const sameDv = spans.length === 1 && c.dv && Math.abs(c.dv[0] - a) < 0.02 && Math.abs(c.dv[1] - b) < 0.02;
+    if (c.io_src === "manual" && !sameDv) { cls = "io-range man"; tcls = "active"; }
+    else { cls = "io-range"; tcls = "active"; }
+    if (spans.length > 1) {
+      const tot = spans.reduce((s, x) => s + Math.max(0, x[1] - x[0]), 0);
+      rule = `Đặt tay ${spans.length} khúc (tổng ${fmtF(tot, PL.fps)}) · Shift+I/O thêm khúc, Bước 5 tự trim lên timeline`;
+    } else {
+      rule = sameDv ? "Đã đặt trong DaVinci" : "Đặt tay trong panel (Shift+I/O để thêm khúc nữa)";
+    }
+    spans.forEach((sp, idx) => {
+      const isAct = idx === PL.spanIdx;
+      const sa = sp[0], sb = sp[1];
+      const handles = isAct ? `<span class="h hin ${PL.edge === "in" ? "on" : ""}" data-h="in"></span><span class="h hout ${PL.edge === "out" ? "on" : ""}" data-h="out"></span>` : "";
+      const opacity = isAct ? "" : "opacity:0.55;";
+      h += `<div class="${cls}" data-si="${idx}" style="left:${pct(sa)}%;width:${(pct(sb) - pct(sa)).toFixed(2)}%;${opacity}">${handles}</div>`;
+    });
+    $("ioIn").textContent = "In " + fmtF(a, PL.fps); $("ioIn").className = "io-in " + tcls;
+    $("ioOut").textContent = "Out " + fmtF(b, PL.fps); $("ioOut").className = "io-in " + tcls;
+    $("ioDur").textContent = "Giữ " + fmtF(b - a, PL.fps);
   } else if (c.sug) {
     a = c.sug.in_s; b = c.sug.out_s; cls = "io-sug"; tcls = "sug"; rule = "Gợi ý " + ({ speech: "theo lời nói", rule: "theo quy tắc bin", live: "tức thời theo quy tắc bin" }[c.sug.src] || "") + (c.sug.src === "speech" ? "" : " (" + c.sug.rule + ")") + " - bấm A để nhận, hoặc kéo mép / I, O để đặt tay";
-  }
-  let h = "";
-  if (a != null) {
-    h += `<div class="${cls}" style="left:${pct(a)}%;width:${(pct(b) - pct(a)).toFixed(2)}%">` +
-      `<span class="h hin ${PL.edge === "in" ? "on" : ""}" data-h="in"></span><span class="h hout ${PL.edge === "out" ? "on" : ""}" data-h="out"></span></div>`;
+    h += `<div class="${cls}" style="left:${pct(a)}%;width:${(pct(b) - pct(a)).toFixed(2)}%"><span class="h hin ${PL.edge === "in" ? "on" : ""}" data-h="in"></span><span class="h hout ${PL.edge === "out" ? "on" : ""}" data-h="out"></span></div>`;
     $("ioIn").textContent = "In " + fmtF(a, PL.fps); $("ioIn").className = "io-in " + tcls;
     $("ioOut").textContent = "Out " + fmtF(b, PL.fps); $("ioOut").className = "io-in " + tcls;
     $("ioDur").textContent = "Giữ " + fmtF(b - a, PL.fps);
   } else {
-    h += '<div class="io-empty">Chưa đặt In / Out (bấm I / O khi đang xem)</div>';
+    h += '<div class="io-empty">Chưa đặt In / Out (bấm I / O hoặc Shift+I/O thêm khúc)</div>';
     $("ioIn").textContent = "In --:--:--"; $("ioIn").className = "io-in";
     $("ioOut").textContent = "Out --:--:--"; $("ioOut").className = "io-in";
     $("ioDur").textContent = "Giữ --:--:--";
@@ -65,22 +87,56 @@ function plHead() {
 }
 
 /* ---- đặt / lưu In/Out đặt tay ---- */
-async function plSet(a, b) {
+async function plSetSpans(spans) {
   const c = curClip(); if (!c) return;
-  const r = await api().set_inout(c.uid, a, b);
+  const r = await api().set_inouts(c.uid, spans);
   if (r.error) return status(r.error, "warn");
+  c.inouts = r.inouts || [];
   c.in_s = r.in_s; c.out_s = r.out_s; c.io_src = r.in_s == null ? null : "manual";
   plRenderIo(c);
 }
+async function plSet(a, b) {
+  const c = curClip(); if (!c) return;
+  const spans = plSpans(c);
+  if (a == null || b == null) return plSetSpans([]);
+  if (!spans.length) return plSetSpans([[a, b]]);
+  const idx = Math.max(0, Math.min(PL.spanIdx, spans.length - 1));
+  spans[idx] = [a, b];
+  return plSetSpans(spans);
+}
 function plCurRange() {
   const c = curClip(); if (!c) return null;
-  if (c.in_s != null) return [c.in_s, c.out_s];
+  const spans = plSpans(c);
+  if (spans.length) return spans[Math.max(0, Math.min(PL.spanIdx, spans.length - 1))];
   return [0, c.dur || 0];
 }
-function plMark(which) {                                       // phím I / O: đặt tại vị trí con trỏ chuột (hover) hoặc đầu phát
+function plMark(which, addNew) {                               // phím I / O (hoặc Shift+I/O thêm khúc): đặt tại vị trí con trỏ chuột (hover) hoặc đầu phát
   const c = curClip(); if (!c || (!PL.vid && PL.hoverT == null)) return;
-  const t = (PL.hoverT != null) ? PL.hoverT : PL.vid.currentTime, [a, b] = plCurRange();
+  const dur = PL.dur || c.dur || 0;
+  const t = (PL.hoverT != null) ? PL.hoverT : PL.vid.currentTime;
+  const spans = plSpans(c);
   PL.edge = which;
+  if (addNew) {
+    if (which === "in") {
+      spans.push([t, Math.max(t + plStep(), dur)]);
+      PL.spanIdx = spans.length - 1;
+      PL.newSpan = true;
+      return plSetSpans(spans);
+    }
+    if (PL.newSpan && spans.length) {
+      const idx = spans.length - 1;
+      spans[idx] = [Math.min(spans[idx][0], t - plStep()), Math.max(t, spans[idx][0] + plStep())];
+      PL.newSpan = false;
+      return plSetSpans(spans);
+    }
+    const a = Math.max(0, t - Math.min(3.0, t));
+    spans.push([a, Math.max(a + plStep(), t)]);
+    PL.spanIdx = spans.length - 1;
+    PL.newSpan = false;
+    return plSetSpans(spans);
+  }
+  PL.newSpan = false;
+  const [a, b] = plCurRange();
   if (which === "in") plSet(t, Math.max(b, t + plStep()));
   else plSet(Math.min(a, t - plStep()), t);
 }
@@ -132,6 +188,8 @@ $("ioBar").addEventListener("mousedown", (ev) => {
   PL.focus = true;
   const rect = $("ioBar").getBoundingClientRect(), dur = c.dur;
   const tAt = (x) => Math.max(0, Math.min(dur, (x - rect.left) / rect.width * dur));
+  const rg = ev.target.closest(".io-range[data-si]");
+  if (rg && +rg.dataset.si !== PL.spanIdx) { PL.spanIdx = +rg.dataset.si; PL.newSpan = false; plRenderIo(c); }
   const h = ev.target.closest(".h");
   if (!h) { plDragScrub(ev, $("ioBar")); return; }
   ev.preventDefault();
@@ -270,8 +328,7 @@ async function lutAttachEl(c, v, host) {
   const drawOnce = () => { if (id === st.loopId && st.vid === v && v.parentNode === host) lutDrawTo(st, host, true); };
   const tick = () => { if (id !== st.loopId || st.vid !== v || v.parentNode !== host) return; lutDrawTo(st, host, true); schedule(); };
   const schedule = () => { if (id !== st.loopId || st.vid !== v || v.parentNode !== host) return; if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick); };
-  v.addEventListener("loadeddata", drawOnce);
-  v.addEventListener("seeked", drawOnce);
+  ["loadeddata", "seeked"].forEach((ev) => v.addEventListener(ev, drawOnce));
   tick();
 }
 document.addEventListener("click", (e) => {
@@ -423,7 +480,7 @@ function plEl() {                                               // MỘT thẻ <
   PL.el = v; return v;
 }
 async function plOpen(c) {                                    // gọi từ showCur khi đổi clip
-  plStop(); PL.uid = c ? c.uid : null;
+  plStop(); PL.uid = c ? c.uid : null; PL.spanIdx = 0; PL.newSpan = false;
   if (!c) return;
   const uid = c.uid, r = await api().play_info(uid);
   if (curClip() == null || curClip().uid !== uid) return;     // đã chuyển clip khác
@@ -587,8 +644,18 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "KeyJ") { e.preventDefault(); e.stopPropagation(); plJkl("j"); return; }
   if (e.code === "KeyK") { e.preventDefault(); e.stopPropagation(); plJkl("k"); return; }
   if (e.code === "KeyL") { e.preventDefault(); e.stopPropagation(); plJkl("l"); return; }
-  if (e.code === "KeyI") { e.preventDefault(); e.stopPropagation(); plMark("in"); return; }
-  if (e.code === "KeyO") { e.preventDefault(); e.stopPropagation(); plMark("out"); return; }
+  if (e.code === "KeyI") { e.preventDefault(); e.stopPropagation(); plMark("in", e.shiftKey); return; }
+  if (e.code === "KeyO") { e.preventDefault(); e.stopPropagation(); plMark("out", e.shiftKey); return; }
+  if ((e.code === "Delete" || e.code === "Backspace") && PL.focus) {
+    const c = curClip(), spans = plSpans(c);
+    if (spans.length > 1) {
+      e.preventDefault(); e.stopPropagation();
+      spans.splice(Math.max(0, Math.min(PL.spanIdx, spans.length - 1)), 1);
+      PL.spanIdx = Math.max(0, PL.spanIdx - 1);
+      plSetSpans(spans);
+      return;
+    }
+  }
   if ((e.code === "ArrowLeft" || e.code === "ArrowRight") && PL.focus && PL.vid) {
     e.preventDefault(); e.stopPropagation(); plNudge((e.code === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 10 : 1));
   }

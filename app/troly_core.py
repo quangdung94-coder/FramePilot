@@ -410,15 +410,52 @@ def manual_inout(plan, clip):
     return (v[0], v[1]) if v and len(v) == 2 else None
 
 
+def manual_inouts(plan, clip):
+    """Danh sách các khúc In/Out đặt tay [(in_s, out_s), ...] của một clip (hỗ trợ cắt nhiều khúc trong 1 source)."""
+    arr = (plan.get("inouts") or {}).get(clip.rel)
+    if isinstance(arr, list) and arr:
+        out = [(float(x[0]), float(x[1])) for x in arr if isinstance(x, (list, tuple)) and len(x) == 2 and float(x[1]) > float(x[0])]
+        if out:
+            return out
+    m = manual_inout(plan, clip)
+    return [m] if m else []
+
+
 def set_manual_inout(plan, clip, in_s, out_s):
     """Lưu In/Out đặt tay (giây). None -> xóa. Trả (in, out) đã kẹp, hoặc None."""
     d = plan.setdefault("inout", {})
+    ds = plan.get("inouts")
+    if isinstance(ds, dict):
+        ds.pop(clip.rel, None)
     if in_s is None or out_s is None:
         d.pop(clip.rel, None)
         return None
     a, b = clamp_inout(in_s, out_s, clip.dur, clip.fps)
     d[clip.rel] = [a, b]
     return a, b
+
+
+def set_manual_inouts(plan, clip, spans):
+    """Lưu danh sách nhiều khúc In/Out [(in_s, out_s), ...]. Rỗng/None -> xóa hết. Trả list [(a, b), ...]."""
+    d = plan.setdefault("inout", {})
+    ds = plan.setdefault("inouts", {})
+    clean = []
+    for sp in (spans or []):
+        if not isinstance(sp, (list, tuple)) or len(sp) != 2 or sp[0] is None or sp[1] is None:
+            continue
+        a, b = clamp_inout(float(sp[0]), float(sp[1]), clip.dur, clip.fps)
+        if b > a:
+            clean.append((a, b))
+    if not clean:
+        d.pop(clip.rel, None)
+        ds.pop(clip.rel, None)
+        return []
+    d[clip.rel] = [clean[0][0], clean[0][1]]
+    if len(clean) > 1:
+        ds[clip.rel] = [[a, b] for a, b in clean]
+    else:
+        ds.pop(clip.rel, None)
+    return clean
 
 
 def effective_inout(plan, clip):

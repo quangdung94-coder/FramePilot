@@ -1,6 +1,10 @@
 # Nhật ký thay đổi
 
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **Nhiều khúc In/Out trên 1 clip (`Shift+I/O`), Sửa LUT Page 4 & Lọc câu Whisper bịa (`troly_core.py`, `troly_dur.py`, `troly_api.py`, `troly_speech.py`, `index.html`, `player.js`, `speech.js`):**
+  - Thêm `v.crossOrigin = "anonymous"` cho thẻ `<video>` ở Page 4 (`#lnThumb`) để WebGL LUT đọc được khung hình từ máy chủ nội bộ (hết nhấp nháy rồi mất màu khi Play/tua).
+  - Mở rộng `HALLU` trong `troly_speech.py` để tự đánh dấu vàng `có thể sai` thêm các câu YouTube hay bịa (*"cảm ơn các bạn đã xem video"*, *"hẹn gặp lại ở những video"*, *"bấm chuông"*, *"like/share"*, biến thể `subrisb`), kèm nút **`Ẩn câu sai`** trên Page 4.
+  - Hỗ trợ đặt nhiều khúc In/Out trong cùng 1 clip bằng **`Shift + I` / `Shift + O`** (khúc đầu vẫn dùng `I` / `O`, bấm chọn từng khúc trên `#ioBar`, `Delete`/`Backspace` xóa khúc thừa). Không đụng Media Pool hay tạo Subclip; khi tạo **Timeline mới ở Bước 5**, toàn bộ các khúc được đưa lên timeline theo từng cặp `startFrame`/`endFrame` đã trim sẵn.
 - **LUT xem trước theo tiền tố máy & Áp LUT WebGL cho Page 4 (`troly_env.py`, `troly_api.py`, `troly_thumbs.py`, `panel_troly_web.py`, `index.html`, `app.js`, `player.js`, `speech.js`):**
   - Thêm mục cấu hình **LUT theo tiền tố tên file** (ví dụ `C`, `DG`, `DJI_`) trong Setting bánh răng `⚙` (lưu vào `camera_luts` trong `config.json` để dùng chung cho các đám sau), tự gợi ý các tiền tố máy có trong project hiện tại và hỗ trợ hộp thoại chọn file `.cube`/`.3dl`.
   - Quy tắc ưu tiên: **Input LUT đã gắn trong DaVinci luôn thắng trước**; chỉ khi clip chưa có Input LUT trong DaVinci mới lấy LUT từ Setting theo tiền tố dài nhất khớp đầu tên file (chỉ đọc để xem trước, không ghi vào Media Pool).

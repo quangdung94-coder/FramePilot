@@ -249,7 +249,7 @@ class TrolyApi(object):
                               "dur": c.dur or 0, "stage": si, "label": lb, "label_by": ((tc.label_of(self._plan, c) or {}).get("by") if lb else None),
                               "manual": bool(tc.manual_of(self._plan, c)), "camera": c.camera, "src": c.t_src, "lut": self._effective_lut(c) or "", "bin_path": c.bin_path,
                               "thumb": c.uid in self._thumb_done and bool(self._thumb_done[c.uid][0]),
-                              "in_s": in_s, "out_s": out_s, "io_src": io_src, "dv": dv, "fps": fps, "tc": c.tc or "", "sug": sug,
+                              "in_s": in_s, "out_s": out_s, "inouts": [[a, b] for a, b in tc.manual_inouts(self._plan, c)], "io_src": io_src, "dv": dv, "fps": fps, "tc": c.tc or "", "sug": sug,
                               "star": tc.is_starred(self._plan, c)})
             gap = None
             if self._day0 and self._clips:
@@ -1625,7 +1625,35 @@ class TrolyApi(object):
             else:
                 tc.sug_forget(self._plan, c)
             self._save_now()
-            return {"ok": True, "in_s": r[0] if r else None, "out_s": r[1] if r else None}
+            return {"ok": True, "in_s": r[0] if r else None, "out_s": r[1] if r else None, "inouts": tc.manual_inouts(self._plan, c)}
+
+    def set_inouts(self, uid, spans):
+        """Lưu nhiều khúc In/Out đặt tay [(in_s, out_s), ...] vào KẾ HOẠCH panel (Shift+I/O); không đụng DaVinci hay tạo subclip."""
+        with self._lock:
+            c = self._by_uid.get(uid)
+            if c is None:
+                return {"error": "Không thấy clip."}
+            parsed = []
+            try:
+                for sp in (spans or []):
+                    if isinstance(sp, dict):
+                        parsed.append((float(sp["in_s"]), float(sp["out_s"])))
+                    elif isinstance(sp, (list, tuple)) and len(sp) == 2:
+                        parsed.append((float(sp[0]), float(sp[1])))
+                res = tc.set_manual_inouts(self._plan, c, parsed)
+            except (TypeError, ValueError, KeyError):
+                return {"error": "Danh sách In/Out không hợp lệ."}
+            if res:
+                self._track_edit(c, res[0][0], res[0][1])
+            else:
+                tc.sug_forget(self._plan, c)
+            self._save_now()
+            return {
+                "ok": True,
+                "inouts": [[a, b] for a, b in res],
+                "in_s": res[0][0] if res else None,
+                "out_s": res[0][1] if res else None,
+            }
 
     def _inout_rows(self, uids):
         rows = []
