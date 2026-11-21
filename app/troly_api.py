@@ -1148,13 +1148,31 @@ class TrolyApi(object):
             self._ai_job = ai.AiJob(self._project, self._root, (troly_env.config() or {}).get("ai_python"))
         return self._ai_job
 
+    def _ai_nomatch(self, vec, desc):
+        """Lý do (chữ tiếng Việt) khi dữ liệu AI không ghép được với clip nào của project; chuỗi rỗng nếu ổn hoặc chưa có clip/dữ liệu.
+        Lỗi 19/11: proxy rỗng -> AI chỉ nhúng thumbnail mồ côi (không có tên clip) -> Tự phân loại xếp 0 clip mà không báo vì sao."""
+        keys = set(vec or {}) | set((desc[1] if desc else None) or {})
+        if not keys or not self._clips:
+            return ""
+        if any(ai.ck(c.rel or c.name) in keys for c in self._clips):
+            return ""
+        if all(ai.is_orphan_key(k) for k in keys):
+            where = ""
+            if self._proxy_root:
+                where = " (%s)" % os.path.join(self._proxy_root, self._project)
+            return ("Tự phân loại không ghép được ảnh AI với clip nào: dữ liệu AI cũ được làm lúc thư mục proxy trống%s nên không có tên clip. "
+                    "Không cần proxy: bấm Tự phân loại lại, AI sẽ chạy bằng thumbnail của panel (chờ panel làm xong thumbnail trước)." % where)
+        return ("Tự phân loại không ghép được dữ liệu AI với clip nào của project này (tên clip không khớp, có thể do đổi tên/đổi bin). "
+                "Bấm Tự phân loại để chạy lại AI.")
+
     def ai_info(self):
         with self._lock:
             vec, desc = self._ai_data()
             job = self._ai_jobobj()
             lab = self._ai_labeled()
             n_lab = sum(1 for k in lab if k in vec)
-            return {"has_data": bool(desc and desc[1]), "running": job.running(), "can_run": job.available(), "log": job.last_log(),
+            return {"has_data": bool(desc and desc[1]), "no_match": self._ai_nomatch(vec, desc),
+                    "running": job.running(), "can_run": job.available(), "log": job.last_log(),
                     "n_vectors": len(vec), "n_labeled": n_lab, "mode": "nhan" if n_lab >= ai.MIN_FEWSHOT_LABELS else "mo_ta",
                     "min_labels": ai.MIN_FEWSHOT_LABELS}
 
@@ -1164,6 +1182,12 @@ class TrolyApi(object):
             job = self._ai_jobobj()
             if not job.available():
                 return {"error": "Chưa có venv AI hoặc model (xem docs/adr/0020)."}
+            try:                                              # AI ghép ảnh theo danh sách clip của panel, không cần proxy
+                pairs = [(c.rel or c.name, self._thumb_done[c.uid][0]) for c in self._clips if self._thumb_done.get(c.uid, (None,))[0]]
+                if pairs:
+                    ai.write_manifest(self._root, self._project, pairs)
+            except OSError:
+                pass
             job.start()
             return self.ai_info()
 
@@ -1244,6 +1268,9 @@ class TrolyApi(object):
             vec, desc = self._ai_data()
             if not vec and not desc:
                 return {"error": "Chưa chạy AI cho project này (hộp Gợi ý AI > Chạy AI)."}
+            why = self._ai_nomatch(vec, desc)
+            if why:
+                return {"error": why}
             sug = self.ai_for([c.uid for c in self._clips])
             items, below, skipped = [], 0, 0
             for c in self._clips:
@@ -1312,6 +1339,9 @@ class TrolyApi(object):
             vec, desc = self._ai_data()
             if not vec and not desc:
                 return {"error": "Chưa chạy AI cho project này (hộp Gợi ý AI > Chạy AI)."}
+            why = self._ai_nomatch(vec, desc)
+            if why:
+                return {"error": why}
             pool = list(uids) if uids is not None else [c.uid for c in self._clips]
             scope = self._auto_scope(pool)
             labels = self._plan.get("labels") or {}

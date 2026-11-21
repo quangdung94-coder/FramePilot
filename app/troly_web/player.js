@@ -342,7 +342,11 @@ function plTime() {
   if (typeof p3TxNow === "function" && page === 3) p3TxNow();
 }
 function plToggle() {
-  if (!PL.vid || !PL.ok) return;
+  if (!PL.vid || !PL.ok) {                                       // Space không được im lặng: nói rõ vì sao chưa phát (chưa có proxy / proxy không giải mã được / đang mở)
+    const c = curClip(), n = $("plNote").textContent;
+    status(!c ? "Chưa chọn clip để phát." : /^Chưa có proxy/.test(n) ? "Chưa có proxy nên Space không phát được, chỉ xem hình tĩnh. Tạo proxy trong DaVinci rồi mở lại clip." : (n && /proxy/i.test(n)) ? n : "Clip này chưa sẵn sàng để phát (đang mở proxy), thử lại sau một lát.", "warn");
+    return;
+  }
   if (PL.vid.paused) PL.vid.play(); else PL.vid.pause();
 }
 function plStop() {
@@ -382,7 +386,7 @@ async function plOpen(c) {                                    // gọi từ show
   const uid = c.uid, r = await api().play_info(uid);
   if (curClip() == null || curClip().uid !== uid) return;     // đã chuyển clip khác
   if (r.error) {                                              // không có proxy / chưa cấu hình: giữ thumbnail
-    $("plNote").textContent = r.error === "Chưa có proxy" ? "Chưa có proxy - chỉ xem hình tĩnh" : r.error;
+    $("plNote").textContent = r.error === "Chưa có proxy" ? "Chưa có proxy, chỉ xem hình tĩnh" : r.error;
     $("player").classList.remove("hidden"); $("plCtl").classList.add("hidden"); return;
   }
   $("plCtl").classList.remove("hidden"); $("plNote").textContent = "";
@@ -437,6 +441,13 @@ document.addEventListener("keydown", (e) => {
   if ((e.code === "ArrowLeft" || e.code === "ArrowRight") && PL.focus && PL.vid) {
     e.preventDefault(); e.stopPropagation(); plNudge((e.code === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 10 : 1));
   }
+}, true);
+
+document.addEventListener("keyup", (e) => {                     // nút đang có tiêu điểm (vd "Tự phân loại") sẽ bị Space bấm lại lúc nhả phím: chặn, Space ở Bước 2/3 chỉ để phát/dừng
+  if (page !== 2 && page !== 3 || e.code !== "Space" || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (!$("modal").classList.contains("hidden")) return;
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range" || e.target.isContentEditable) return;
+  e.preventDefault(); e.stopPropagation();
 }, true);
 
 /* ---- nút Ghi In/Out vào DaVinci + Hoàn tác (hộp xác nhận nói rõ số clip) ---- */

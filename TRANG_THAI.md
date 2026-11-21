@@ -7,7 +7,7 @@ Mẫu một dòng: `- 21/11 | Nhóm A-E | việc ngắn | Chờ anh thử / Đan
 (chưa có dòng nào)
 
 ## Tool học từ 5 project cũ (20/11/2026) - CHỜ ANH CHẠY
-- tools/hoc_tu_cu.py (+ hoc_tu_cu_phan_tich.py). Lệnh: `& C:\VideoAI_venv\Scripts\python.exe tools\hoc_tu_cu.py` (gõ Y để chạy; --thu LV_B --mau-toi-da 20 để thử nhỏ). Cần mở DaVinci, cắm đủ HDD/SSD. Kết quả: D:\VideoAI\data\hoc_tu_cu	ong_hop.json. Chưa chạy thật.
+- tools/hoc_tu_cu.py (+ hoc_tu_cu_phan_tich.py). Lệnh: `& C:\VideoAI_venv\Scripts\python.exe tools\hoc_tu_cu.py` (gõ Y để chạy; --thu LV_B --mau-toi-da 20 để thử nhỏ). Cần mở DaVinci, cắm đủ HDD/SSD. Kết quả: `D:\VideoAI\data\hoc_tu_cu\tong_hop.json`. Chưa chạy thật.
 
 ## B7 Space ở Bước 2 (19/11/2026) - CHỜ ANH THỬ, CHƯA commit
 - Space phát/dừng clip đang chọn nếu có proxy; chưa có proxy thì báo lý do trên thanh trạng thái (trước đó im lặng). Chặn keyup Space. 577 test đạt. Chưa có ảnh chụp chữ rút gọn. Muốn phát khi không có proxy phải mở rộng máy chủ phát sang file gốc: chưa làm, chờ anh quyết.

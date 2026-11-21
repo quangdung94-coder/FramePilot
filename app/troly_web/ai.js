@@ -33,7 +33,8 @@ async function aiTick() {
     else {
       AI.after = null;
       if (AI.group) await aiGroupLoad();
-      status(AI.info.has_data ? "AI đã chạy xong. Bấm Tự phân loại để xếp nhóm đang mở." : "AI đã dừng. Bấm Tự phân loại để làm tiếp.");
+      if (AI.info.no_match) status(AI.info.no_match, "warn");
+      else status(AI.info.has_data ? "AI đã chạy xong. Bấm Tự phân loại để xếp nhóm đang mở." : "AI đã dừng. Bấm Tự phân loại để làm tiếp.");
       if (AI.info.has_data && AI.auto && AI.auto.after_run) await aiAutoRun();
     }
   }
@@ -111,6 +112,10 @@ async function aiBoxRender() {
   }
   if (!info.has_data) {
     $("aiBody").innerHTML = '<span class="ai-msg">Chưa chạy AI cho project này. Bấm Tự phân loại: AI so thumbnail với mô tả từng bin (và học từ nhãn bạn xếp khi đủ ' + info.min_labels + ' clip), chạy trên máy này, mất vài giây đến vài phút.</span>';
+    aiButtons([]); return;
+  }
+  if (info.no_match) {                                          // AI có dữ liệu nhưng không ghép được với clip nào: nói rõ vì sao, không để im lặng "0 xếp"
+    $("aiBody").innerHTML = `<span class="ai-msg">${esc(info.no_match)}</span>`;
     aiButtons([]); return;
   }
   aiScoresSync();

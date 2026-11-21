@@ -111,10 +111,46 @@ def _lut_candidates():
     return out
 
 
+def manifest_path(data_root, project):
+    return os.path.join(embed_dir(data_root, project), "clips.json")
+
+
+def write_manifest(data_root, project, pairs):
+    """Panel ghi trước khi chạy AI: pairs = [(rel clip, đường dẫn thumbnail jpg)]. Nhờ đó AI ghép ảnh với clip theo danh sách clip của panel,
+    KHÔNG cần thư mục proxy (clip không có proxy vẫn có thumbnail làm từ file gốc)."""
+    d = embed_dir(data_root, project)
+    os.makedirs(d, exist_ok=True)
+    tmp = manifest_path(data_root, project) + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump([{"rel": r, "thumb": t} for r, t in pairs], f, ensure_ascii=False)
+    os.replace(tmp, manifest_path(data_root, project))
+
+
+def load_manifest(data_root, project):
+    """[{key, rel, name, proxy, thumb}] từ danh sách panel ghi, hoặc None nếu chưa có (khi đó ghép theo proxy như cũ)."""
+    try:
+        with open(manifest_path(data_root, project), "r", encoding="utf-8") as f:
+            rows = json.load(f)
+    except (OSError, ValueError):
+        return None
+    out = []
+    for r in rows if isinstance(rows, list) else []:
+        parts = str(r.get("rel", "")).replace("\\", "/").split("/")
+        stem = os.path.splitext(parts[-1])[0]
+        parent = parts[-2] if len(parts) > 1 else ""
+        t = r.get("thumb")
+        out.append({"key": stem + "|" + parent, "rel": "/".join(parts[-2:]), "name": stem, "proxy": None,
+                    "thumb": t if t and os.path.isfile(t) else None})
+    return out or None
+
+
 def match_thumbs(project, data_root, proxy_root):
     """Trả (clips, thumbs_khong_ghep_duoc). clips: [{key, rel, name, proxy, thumb(đường dẫn jpg hoặc None)}] theo proxy.
     Chỉ đọc danh sách file + cỡ/giờ sửa của proxy (không mở nội dung)."""
     tdir = os.path.join(data_root, "cache", "troly_thumbs", tc._safe(project))
+    man = load_manifest(data_root, project)
+    if man is not None:                                     # panel đã ghi danh sách clip + thumbnail: không cần proxy
+        return man, 0
     have = {f[:-4] for f in os.listdir(tdir) if f.endswith(".jpg")} if os.path.isdir(tdir) else set()
     pdir = os.path.join(proxy_root, project)
     files = []
@@ -413,6 +449,12 @@ def ck(rel):
     """Khóa so khớp clip panel <-> vector/gợi ý: (thư mục cha, tên không đuôi) không phân biệt hoa thường. Đuôi proxy (.mov) khác file gốc (.MP4)."""
     parts = (rel or "").replace("\\", "/").split("/")
     return ((parts[-2] if len(parts) > 1 else "").casefold(), os.path.splitext(parts[-1])[0].casefold())
+
+
+def is_orphan_key(k):
+    """Khóa của thumbnail 'mồ côi' (nhúng khi project không còn proxy): không có tên clip nên không thể ghép với clip trong kế hoạch."""
+    parent, stem = k
+    return parent == "" and (stem.startswith("thumb:") or stem.startswith("(không ghép"))
 
 
 def load_vectors(data_root, project):

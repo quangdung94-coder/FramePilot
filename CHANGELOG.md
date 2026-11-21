@@ -1,5 +1,18 @@
 # Nhật ký thay đổi
 
+## 2026-11-20 – Tool học từ 5 project cũ (tools/hoc_tu_cu.py), CHỜ ANH CHẠY
+- Một lệnh, hỏi Y trước khi chạy. Chỉ đọc: xuất .drp bản gốc, nhập project tạm _hoc_tu_cu_*, đọc timeline+clip, lấy mẫu thưa bằng ffmpeg (âm thanh + khung nhỏ, không chạy model), phân tích ra số (In/Out, "sao" = clip có trên timeline chính, điểm chuyển, lệch đồng hồ giữa máy). Nhớ tiến độ, chạy lại là làm tiếp.
+- Tên khách thật chỉ ở hoc_tu_cu.local.json (đã vào .gitignore); mã và báo cáo dùng LV_A..LV_E. Test: tests/test_hoc_tu_cu.py. Chưa chạy thật trên DaVinci và ổ đĩa của anh.
+
+## 2026-11-19 – B7: Space ở Bước 2 phát/dừng clip, chưa có proxy thì báo rõ (CHỜ ANH THỬ, CHƯA commit)
+- Gốc: phím Space đã được bắt (event.code) ở Bước 2 và 3, nhưng chưa có proxy thì plToggle thoát im lặng nên anh thấy "không phát". Nay Space báo lý do trên thanh trạng thái (chưa có proxy / proxy chưa mở xong / chưa chọn clip), chữ trong khung phải rút gọn "Chưa có proxy, chỉ xem hình tĩnh". Thêm chặn nhả Space (keyup) để nút đang focus như "Tự phân loại" không bị bấm lại. Chưa làm: phát từ file gốc khi không có proxy (máy chủ phát chỉ đọc trong proxy_root).
+- Thử panel thật (cửa sổ pywebview, phím Space thật) trên bản sao dữ liệu: đúng thông báo. Test mới tests/test_space_buoc2.py. 577 bài test đạt. Ảnh chụp lần cuối không dùng được nên chưa có ảnh chữ rút gọn.
+
+## 2026-11-19 – Lỗi "Tự phân loại AI ở Bước 2 xếp 0 clip" (đang ở nhánh main, CHƯA commit, CHỜ ANH THỬ)
+- Nguyên nhân gốc: thư mục proxy của project (thư mục proxy_root/<project>) rỗng, nên AI chỉ nhúng được thumbnail "mồ côi" (khóa thumb:<mã>, không có tên clip); gợi ý lưu 1 mục "(không ghép được clip)" và không clip nào của kế hoạch khớp, Tự phân loại xếp 0 mà không báo vì sao. Không do thay đổi trang 1 (troly_ai.py và ai.js không đổi trong các commit trang 1). Đã tái hiện trên bản sao dữ liệu project 2026.10.25.PHK_Baoluan&KimNga (nhóm 115 clip) bằng DaVinci thật (chỉ đọc).
+- Sửa: troly_ai.is_orphan_key, TrolyApi._ai_nomatch; ai_info có thêm trường no_match; ai_auto_apply/ai_auto_run trả lỗi nói rõ lý do và không ghi nhãn; ai.js hiện lý do trong hộp Gợi ý AI và trên thanh trạng thái. Test mới tests/test_troly_ai_khong_ghep.py. 574 bài test đạt.
+- Theo ý anh 19/11: BỎ ràng buộc proxy. Panel ghi clips.json (danh sách clip + thumbnail của panel, làm từ proxy hoặc file gốc) vào thư mục embed trước khi chạy AI; troly_ai.match_thumbs dùng nó nếu có, không còn lệ thuộc thư mục proxy (troly_ai.write_manifest/load_manifest, TrolyApi.ai_run). Thử trên bản sao dữ liệu + DaVinci thật, proxy rỗng: 400/400 clip có vector, Tự phân loại xếp 73 clip nhóm 01 (ngưỡng 50%). Còn 41 clip nhóm đó không có gợi ý vì điểm theo mô tả của các bin trong giai đoạn bằng 0 (ảnh giống bin của giai đoạn khác); chưa sửa, báo anh quyết. Chưa chụp cửa sổ panel thật.
+
 ## 2026-11-19 – Bước 1 chọn mốc giai đoạn bằng thumbnail (nhánh nhieu-camera-giao-dien, CHƯA gộp main, ADR-0033)
 - Giao diện Bước 1 theo demo design/trang1_chon_moc: danh sách giai đoạn có mốc đầu/cuối, timeline thấp, cây Media bin, lưới thumbnail, thông tin clip; phím F1…F9 (đầu) và Shift+F (cuối) đọc bằng event.code; chặn mốc sai thứ tự; nhiều máy liền nhau, 1 máy có khoảng trống; tối đa 9 giai đoạn.
 - Thêm TrolyApi.set_mark, tools/panel_probe.py (thử panel pywebview thật trên bản sao dữ liệu), biến môi trường TROLY_CONFIG, tools/harness_cam.py --tl. Test mới ở tests/test_nguon_timeline.py. Phần 2 (exe) chưa làm.
