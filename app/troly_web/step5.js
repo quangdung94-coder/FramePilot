@@ -428,6 +428,22 @@ document.addEventListener("input", (e) => { const el = e.target; if (page !== 5 
 document.addEventListener("change", (e) => { const el = e.target; if (page !== 5 || !el.dataset || !el.dataset.k || el.id === "durTarget") return; d5Clear(el.dataset.k); d5CommitField(el, true); });
 document.addEventListener("keydown", (e) => { const el = e.target; if (page === 5 && el.dataset && el.dataset.k && el.id !== "durTarget" && (e.code === "Enter" || e.code === "NumpadEnter")) el.blur(); });
 
+/* Điều hướng bằng bàn phím chuẩn DaVinci ở Page 5: ←/→ chuyển cụm sự kiện mượt mà */
+document.addEventListener("keydown", (e) => {
+  if (page !== 5 || !D5.v || !D5.v.stages || !D5.v.stages.length) return;
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
+    e.preventDefault();
+    const list = D5.v.stages;
+    let idx = list.findIndex((s) => s.name === D5.sel);
+    if (idx < 0) idx = 0;
+    else idx = Math.max(0, Math.min(list.length - 1, idx + (e.code === "ArrowLeft" ? -1 : 1)));
+    D5.sel = list[idx].name;
+    d5Paint();
+  }
+});
+
 /* ---- nút trên cùng, cột phải ---- */
 $("d5Reset").addEventListener("click", async () => {
   if (!D5.v) return;
