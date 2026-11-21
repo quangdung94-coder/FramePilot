@@ -20,7 +20,8 @@ Mẫu một dòng: `- 21/11 | Nhóm A-E | việc ngắn | Chờ anh thử / Đan
 - 21/11 | Nhóm B | Cấu hình LUT theo tiền tố tên file trong Setting ⚙ (ưu tiên Input LUT DaVinci trước, dự phòng Setting), nút Làm mới thumbnail riêng project hiện tại, áp WebGL LUT cho trình phát Page 4 | Chờ anh thử | commit 86f8c28
 - 21/11 | Nhóm B | Sửa Page 4 chưa hiện LUT: xóa cache thumbnail JS khi Làm mới thumbnail, cập nhật #lnThumb img theo sự kiện thumb, tải sẵn khung đầu video (preload=auto) & vẽ WebGL LUT ngay khi loadeddata/seeked | Chờ anh thử | commit (cập nhật sau)
 - 21/11 | Nhóm B | Thêm crossOrigin="anonymous" cho video Page 4 (hết nhấp nháy/mất LUT), mở rộng bộ lọc HALLU Whisper + nút Ẩn câu sai Page 4, và hỗ trợ đặt nhiều khúc In/Out trong 1 clip bằng Shift+I/O đưa đủ lên Timeline Bước 5 | Chờ anh thử | commit 390680b
-- 21/11 | Nhóm B | Bật đặt In/Out & nhiều khúc (I/O, Shift+I/O, Delete, rê chuột trên sóng âm/thanh In-Out) ngay trên Page 4 (Lời nói), kể cả clip chưa có đoạn gợi ý sẵn | Chờ anh thử | commit (cập nhật sau)
+- 21/11 | Nhóm B | Bật đặt In/Out & nhiều khúc (I/O, Shift+I/O, Delete, rê chuột trên sóng âm/thanh In-Out) ngay trên Page 4 (Lời nói), kể cả clip chưa có đoạn gợi ý sẵn | Chờ anh thử | commit 586760e
+- 21/11 | Nhóm B | Cải tiến Page 5 (Thời lượng): nút Vừa khung (Shift+Z), Zoom tới 2000% + Alt/Shift+Lăn cuộn ngang, thu gọn khoảng trống giữa timeline & bảng dưới, xổ xem từng khúc clip bên trong mỗi bin con | Chờ anh thử | commit (cập nhật sau)
 
 ## Tool học từ 5 project cũ (20/11/2026) - CHỜ ANH CHẠY
 - tools/hoc_tu_cu.py (+ hoc_tu_cu_phan_tich.py). Lệnh: `& C:\VideoAI_venv\Scripts\python.exe tools\hoc_tu_cu.py` (gõ Y để chạy; --thu LV_B --mau-toi-da 20 để thử nhỏ). Cần mở DaVinci, cắm đủ HDD/SSD. Kết quả: `D:\VideoAI\data\hoc_tu_cu\tong_hop.json`. Chưa chạy thật.

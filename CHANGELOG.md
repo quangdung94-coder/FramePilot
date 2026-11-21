@@ -1,6 +1,10 @@
 # Nhật ký thay đổi
 
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **Cải tiến Page 5 (`5 · Thời lượng`) (`index.html`, `style.css`, `step5.js`):**
+  - Thêm nút **`Vừa khung`** (phím tắt **`Shift + Z`** giống DaVinci) để phóng timeline vừa khít theo tổng độ dài clip đang có, tăng mức Zoom tối đa lên `2000%` và hỗ trợ `Alt / Shift + Lăn chuột` để cuộn ngang.
+  - Thu gọn khoảng trống giữa vùng timeline trên và hai khung dưới (`.tl-bot`), căn hai cột dưới cao đều nhau.
+  - Thêm nút mũi tên `▸` / `▾` ở bảng *Thứ tự trong cụm* để xổ xem chi tiết từng khúc clip In–Out bên trong mỗi bin con (bấm vào khúc clip sẽ nhảy thẳng sang Bước 3 để xem/chỉnh).
 - **Nhiều khúc In/Out trên 1 clip (`Shift+I/O`), Sửa LUT Page 4 & Lọc câu Whisper bịa (`troly_core.py`, `troly_dur.py`, `troly_api.py`, `troly_speech.py`, `index.html`, `player.js`, `speech.js`):**
   - Thêm `v.crossOrigin = "anonymous"` cho thẻ `<video>` ở Page 4 (`#lnThumb`) để WebGL LUT đọc được khung hình từ máy chủ nội bộ (hết nhấp nháy rồi mất màu khi Play/tua).
   - Mở rộng `HALLU` trong `troly_speech.py` để tự đánh dấu vàng `có thể sai` thêm các câu YouTube hay bịa (*"cảm ơn các bạn đã xem video"*, *"hẹn gặp lại ở những video"*, *"bấm chuông"*, *"like/share"*, biến thể `subrisb`), kèm nút **`Ẩn câu sai`** trên Page 4.

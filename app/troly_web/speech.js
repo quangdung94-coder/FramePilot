@@ -390,16 +390,21 @@ $("lnStar").onclick = lnToggleStar;
 
 async function lnSaveSpans(r, spans) {
   if (!r) return;
-  const res = await api().set_inouts(r.uid, spans);
+  const res = spans.length === 1
+    ? await api().speech_set_inout(r.uid, spans[0][0], spans[0][1])
+    : await api().set_inouts(r.uid, spans);
   if (res && res.error) return status(res.error, "warn");
+  const inouts = (res && Array.isArray(res.inouts)) ? res.inouts : spans;
+  const inS = (res && res.in_s != null) ? res.in_s : (inouts.length ? inouts[0][0] : null);
+  const outS = (res && res.out_s != null) ? res.out_s : (inouts.length ? inouts[0][1] : null);
   const cm = clipMeta(r.uid);
   if (cm) {
-    cm.inouts = (res && res.inouts) || [];
-    cm.in_s = res ? res.in_s : null;
-    cm.out_s = res ? res.out_s : null;
-    cm.io_src = res && res.in_s != null ? "manual" : null;
+    cm.inouts = inouts;
+    cm.in_s = inS;
+    cm.out_s = outS;
+    cm.io_src = inS != null ? "manual" : null;
   }
-  const spObj = (res && res.in_s != null) ? { in_s: res.in_s, out_s: res.out_s, src: "manual" } : null;
+  const spObj = inS != null ? { in_s: inS, out_s: outS, src: "manual" } : null;
   if (LN.detail) LN.detail.span = spObj;
   r.span = spObj;
   LN.edit = null;

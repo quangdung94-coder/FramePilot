@@ -3,7 +3,7 @@
    từng khối (vạch chéo = tắt). Kéo (pointer events: chuột + cảm ứng): thân khối mẹ = dời cả cụm; thân khối con = đổi thứ tự / sang cụm khác / lên V2;
    mép phải = đổi thời lượng (không vượt Có). Bảng thứ tự của cụm đang chọn đồng bộ hai chiều. Chỉ vẽ và gọi Python (api().dur_*, dur_tl_*);
    "Đưa lên Timeline mới" chỉ tạo MỘT timeline mới sau hộp xác nhận. */
-const D5 = { v: null, sel: null, seq: 0, timers: {}, drag: null, menu: null, T: 60 };
+const D5 = { v: null, sel: null, seq: 0, timers: {}, drag: null, menu: null, T: 60, openBins: new Set() };
 const d5mm = (s) => durTxt(s);
 const d5Pct = (p) => (p == null ? "" : String(Math.round(p * 10) / 10).replace(".", ",") + "%");
 const SVG_GRIP = '<svg width="12" height="12" viewBox="0 0 24 24" fill="#C4C4CC" aria-hidden="true"><circle cx="8" cy="6" r="2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg>';
@@ -163,15 +163,21 @@ function d5PaintOrder(v) {
     const slow = b.speed.mode !== "100";
     const own = b.speed.own ? "" : (c.speed_own || (D5.v.tl.clusters.find((x) => x.stage === b.cluster) || {}).speed_own ? "" : "");
     const raTxt = Math.abs(b.take_src - b.dur) >= 0.5 ? `<span class="tl-ra">→ ${d5mm(b.dur)}</span>` : "";
+    const exp = D5.openBins.has(k);
+    const subItems = exp ? (v.items || []).filter((it) => it.stage === b.stage && (it.bin || "(chưa xếp)") === b.bin) : [];
+    const subHtml = exp ? `<div class="tl-subclips">${subItems.length ? subItems.map((it) => {
+      const durIt = it.len != null ? it.len : Math.max(0, (it.out_s || 0) - (it.in_s || 0));
+      return `<div class="tl-sc" data-jump-uid="${esc(it.uid)}" title="Bấm để mở clip này ở Bước 3"><b>${esc(it.name || it.uid)}</b><span class="sc-io">${d5mm(it.in_s || 0)} → ${d5mm(it.out_s || 0)}</span><span class="sc-len">${d5mm(durIt)}</span></div>`;
+    }).join("") : '<div class="dim12">Không có clip nào trong khối này.</div>'}</div>` : "";
     return `<div class="tl-tb${b.key === D5.hl ? " hl" : ""}${b.cluster !== b.stage ? " foreign" : ""}" data-row="${esc(k)}" data-idx="${idx}">
       <span class="tl-c0">${idx + 1}</span><span class="tl-cg tl-grip" data-rowgrab="${esc(k)}" title="Kéo để đổi thứ tự">${SVG_GRIP}</span>
-      <span class="tl-c1"><i class="tl-dot" style="background:${b.color}"></i><span title="${esc(b.bin)}">${esc(b.bin)}${b.cluster !== b.stage ? ` <em>(từ ${esc(b.stage)})</em>` : ""}</span></span>
+      <span class="tl-c1"><button class="tl-exp" type="button" data-exp="${esc(k)}" title="Xem từng khúc clip bên trong bin này">${exp ? "▾" : "▸"}</button><i class="tl-dot" style="background:${b.color}"></i><span title="${esc(b.bin)}">${esc(b.bin)}${b.cluster !== b.stage ? ` <em>(từ ${esc(b.stage)})</em>` : ""}</span></span>
       <span class="tl-c2">${d5mm(b.have * (b.take_src > 0 && b.dur > 0 ? b.take_src / b.dur : 1))} · ${b.n_starred} clip</span>
       <span class="tl-c3"><input class="tl-inp sm${b.pin != null ? " pin" : ""}" data-k="take:${esc(k)}" data-key="${esc(k)}" type="text" value="${d5mm(b.take_src)}" autocomplete="off" aria-label="${esc(b.bin)} lấy (gốc)">${raTxt}</span>
       <span class="tl-c4"><button class="tl-trk${b.track === "V2" ? " v2" : ""}" data-track="${esc(k)}" title="Bấm để chuyển V1 / V2">${b.track === "V2" ? "V2 · chồng" : "V1"}</button></span>
       <span class="tl-c6"><button class="tl-trk${slow ? " sl" : ""}" data-speed="blk:${esc(k)}" title="Tốc độ của khối">${spTxt}</button></span>
       <span class="tl-c7"><button class="tl-tog${b.mute ? " off" : ""}" data-mute="blk:${esc(k)}" aria-pressed="${!b.mute}">${b.mute ? "Tắt" : "Bật"}</button></span>
-      <span class="tl-c5">${b.manual ? '<span class="tl-tagb">xếp tay</span>' : ""}</span></div>`;
+      <span class="tl-c5">${b.manual ? '<span class="tl-tagb">xếp tay</span>' : ""}</span></div>${subHtml}`;
   }).join("");
   const locked = stI && stI.locked;
   $("d5Order").innerHTML = `<div class="tl-oh">Thứ tự trong cụm ${String(c.i + 1).padStart(2, "0")}_${esc(c.stage)} <span class="tl-tagb">bấm khối mẹ trên timeline để chọn cụm</span>
@@ -377,6 +383,18 @@ function d5Click(e) {
     return d5Run(() => api().dur_tl_set_track(b.key, b.track === "V2" ? "V1" : "V2", b.track === "V2" ? null : Math.round(b.start * 10) / 10),
       b.track === "V2" ? "Khối về V1." : "Khối chạy chồng trên V2 (không cộng vào độ dài).");
   }
+  const exp = e.target.closest("[data-exp]");
+  if (exp) {
+    const k = exp.dataset.exp;
+    if (D5.openBins.has(k)) D5.openBins.delete(k); else D5.openBins.add(k);
+    return d5PaintOrder(D5.v);
+  }
+  const jp = e.target.closest("[data-jump-uid]");
+  if (jp && typeof goPage === "function" && typeof p3SelectUid === "function") {
+    goPage(3);
+    p3SelectUid(jp.dataset.jumpUid);
+    return;
+  }
   const lk = e.target.closest("[data-lock]");
   if (lk) return d5Run(() => api().dur_toggle_lock(+lk.dataset.lock));
   const row = e.target.closest("[data-row]");
@@ -444,19 +462,34 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-/* Zoom In/Out Timeline ở Page 5 (thanh kéo + Ctrl + Lăn chuột) */
+/* Zoom In/Out Timeline ở Page 5 (thanh kéo + Ctrl + Lăn chuột + Vừa khung Shift+Z + Alt+Lăn cuộn ngang) */
 (function initD5Zoom() {
-  const z = $("d5Zoom"), tl = $("d5Tl");
+  const z = $("d5Zoom"), tl = $("d5Tl"), fit = $("d5Fit");
   if (!z || !tl) return;
   const apply = (val) => {
-    const v = Math.max(100, Math.min(500, +val || 100));
+    const v = Math.max(100, Math.min(2000, +val || 100));
     z.value = v;
     tl.style.setProperty("--d5-w", v + "%");
   };
+  const fitView = () => {
+    if (!D5.v || !D5.v.tl) return apply(100);
+    const used = Math.max(D5.v.tl.v1_end || 0, D5.v.tl.v2_end || 0, 12);
+    const pct = Math.min(2000, Math.max(100, Math.round((D5.T / used) * 92)));
+    apply(pct);
+    tl.scrollLeft = 0;
+  };
   z.addEventListener("input", () => apply(z.value));
+  if (fit) fit.addEventListener("click", fitView);
   tl.addEventListener("wheel", (e) => {
-    if (e.ctrlKey) { e.preventDefault(); apply(+z.value + (e.deltaY < 0 ? 50 : -50)); }
+    if (e.ctrlKey) { e.preventDefault(); apply(+z.value + (e.deltaY < 0 ? 75 : -75)); }
+    else if (e.altKey || e.shiftKey) { e.preventDefault(); tl.scrollLeft += e.deltaY; }
   }, { passive: false });
+  document.addEventListener("keydown", (e) => {
+    if (typeof page !== "undefined" && page === 5 && e.shiftKey && e.code === "KeyZ" && !e.ctrlKey && !e.altKey && !/INPUT|TEXTAREA/.test((e.target && e.target.tagName) || "")) {
+      e.preventDefault();
+      fitView();
+    }
+  });
 })();
 
 /* ---- nút trên cùng, cột phải ---- */
@@ -478,7 +511,7 @@ $("d5SugE").addEventListener("click", () => {
   P3.onlyStar = false;                                           // cần thấy cả clip CHƯA sao để chọn thêm
   goPage(3);
   p3View(a.stage, a.bin === "(chưa xếp bin)" ? NONE : a.bin);
-  status(`Bước 3: đang xem ${a.bin} của giai đoạn ${S.stages[a.stage] ? S.stages[a.stage].bin : ""}. Bấm J để gắn sao clip muốn dùng.`, "info");
+  status(`Bước 3: đang xem ${a.bin} của giai đoạn ${S.stages[a.stage] ? S.stages[a.stage].bin : ""}. Bấm P để gắn sao clip muốn dùng.`, "info");
 });
 
 /* ---- Đưa lên Timeline mới (luôn bấm được khi có clip; hộp xác nhận ghi dư/thiếu, Slow, tắt tiếng) ---- */

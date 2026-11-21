@@ -529,9 +529,17 @@ button, input, select { font-family: inherit; }
 .tl-drop em { position: absolute; top: -20px; left: -34px; padding: 2px 8px; border-radius: 5px; background: #F2A33A; color: #18181B; font-style: normal; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .dragging { opacity: .45; }
 .tl-lg { display: flex; gap: 18px; font-size: 12px; color: var(--dim2); align-items: center; padding-left: 54px; flex-wrap: wrap; }
-.tl-bot { display: flex; gap: 12px; align-items: flex-end; margin-top: auto; }
+.tl-bot { display: flex; gap: 12px; align-items: stretch; margin-top: 2px; flex: 1; min-height: 200px; }
 .tl-note { display: none; }
-.tl-ord { flex: 1; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; overflow-x: auto; }
+.tl-ord { flex: 1; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; overflow-x: auto; overflow-y: auto; }
+.tl-exp { background: none; border: 0; color: var(--dim); cursor: pointer; padding: 0 4px 0 0; font-size: 11px; line-height: 1; flex-shrink: 0; }
+.tl-exp:hover { color: var(--fg); }
+.tl-subclips { margin: 2px 0 6px 34px; padding: 6px 10px; border-left: 2px solid var(--line); display: flex; flex-direction: column; gap: 4px; background: rgba(255,255,255,0.02); border-radius: 0 6px 6px 0; }
+.tl-sc { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--dim2); cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+.tl-sc:hover { background: rgba(255,255,255,0.05); color: var(--fg); }
+.tl-sc b { color: var(--fg); font-weight: 500; min-width: 110px; }
+.tl-sc .sc-io { font-variant-numeric: tabular-nums; color: var(--dim); }
+.tl-sc .sc-len { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--link); }
 .tl-oh { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; margin-bottom: 6px; flex-wrap: wrap; }
 .tl-ctl2 { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .tl-lkb { width: 32px; height: 30px; border-radius: 6px; border: 1px solid var(--btn-line); background: var(--btn); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
