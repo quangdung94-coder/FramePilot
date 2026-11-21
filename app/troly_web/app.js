@@ -85,6 +85,14 @@ window.onEvent = function (kind, data) {
     const img = document.querySelector(`.card[data-uid="${CSS.escape(data.uid)}"] .thumb`);
     if (img && data.src) setThumb(img, data.src);
     const t1 = data.src ? document.querySelector(`#g1 .tile[data-uid="${CSS.escape(data.uid)}"] .th`) : null; if (t1) setThumb(t1, data.src);
+    if (data.src && typeof LN !== "undefined" && LN.sel === data.uid) {
+      const lt = $("lnThumb");
+      if (lt) {
+        const li = lt.querySelector("img");
+        if (li) li.src = data.src;
+        else lt.insertAdjacentHTML("afterbegin", `<img src="${data.src}" draggable="false">`);
+      }
+    }
     if (items[cur] && items[cur].uid === data.uid) showCur();
   }
 };
@@ -1198,8 +1206,11 @@ $("styleSel").onchange = async (e) => {
     const sv = await api().settings_save($("setCacheInp").value, $("setSrtInp").value, tplPath, collectLutMap());
     if (sv && sv.error) return status(sv.error, "warn");
     if (typeof LUT !== "undefined" && LUT.cache) LUT.cache.clear();
+    for (const k in thumbs) delete thumbs[k];
+    if (typeof LN !== "undefined") LN.mediaUid = null;
     const st = await api().thumbs_refresh();
     if (st && !st.error) setState(st);
+    if (typeof curPage === "function" && curPage() === 4 && typeof renderRight === "function") renderRight();
     status("Đã xóa cache thumbnail của project này và đang tạo lại theo LUT mới.", "ok");
   };
   $("setCancel").onclick = () => modal.classList.add("hidden");
@@ -1243,6 +1254,10 @@ $("styleSel").onchange = async (e) => {
     } else if (S && S.n) {
       const st2 = await api().state();
       if (st2 && !st2.error) setState(st2);
+    }
+    if (typeof LN !== "undefined") {
+      LN.mediaUid = null;
+      if (typeof curPage === "function" && curPage() === 4 && typeof renderRight === "function") renderRight();
     }
     modal.classList.add("hidden");
     status("Đã lưu cài đặt project & thư mục (Ctrl+Z để hoàn tác khi cần).", "ok");

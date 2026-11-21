@@ -267,8 +267,11 @@ async function lutAttachEl(c, v, host) {
   if (!st.cv.parentNode) host.appendChild(st.cv);
   st.ready = true;
   const id = ++st.loopId;
+  const drawOnce = () => { if (id === st.loopId && st.vid === v && v.parentNode === host) lutDrawTo(st, host, true); };
   const tick = () => { if (id !== st.loopId || st.vid !== v || v.parentNode !== host) return; lutDrawTo(st, host, true); schedule(); };
   const schedule = () => { if (id !== st.loopId || st.vid !== v || v.parentNode !== host) return; if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(tick); };
+  v.addEventListener("loadeddata", drawOnce);
+  v.addEventListener("seeked", drawOnce);
   tick();
 }
 document.addEventListener("click", (e) => {

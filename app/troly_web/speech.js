@@ -171,7 +171,7 @@ function lnEnsureMedia(r) {
       if (LN.sel !== r.uid) return;
       if (!pi || pi.error) { $("lnPlayNote").textContent = (pi && pi.error) || ""; return; }
       const v = document.createElement("video");
-      v.preload = "metadata"; v.playsInline = true; v.src = pi.url; v.style.opacity = "0";
+      v.preload = "auto"; v.playsInline = true; v.src = pi.url; v.style.opacity = "0";
       v.addEventListener("loadeddata", () => { if (LN.sel === r.uid) v.style.opacity = "1"; });
       v.addEventListener("play", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "❚❚"; });
       v.addEventListener("pause", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "▶"; });
