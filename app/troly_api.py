@@ -2984,6 +2984,7 @@ class TrolyApi(object):
             "srt_root": te.srt_root() or "",
             "templates_path": tc._tpl_file(self._root, self._tpl_custom()) or "",
             "camera_luts": te.camera_luts(),
+            "asr_engine": te.asr_engine(),
             "detected_prefixes": [{"prefix": p, "count": n} for p, n in counts.most_common()],
         }
 
@@ -3003,7 +3004,7 @@ class TrolyApi(object):
         p = fn()
         return {"path": p} if p else {"cancel": True}
 
-    def settings_save(self, cache_root="", srt_root="", templates_path=None, camera_luts=None):
+    def settings_save(self, cache_root="", srt_root="", templates_path=None, camera_luts=None, asr_engine=None):
         """Lưu tùy chọn nơi chứa cache, nơi chứa file SRT, đường dẫn file mẫu và LUT theo máy vào config.json (không ghi vào thư mục git)."""
         repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).lower()
         c_dir = (cache_root or "").strip()
@@ -3027,6 +3028,10 @@ class TrolyApi(object):
                 for k, v in camera_luts.items()
                 if str(k or "").strip() and str(v or "").strip()
             }
+        if asr_engine is not None:
+            ae = str(asr_engine).strip().lower()
+            if ae in ("auto", "whisper_turbo", "phowhisper", "constme"):
+                patch["asr_engine"] = ae
         te.save_config(patch)
         with self._lock:
             self._cache_root = c_dir or self._root

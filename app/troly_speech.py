@@ -229,8 +229,55 @@ def whisper_cmd(cfg, wav, lang="vi", prompt=None):
     return cmd
 
 
+def faster_whisper_model_dir(engine, data_root=None):
+    """Thư mục model CTranslate2 cục bộ cho Whisper large-v3-turbo hoặc PhoWhisper-medium."""
+    root = data_root or r"D:\VideoAI\data"
+    sub = {"whisper_turbo": "whisper_large_v3_turbo", "phowhisper": "phowhisper_medium_ct2"}.get(engine)
+    return os.path.join(root, "models", sub) if sub else ""
+
+
+def _use_faster_whisper(cfg):
+    eng = str((cfg or {}).get("engine") or "").strip().lower()
+    if eng not in ("whisper_turbo", "phowhisper"):
+        return False
+    py = (cfg or {}).get("ai_python") or ""
+    mdir = (cfg or {}).get("ct2_dir") or ""
+    worker = os.path.join(HERE, "troly_asr_worker.py")
+    return os.path.isfile(py) and os.path.isdir(mdir) and os.path.isfile(worker)
+
+
+def _run_faster_whisper_batch(cfg, wavs, lang="vi", prompt=None):
+    """Chạy faster-whisper (Whisper large-v3-turbo / PhoWhisper CT2) qua venv AI riêng trong 1 lần nạp model."""
+    worker = os.path.join(HERE, "troly_asr_worker.py")
+    cmd = [cfg["ai_python"], "-X", "utf8", worker, "--model", cfg["ct2_dir"], "--lang", lang or "vi"]
+    if prompt and (lang or "vi") == "vi":
+        cmd += ["--prompt", prompt]
+    cmd += list(wavs)
+    t = time.time()
+    lim = WHISPER_TIMEOUT_S * max(1, len(wavs))
+    try:
+        r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                               creationflags=NO_WINDOW, timeout=lim)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Whisper AI chạy quá %d giây, đã dừng." % lim)
+    took = time.time() - t
+    if r.returncode != 0:
+        raise RuntimeError("Whisper AI lỗi (mã %s): %s" % (r.returncode, (r.stderr or r.stdout or "")[-240:]))
+    lines = [ln for ln in (r.stdout or "").splitlines() if ln.strip()]
+    if not lines:
+        return {}, took
+    raw = json.loads(lines[-1])
+    out = {}
+    for w, rows in (raw.items() if isinstance(raw, dict) else []):
+        out[w] = [(float(a), float(b), str(txt)) for a, b, txt in rows]
+    return out, took
+
+
 def whisper_run(cfg, wav, lang="vi", prompt=None):
-    """Chép một WAV, trả về ([(giây đầu, giây cuối, chữ)], giây chạy). SRT do Const-me ghi cạnh WAV được xóa ngay."""
+    """Chép một WAV, trả về ([(giây đầu, giây cuối, chữ)], giây chạy). Tự dùng faster-whisper (large-v3-turbo / PhoWhisper) nếu đã bật."""
+    if _use_faster_whisper(cfg):
+        out, took = _run_faster_whisper_batch(cfg, [wav], lang, prompt)
+        return out.get(wav, []), took
     t = time.time()
     try:
         r = troly_proc.chay_an(whisper_cmd(cfg, wav, lang, prompt), capture_output=True, text=True, encoding="utf-8",
@@ -326,8 +373,9 @@ def finish_clip(prep, sents, index=None, took=0.0):
 
 
 def whisper_batch(cfg, wavs, lang="vi", prompt=None):
-    """Chép NHIỀU WAV trong một lần gọi (nạp mô hình một lần). Trả về ({wav: [(t0, t1, text)]}, giây chạy).
-    Const-me ghi <tên wav>.srt cạnh từng file; mọi SRT bị xóa. File thiếu SRT thì không có trong kết quả."""
+    """Chép NHIỀU WAV trong một lần gọi (nạp mô hình một lần). Trả về ({wav: [(t0, t1, text)]}, giây chạy)."""
+    if _use_faster_whisper(cfg):
+        return _run_faster_whisper_batch(cfg, wavs, lang, prompt)
     cmd = [cfg["exe"], "-m", cfg["model"], "-l", lang, "-osrt", "-nc"]
     if prompt and lang == "vi":
         cmd += ["--prompt", prompt]
@@ -379,14 +427,30 @@ def transcribe_clip(path, cfg, vad_run, lang="vi", prompt=None, index=None, ffmp
 
 
 def load_whisper_cfg():
-    """Cấu hình Whisper: khóa "whisper" trong config.json của dự án; thiếu thì dùng mặc định đã thử 04/11/2026."""
-    p = os.path.join(os.path.dirname(HERE), "config.json")
-    cfg = {}
+    """Cấu hình Whisper: đọc từ troly_env.config(); ưu tiên Whisper large-v3-turbo / PhoWhisper nếu đã tải cục bộ, dự phòng Const-me."""
     try:
-        with open(p, "r", encoding="utf-8-sig") as f:
-            cfg = dict(json.load(f).get("whisper") or {})
-    except (OSError, ValueError):
-        pass
+        import troly_env
+        full = troly_env.config() or {}
+    except Exception:                                     # noqa: BLE001
+        full = {}
+    cfg = dict(full.get("whisper") or {})
     cfg.setdefault("exe", r"D:\VideoAI\tools\whisper\constme\cli\main.exe")
     cfg.setdefault("model", r"E:\Kho dữ liệu\Tài nguyên\WhisperDesktop_SUB_AUTO\ggml-medium.bin")
+    data_root = full.get("data_root") or r"D:\VideoAI\data"
+    ai_py = full.get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+    want = str(full.get("asr_engine") or cfg.get("engine") or "auto").strip().lower()
+    chosen, ct2_dir = "constme", ""
+    if want == "auto":
+        for cand in ("whisper_turbo", "phowhisper"):
+            d = faster_whisper_model_dir(cand, data_root)
+            if os.path.isfile(ai_py) and os.path.isdir(d):
+                chosen, ct2_dir = cand, d
+                break
+    elif want in ("whisper_turbo", "phowhisper"):
+        d = faster_whisper_model_dir(want, data_root)
+        if os.path.isfile(ai_py) and os.path.isdir(d):
+            chosen, ct2_dir = want, d
+    cfg["engine"] = chosen
+    cfg["ai_python"] = ai_py
+    cfg["ct2_dir"] = ct2_dir
     return cfg

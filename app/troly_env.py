@@ -60,6 +60,12 @@ def camera_luts():
     return dict(v) if isinstance(v, dict) else {}
 
 
+def asr_engine():
+    """Động cơ chép lời Page 4: 'auto' (ưu tiên Whisper large-v3-turbo), 'whisper_turbo', 'phowhisper', 'constme'."""
+    v = str(config().get("asr_engine") or "auto").strip().lower()
+    return v if v in ("auto", "whisper_turbo", "phowhisper", "constme") else "auto"
+
+
 def save_config(patch):
     """Cập nhật một phần config.json qua file tạm (giữ nguyên các mục khác)."""
     p = config_path()

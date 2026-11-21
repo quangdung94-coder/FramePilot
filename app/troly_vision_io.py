@@ -3,6 +3,7 @@
 Phân tích hình ảnh (độ nét Laplacian + độ rung Optical Flow) và âm thanh (Silero VAD)
 trên file proxy để gợi ý mốc In/Out (chỉ đọc proxy, không ghi vào DaVinci hay ổ đĩa).
 """
+import json
 import os
 import subprocess
 import tempfile
@@ -23,7 +24,42 @@ except ImportError:
     from app import troly_proc
 
 
-def analyze_proxy_vision(proxy_path, dur, target_len=3.5, head_skip=1.3, max_samples=48):
+def analyze_proxy_faces(proxy_path, timestamps, ai_python=None, model_path=None):
+    """Quét biểu cảm khuôn mặt (nụ cười, nhắm mắt) bằng MediaPipe Face Landmarker qua venv AI riêng.
+    Trả danh sách [(has_face, smile, blink)] khớp timestamps, hoặc None nếu chưa có model/venv AI."""
+    if not proxy_path or not os.path.isfile(proxy_path) or not timestamps:
+        return None
+    try:
+        import troly_env
+        cfg = troly_env.config() or {}
+    except Exception:                                     # noqa: BLE001
+        cfg = {}
+    py = ai_python or cfg.get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+    droot = cfg.get("data_root") or r"D:\VideoAI\data"
+    mp_model = model_path or os.path.join(droot, "models", "mediapipe", "face_landmarker.task")
+    worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "troly_face_worker.py")
+    if not (os.path.isfile(py) and os.path.isfile(mp_model) and os.path.isfile(worker)):
+        return None
+    ts_str = ",".join("%.2f" % float(t) for t in timestamps)
+    try:
+        p = troly_proc.chay_an(
+            [py, "-X", "utf8", worker, "--model", mp_model, "--video", proxy_path, "--times", ts_str],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
+        )
+        if p.returncode != 0:
+            return None
+        lines = [ln for ln in (p.stdout or "").splitlines() if ln.strip()]
+        if not lines:
+            return None
+        data = json.loads(lines[-1])
+        if isinstance(data, list) and len(data) == len(timestamps):
+            return [(float(x[0]), float(x[1]), float(x[2])) for x in data]
+    except Exception:                                     # noqa: BLE001
+        return None
+    return None
+
+
+def analyze_proxy_vision(proxy_path, dur, target_len=3.5, head_skip=1.3, max_samples=48, use_faces=True):
     """Quét mẫu thưa trên proxy để tìm đoạn dài `target_len` giây có độ nét cao & độ rung thấp nhất.
     Trả dict {'in': float, 'out': float, 'sharp': float, 'motion': float, 'rule': str} hoặc None.
     """
@@ -87,7 +123,13 @@ def analyze_proxy_vision(proxy_path, dur, target_len=3.5, head_skip=1.3, max_sam
     s_max = float(np.max(sharps)) or 1.0
     m_max = float(np.max(motions)) or 1.0
 
-    # Cửa sổ trượt tìm đoạn nét nhất & êm nhất sau head_skip
+    # Cộng điểm MediaPipe Face Landmarker (nụ cười tươi + tránh nhắm mắt ở đầu/cuối) nếu có sẵn model
+    faces = analyze_proxy_faces(proxy_path, [s[0] for s in samples]) if use_faces else None
+    f_has = np.array([x[0] for x in faces], dtype=float) if faces else None
+    f_smile = np.array([x[1] for x in faces], dtype=float) if faces else None
+    f_blink = np.array([x[2] for x in faces], dtype=float) if faces else None
+
+    # Cửa sổ trượt tìm đoạn nét nhất, êm nhất & có biểu cảm đẹp nhất sau head_skip
     best_score = -1e9
     best_pair = None
     for t_start, _, _ in samples:
@@ -102,25 +144,33 @@ def analyze_proxy_vision(proxy_path, dur, target_len=3.5, head_skip=1.3, max_sam
             continue
         avg_s = float(np.mean(sharps[idx]))
         avg_m = float(np.mean(motions[idx]))
-        # Điểm tổng hợp: ưu tiên độ êm (motion thấp) và độ nét (sharpness cao)
         score = (avg_s / s_max) - 0.85 * (avg_m / m_max)
+        avg_smile, has_face = 0.0, False
+        if f_has is not None:
+            face_ratio = float(np.mean(f_has[idx]))
+            avg_smile = float(np.mean(f_smile[idx]))
+            edge_blink = max(float(f_blink[idx[0]]), float(f_blink[idx[-1]]))
+            has_face = face_ratio >= 0.35
+            score += 0.35 * face_ratio + 0.45 * avg_smile - (0.55 if edge_blink >= 0.5 else 0.0)
         if score > best_score:
             best_score = score
-            best_pair = (t_start, t_end, avg_s, avg_m)
+            best_pair = (t_start, t_end, avg_s, avg_m, has_face, avg_smile)
 
     if best_pair is None:
         return None
 
-    in_s, out_s, avg_s, avg_m = best_pair
+    in_s, out_s, avg_s, avg_m, has_face, avg_smile = best_pair
     if out_s - in_s < 0.8:
         return None
     skip_note = f", bỏ {skip_s:.1f}s đầu" if skip_s > 0 else ""
+    face_note = " · Cười tươi" if avg_smile >= 0.35 else (" · Có mặt rõ" if has_face else "")
     return {
         "in": round(in_s, 2),
         "out": round(out_s, 2),
         "sharp": round(avg_s, 1),
         "motion": round(avg_m, 2),
-        "rule": f"Hình ảnh (Nét {avg_s:.0f} · Êm {avg_m:.2f}{skip_note})",
+        "smile": round(avg_smile, 2),
+        "rule": f"Hình ảnh (Nét {avg_s:.0f} · Êm {avg_m:.2f}{face_note}{skip_note})",
     }
 
 

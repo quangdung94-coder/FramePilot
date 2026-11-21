@@ -464,6 +464,15 @@
         </div>
       </div>
       <div class="v6">
+        <label class="lbl" for="setAsrSel">Động cơ chép lời AI (Page 4 · chạy cục bộ trên GPU):</label>
+        <select id="setAsrSel" class="sel">
+          <option value="auto">Tự động (ưu tiên Whisper large-v3-turbo)</option>
+          <option value="whisper_turbo">Whisper large-v3-turbo (Nhanh · tiếng Việt &amp; tiếng Anh)</option>
+          <option value="phowhisper">PhoWhisper-medium (Chuyên tiếng Việt 3 miền)</option>
+          <option value="constme">Whisper Const-me cũ (ggml-medium)</option>
+        </select>
+      </div>
+      <div class="v6">
         <label class="lbl" for="setCacheInp">Thư mục chứa Cache (thumbnail, sóng âm, keyframe, khung RAM):</label>
         <div class="inline8">
           <input id="setCacheInp" class="inp flex1" placeholder="Mặc định theo data_root">

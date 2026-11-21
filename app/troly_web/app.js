@@ -1444,6 +1444,7 @@ $("styleSel").onchange = async (e) => {
     $("setCacheInp").value = (r && r.cache_root) || defDataRoot;
     $("setSrtInp").value = (r && r.srt_root) || "";
     if ($("setTplPathInp")) $("setTplPathInp").value = (r && r.templates_path) || "";
+    if ($("setAsrSel")) $("setAsrSel").value = (r && r.asr_engine) || "auto";
     const tplSel = $("setTplSel"), stSel = $("setStyleSel");
     if (tplSel && S && Array.isArray(S.templates)) {
       tplSel.innerHTML = S.templates.map((t) => `<option value="${esc(t)}">${esc(shortTplName(t))}</option>`).join("");
@@ -1499,7 +1500,8 @@ $("styleSel").onchange = async (e) => {
   };
   if ($("setRefreshThumbs")) $("setRefreshThumbs").onclick = async () => {
     const tplPath = $("setTplPathInp") ? $("setTplPathInp").value : null;
-    const sv = await api().settings_save($("setCacheInp").value, $("setSrtInp").value, tplPath, collectLutMap());
+    const asrEng = $("setAsrSel") ? $("setAsrSel").value : null;
+    const sv = await api().settings_save($("setCacheInp").value, $("setSrtInp").value, tplPath, collectLutMap(), asrEng);
     if (sv && sv.error) return status(sv.error, "warn");
     if (typeof LUT !== "undefined" && LUT.cache) LUT.cache.clear();
     for (const k in thumbs) delete thumbs[k];
@@ -1532,7 +1534,8 @@ $("styleSel").onchange = async (e) => {
   };
   $("setSave").onclick = async () => {
     const tplPath = $("setTplPathInp") ? $("setTplPathInp").value : null;
-    const r = await api().settings_save($("setCacheInp").value, $("setSrtInp").value, tplPath, collectLutMap());
+    const asrEng = $("setAsrSel") ? $("setAsrSel").value : null;
+    const r = await api().settings_save($("setCacheInp").value, $("setSrtInp").value, tplPath, collectLutMap(), asrEng);
     if (r && r.error) return status(r.error, "warn");
     if (typeof LUT !== "undefined" && LUT.cache) LUT.cache.clear();
     const tpl = $("setTplSel") ? $("setTplSel").value : "";

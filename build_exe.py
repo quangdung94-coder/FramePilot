@@ -29,6 +29,8 @@ def main():
         "--paths=" + APP,
         "--add-data=" + os.path.join(APP, "troly_web") + SEP + "troly_web",
         "--add-data=" + os.path.join(APP, "assets") + SEP + "assets",
+        "--add-data=" + os.path.join(APP, "troly_asr_worker.py") + SEP + ".",
+        "--add-data=" + os.path.join(APP, "troly_face_worker.py") + SEP + ".",
         "--hidden-import=PIL._tkinter_finder",
         "--hidden-import=troly_sync",
         "--exclude-module=torch",
