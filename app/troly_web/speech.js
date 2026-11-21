@@ -129,7 +129,19 @@ function renderRight() {
   const r = curRow(), d = LN.detail;
   if (!r) {
     $("lnName").textContent = "Chọn một clip"; $("lnMeta").textContent = ""; $("lnBar").innerHTML = ""; $("lnDurEnd").textContent = "";
+    if ($("lnThumb")) { $("lnThumb").innerHTML = ""; $("lnThumb").classList.add("hidden"); }
     $("lnSugg").classList.add("hidden"); $("lnLines").innerHTML = ""; renderExportBtns(); return;
+  }
+  const lt = $("lnThumb");
+  if (lt) {
+    const src = thumbs[r.uid];
+    if (src) { lt.innerHTML = `<img src="${src}" draggable="false">`; lt.classList.remove("hidden"); }
+    else {
+      lt.innerHTML = ""; lt.classList.add("hidden");
+      if (typeof api === "function") api().want_thumbs([r.uid]).then((ready) => {
+        if (ready && ready[r.uid]) { thumbs[r.uid] = ready[r.uid]; if (LN.sel === r.uid) renderRight(); }
+      });
+    }
   }
   const fps = (d && d.fps) || r.fps || 25;
   $("lnName").textContent = r.name;
@@ -160,7 +172,7 @@ function renderRight() {
       return `<div class="ln-line${l.keys.length && !l.why.length ? " key" : ""}${inside ? " in" : ""}${l.why.length ? " bad" : ""}"><span class="t">${fmtSec(l.t0)}</span><span class="x">${esc(l.text)}${l.why.length ? " · nghi sai" : ""}</span></div>`;
     }).join("")
     : `<span class="dim13" style="padding:8px">${r.silent ? "Clip này không có tiếng nói, chỉ có tiếng nền." : "Có tiếng nói nhưng Whisper không ra chữ."}</span>`;
-  $("lnStar").textContent = ((d ? d.star : r.star) ? "Bỏ sao (J)" : "Gắn sao (J)");
+  $("lnStar").textContent = ((d ? d.star : r.star) ? "Bỏ sao (P)" : "Gắn sao (P)");
   renderExportBtns();
 }
 

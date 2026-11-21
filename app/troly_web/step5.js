@@ -444,6 +444,21 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+/* Zoom In/Out Timeline ở Page 5 (thanh kéo + Ctrl + Lăn chuột) */
+(function initD5Zoom() {
+  const z = $("d5Zoom"), tl = $("d5Tl");
+  if (!z || !tl) return;
+  const apply = (val) => {
+    const v = Math.max(100, Math.min(500, +val || 100));
+    z.value = v;
+    tl.style.setProperty("--d5-w", v + "%");
+  };
+  z.addEventListener("input", () => apply(z.value));
+  tl.addEventListener("wheel", (e) => {
+    if (e.ctrlKey) { e.preventDefault(); apply(+z.value + (e.deltaY < 0 ? 50 : -50)); }
+  }, { passive: false });
+})();
+
 /* ---- nút trên cùng, cột phải ---- */
 $("d5Reset").addEventListener("click", async () => {
   if (!D5.v) return;

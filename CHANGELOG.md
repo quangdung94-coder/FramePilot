@@ -1,6 +1,12 @@
 # Nhật ký thay đổi
 
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **Tổng rà soát & đồng bộ toàn bộ Page 1–5 theo 8 ảnh thật (`troly_env.py`, `troly_core.py`, `troly_api.py`, `index.html`, `style.css`, `app.js`, `ai.js`, `step3.js`, `speech.js`, `step5.js`):**
+  - Page 1: ẩn dòng chú thích giờ quay mặc định, nâng nút `Lưu mẫu cho đám sau` to ngang `Tạo bin`, tích hợp tùy chọn đường dẫn lưu file mẫu (`templates.json`) trong cả modal Lưu mẫu và Setting bánh răng `⚙`.
+  - Page 2 & 3: giữ nguyên toàn bộ các bin mẹ/con đang mở (không tự đóng nhóm trên khi chọn nhóm khác giống DaVinci), bỏ chú thích thừa của hộp AI / Page 3; sửa sạch các chỗ sót nhãn `(J)` -> `(P)` ở Bước 3 và Bước 4.
+  - Page 3: phóng to khung video/thumbnail (`clamp(500px, 48vw, 760px)`), gom bảng quy tắc gợi ý thành thẻ ngang gọn, tinh gọn hàng nút dưới (ẩn nút `Nhận gợi ý (A)` và `Hoàn tác` vì đã có `Ctrl+Z`).
+  - Page 4: thêm khung ảnh thumbnail `#lnThumb` bên trên thông tin file & lời nói cột phải.
+  - Page 5: thêm thanh Zoom In/Out timeline (`100%–500%` + `Ctrl + Lăn chuột`) để phóng to xem rõ các bin con bên trong từng cụm bin mẹ.
 - **Page 5 Timeline lớn & Đồng nhất (`index.html`, `style.css`, `step5.js`):** Tăng chiều cao timeline V2/V1/A1/A2 ở trên (`72/132/34/34 px`), đẩy bảng thứ tự cụm/bin xuống sát dưới, ẩn các dòng chú thích dài thừa (`.tl-lg`, `.tl-note`) và thêm phím `←`/`→` chuyển mượt giữa các cụm sự kiện.
 - **Gom Cài đặt Project mới, Ctrl+Z hoàn tác & Dọn chú thích (`index.html`, `app.js`):** Gom lựa chọn kiểu sự kiện (1 dòng: *Lễ sáng + Tiệc tối* / *Chỉ tiệc*) và kiểu quay vào chung hộp Setting bánh răng `⚙`; đặt `Ctrl + Z` làm phím tắt hoàn tác mặc định cho toàn panel (ẩn nút chữ dài); lược bỏ các hộp/dòng chú thích nhỏ thừa thãi ở Page 1, 2, 3.
 - **Page 1 Đồng bộ Bin con & Thu gọn Thông tin clip (`index.html`, `style.css`, `app.js`):** Hiển thị toàn bộ bin con thành từng hàng riêng (ô màu + tên + phím `1–9`) bên dưới mỗi giai đoạn (bin mẹ) đồng bộ với Page 2; khi sửa cho phép thêm/xóa từng hàng bin con thay vì gộp chung bằng dấu phẩy. Bỏ cột phải trống, thu gọn Thông tin clip thành thanh ngang sát dưới lưới `Source` gồm 6 mục cần thiết (`File`, `Giờ quay`, `Dài`, `FPS / TC`, `LUT`, `Máy / Mốc`).

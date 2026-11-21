@@ -66,17 +66,18 @@ function renderPage3() {
   const folded = (key, dflt) => (P3.fold[key] === undefined ? dflt : P3.fold[key]);
   const ar = (on, fold) => `<span class="p3-ar" data-ar="1" title="${on && !fold ? "Thu gọn danh sách clip" : "Mở danh sách clip"}">${on && !fold ? "▾" : "▸"}</span>`;
   let h = S.stages.map((s, i) => {
-    const open = i === gStage;
+    const curStage = i === gStage;
+    const open = true;
     const fs = folded("s:" + i, true);
-    let r = `<div class="pool-stage"><div class="pool-row${open && gSub === null ? " on" : ""}${open && gSub !== null ? " parent" : ""}" data-stage="${i}">${ar(open && gSub === null, fs)}${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span>${cnt(s.uids)}</div>`;
+    let r = `<div class="pool-stage"><div class="pool-row${curStage && gSub === null ? " on" : ""}${curStage && gSub !== null ? " parent" : ""}" data-stage="${i}">${ar(curStage && gSub === null, fs)}${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span>${cnt(s.uids)}</div>`;
     if (open) {
       r += `<div class="pool-subs">`;
-      if (gSub === null && !fs) r += clipsHtml();
+      if (curStage && gSub === null && !fs) r += clipsHtml();
       const fn = folded("n:" + i, false);
-      r += `<div class="sub-none${gSub === NONE ? " on" : ""}" data-stage="${i}">${ar(gSub === NONE, fn)}<span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span>${cnt(s.none)}</div>` + (gSub === NONE && !fn ? clipsHtml() : "");
+      r += `<div class="sub-none${curStage && gSub === NONE ? " on" : ""}" data-stage="${i}">${ar(curStage && gSub === NONE, fn)}<span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span>${cnt(s.none)}</div>` + (curStage && gSub === NONE && !fn ? clipsHtml() : "");
       for (const bn of s.bins) {
         const fb = folded("b:" + i + ":" + bn.name, false);
-        r += `<div class="sub${gSub === bn.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(bn.name)}">${ar(gSub === bn.name, fb)}<span class="sq" style="background:${bn.color}"></span><span class="t">${esc(bn.name)}</span>${cnt(bn.uids)}</div>` + (gSub === bn.name && !fb ? clipsHtml() : "");
+        r += `<div class="sub${curStage && gSub === bn.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(bn.name)}">${ar(curStage && gSub === bn.name, fb)}<span class="sq" style="background:${bn.color}"></span><span class="t">${esc(bn.name)}</span>${cnt(bn.uids)}</div>` + (curStage && gSub === bn.name && !fb ? clipsHtml() : "");
       }
       r += `</div>`;
     }
@@ -133,7 +134,7 @@ function p3SugPaint() {
   $("p3SugN").textContent = run ? `đã chạy ${g.n} / ${g.total}` : (n ? `đã chạy ${g.done} / ${n}` : "chưa có clip sao");
   b.querySelector(".gi").textContent = run ? "…" : (g.done > 0 ? "↻" : "▶");
   b.title = n ? "Chạy nền một lượt cho mọi clip có sao: gợi ý theo lời nói (nếu đã chép lời ở Bước 4), không thì theo quy tắc bin bên trên. Màu xanh, không tự ghi vào DaVinci."
-    : "Chưa có clip sao. Gắn sao (J) ở Bước 2 trước.";
+    : "Chưa có clip sao. Gắn sao (P) ở Bước 2 trước.";
 }
 function p3SugMsg(text, kind) { const m = $("p3SugMsg"); m.textContent = text || ""; m.className = "p3-gymsg" + (kind ? " " + kind : ""); }
 function p3SugSummary() {                                       // kết quả lần chạy, đọc từ chính trạng thái hiện có
@@ -284,7 +285,7 @@ function renderPage3Cur(c) {
   $("p3Name").textContent = c.name;
   $("p3Meta").textContent = `${c.label || "Chưa xếp"} · ${c.time} · dài ${durTxt(c.dur)}`;
   $("p3Tag").textContent = c.label || "Chưa xếp";
-  $("p3Star").textContent = c.star ? "★ Bỏ sao (J)" : "☆ Gắn sao (J)";
+  $("p3Star").textContent = c.star ? "★ Bỏ sao (P)" : "☆ Gắn sao (P)";
   $("p3Star").classList.toggle("active", !!c.star); $("p3Star").classList.toggle("btn-star", true);
   $("ioWriteStar").textContent = "Ghi clip sao (" + (S.n_starred || 0) + ")";
   $("p3Accept").disabled = !c.sug;

@@ -25,7 +25,6 @@ class AiWeb(unittest.TestCase):
         self.assertIn('id="aiBox"', p2)                                                       # hộp nằm ở Bước 2
 
     def test_chu_huong_dan_co_chuc_nang_that(self):
-        self.assertIn("Phím <b>A</b> nhận hạng 1", self.html)
         self.assertIn('e.code !== "KeyA" && e.code !== "KeyX"', self.js)                      # A nhận, X bỏ qua
         for fn in ("ai_info", "ai_for", "ai_accept", "ai_skip", "ai_run", "ai_stop"):
             self.assertIn("api()." + fn, self.js, fn)

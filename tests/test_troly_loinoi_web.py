@@ -55,7 +55,7 @@ class TabsLoiNoi(unittest.TestCase):
         for col in ("#A9CF62", "#5B9BF5", "#E0B860"):                      # key xanh lá, người nói xanh dương, méo vàng
             self.assertIn(col, self.css)
         for text in ("Có cụm key lễ cưới", "Có người nói", "Tiếng méo, kết quả có thể sai", "Im lặng", "Đoạn gợi ý In / Out",
-                     "Chỉ clip có cụm key", "Tiếng nói từ 20 giây", "Tìm chữ", "Gắn sao (J)", "Đặt In / Out"):
+                     "Chỉ clip có cụm key", "Tiếng nói từ 20 giây", "Tìm chữ", "Gắn sao (P)", "Đặt In / Out"):
             self.assertIn(text, self.html)
 
 

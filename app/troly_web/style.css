@@ -652,7 +652,7 @@ button, input, select { font-family: inherit; }
 .p3-clips .p3-clip { gap: 6px; padding: 7px 6px; }
 .p3-ln.in.sg { background: rgba(91,155,245,.14); border-left-color: #5B9BF5; }
 #stageHost3 .preview { max-width: 444px; margin: 0 auto; }          /* như demo: khung xem 444x250, chừa chỗ cho khung chữ */
-#stageHost3 .preview { width: 444px; height: 250px; max-width: 100%; aspect-ratio: auto; }
+#stageHost3 .preview { width: clamp(500px, 48vw, 760px); height: auto; max-width: 100%; aspect-ratio: 16 / 9; margin: 0 auto; }
 
 /* Truyền thống: cắt đầu / đuôi theo bin (ADR-0025) */
 .rt.trad .num { width: 54px; }
@@ -901,6 +901,18 @@ button, input, select { font-family: inherit; }
 #page1 .meta-bar .mi { display: inline-flex; align-items: center; gap: 5px; }
 #page1 .meta-bar .ml { color: var(--dim); font-size: 11px; }
 #page1 .meta-bar .mv { color: var(--text); font-weight: 500; }
+/* ---- Page 3: gom bảng quy tắc thành thẻ ngang gọn ---- */
+.p3-col-rule .rt, .p3-col-rule .rt tbody { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.p3-col-rule .rt thead { display: none; }
+.p3-col-rule .rt tr { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.p3-col-rule .rt td { padding: 0; border: 0; }
+.p3-col-rule .rt .num { width: 42px; height: 24px; font-size: 12px; }
+/* ---- Page 4: thumbnail cột phải ---- */
+.ln-thumb { width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #0E0E11; border: 1px solid var(--line); flex-shrink: 0; }
+.ln-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* ---- Page 5: Zoom timeline mượt ---- */
+#d5Tl { overflow-x: auto; }
+#d5Tl .tl-lane { min-width: var(--d5-w, 100%); }
 #page1 .src-line { display: block; }
 #page1 .src-line.warn { color: #F2C14E; }
 #page1 .src-line.ok { color: #7FD6A8; }

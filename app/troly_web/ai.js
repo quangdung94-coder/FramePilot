@@ -122,7 +122,7 @@ async function aiBoxRender() {
   const acts = [];
   let body = "";
   if (!c) body = '<span class="ai-msg">Chọn một clip để xem gợi ý.</span>';
-  else if (c.label) body = `<span class="ai-msg">Clip đã xếp vào "${esc(c.label)}"${c.label_by === "ai_auto" ? " (AI xếp, chưa phải bạn xếp)" : ""}, không gợi ý. (Bấm 0 để bỏ nhãn.)</span>`;
+  else if (c.label) body = `<span class="ai-msg">Đã xếp vào "${esc(c.label)}"${c.label_by === "ai_auto" ? " (AI)" : ""}.</span>`;
   else {
     const r = await aiForCur();
     if (mySeq !== AI.seq) return;

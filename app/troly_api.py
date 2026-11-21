@@ -272,7 +272,7 @@ class TrolyApi(object):
                     "src": self._src_view(), "machines": [{k: m[k] for k in ("key", "letter", "name", "color", "prefix", "n")} for m in self._machines],
                     "audio": self._audio_view(), "events": self._events_view(),
                     "template": self._plan.get("template") if self._tl_want else (self._plan.get("template") or tc.DEFAULT_TEMPLATE),
-                    "templates": list(tc.templates(self._root)),
+                    "templates": list(tc.templates(self._root, custom_path=self._tpl_custom())),
                     "moves": [{"at": m.get("at", "")[:16].replace("T", " "), "n": len(m["log"])} for m in moves],
                     "busy": self._busy,
                     "thumbs": {"done": sum(1 for v in self._thumb_done.values() if v[0]),
@@ -824,7 +824,7 @@ class TrolyApi(object):
 
     # ------------------------------------------------------------------ giai đoạn
     def _suggest(self, name):
-        tpls = tc.templates(self._root)
+        tpls = tc.templates(self._root, custom_path=self._tpl_custom())
         name = name if name in tpls else tc.DEFAULT_TEMPLATE
         self._plan["template"] = name
         self._plan["stages"] = tc.suggest_stages(self._clips, self._day0, tpls[name], self._plan["offsets"])
@@ -961,12 +961,23 @@ class TrolyApi(object):
             self._save_soon()
             return self.state()
 
-    def save_template(self, name):
+    def _tpl_custom(self):
+        tp = te.templates_path()
+        return tp if tp and self._root == te.data_root() else None
+
+    def save_template(self, name, custom_dir=None):
         name = (name or "").strip()
         if not name or not self._stages:
             return self.state()
+        if custom_dir is not None:
+            cd = (custom_dir or "").strip()
+            repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).lower()
+            ab = os.path.abspath(cd).lower() if cd else ""
+            if ab and (ab == repo or ab.startswith(repo + os.sep)):
+                return {"error": "Đường dẫn lưu mẫu không được nằm trong thư mục mã nguồn của Trợ lý."}
+            te.save_config({"templates_path": cd})
         with self._lock:
-            tc.save_template(self._root, name, self._stages)
+            tc.save_template(self._root, name, self._stages, custom_path=self._tpl_custom())
             self._plan["template"] = name
             self._save_soon()
             return self.state()
@@ -2559,11 +2570,12 @@ class TrolyApi(object):
 
     # ------------------------------------------------------------------ Cài đặt chung (bánh răng)
     def settings_get(self):
-        """Trả cài đặt thư mục chứa cache và thư mục chứa file SRT hiện tại."""
+        """Trả cài đặt thư mục chứa cache, SRT và đường dẫn file mẫu hiện tại."""
         return {
             "data_root": self._root or "",
             "cache_root": self._cache_root or self._root or "",
             "srt_root": te.srt_root() or "",
+            "templates_path": tc._tpl_file(self._root, self._tpl_custom()) or "",
         }
 
     def settings_pick_dir(self):
@@ -2574,18 +2586,25 @@ class TrolyApi(object):
         d = fn()
         return {"dir": d} if d else {"cancel": True}
 
-    def settings_save(self, cache_root="", srt_root=""):
-        """Lưu tùy chọn nơi chứa cache và nơi chứa file SRT vào config.json (không ghi vào thư mục git)."""
+    def settings_save(self, cache_root="", srt_root="", templates_path=None):
+        """Lưu tùy chọn nơi chứa cache, nơi chứa file SRT và đường dẫn file mẫu vào config.json (không ghi vào thư mục git)."""
         repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).lower()
         c_dir = (cache_root or "").strip()
         s_dir = (srt_root or "").strip()
-        for label, d in (("Thư mục cache", c_dir), ("Thư mục SRT", s_dir)):
+        t_dir = (templates_path or "").strip() if templates_path is not None else None
+        checks = [("Thư mục cache", c_dir), ("Thư mục SRT", s_dir)]
+        if t_dir:
+            checks.append(("Đường dẫn mẫu", t_dir))
+        for label, d in checks:
             if not d:
                 continue
             ab = os.path.abspath(d).lower()
             if ab == repo or ab.startswith(repo + os.sep):
                 return {"error": f"{label} không được nằm trong thư mục mã nguồn của Trợ lý."}
-        te.save_config({"cache_root": c_dir, "srt_root": s_dir})
+        patch = {"cache_root": c_dir, "srt_root": s_dir}
+        if t_dir is not None:
+            patch["templates_path"] = t_dir
+        te.save_config(patch)
         with self._lock:
             self._cache_root = c_dir or self._root
             self._thumbs.root = os.path.join(self._cache_root, "cache", "troly_thumbs", tc._safe(self._project))

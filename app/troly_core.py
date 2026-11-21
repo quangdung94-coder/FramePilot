@@ -576,10 +576,19 @@ def make_stage(name, start, end, bins, idx, event=None):
     return st
 
 
-def templates(data_root):
-    """Mẫu có sẵn + mẫu người dựng đã lưu (data_root/troly/templates.json, ghi đè mẫu cùng tên)."""
+def _tpl_file(data_root, custom_path=None):
+    if custom_path:
+        cp = str(custom_path).strip()
+        if cp.lower().endswith(".json"):
+            return cp
+        return os.path.join(cp, "templates.json")
+    return os.path.join(data_root, "troly", "templates.json") if data_root else None
+
+
+def templates(data_root, custom_path=None):
+    """Mẫu có sẵn + mẫu người dựng đã lưu (data_root/troly/templates.json hoặc custom_path, ghi đè mẫu cùng tên)."""
     out = {k: [(n, list(b)) for n, b in v] for k, v in BUILTIN_TEMPLATES.items()}
-    p = os.path.join(data_root, "troly", "templates.json") if data_root else None
+    p = _tpl_file(data_root, custom_path)
     if p and os.path.isfile(p):
         try:
             with open(p, "r", encoding="utf-8") as f:
@@ -590,8 +599,8 @@ def templates(data_root):
     return out
 
 
-def save_template(data_root, name, stages):
-    p = os.path.join(data_root, "troly", "templates.json")
+def save_template(data_root, name, stages, custom_path=None):
+    p = _tpl_file(data_root, custom_path)
     d = {}
     if os.path.isfile(p):
         try:
@@ -601,6 +610,7 @@ def save_template(data_root, name, stages):
             d = {}
     d[name] = [{"name": s["name"], "bins": [b for b in s["bins"] if b != OTHER_BIN]} for s in stages]
     _write_json(p, d)
+    return p
 
 
 # ---------------------------------------------------------------------------

@@ -222,21 +222,17 @@ function renderStageList() {
     : `<div class="empty">${S && S.n ? "Chưa có giai đoạn. Bấm “+ Thêm giai đoạn” hoặc chọn mẫu rồi Gợi ý lại." : 'Bấm "Đọc clip" để đọc clip.'}</div>`;
 }
 
-/* nguồn dữ liệu: timeline, số máy, cảnh báo */
+/* nguồn dữ liệu: chỉ hiện khi có cảnh báo (bỏ chú thích dài mặc định) */
 function renderSrcNote() {
   const el = $("srcNote");
   if (!S || !S.n) { el.innerHTML = ""; el.classList.add("hidden"); return; }
-  el.classList.remove("hidden");
   const src = S.src;
   let h = "";
-  if (src.timeline && src.synced) h += `<span class="src-line ok">Đọc từ timeline DaVinci: <b>${esc(src.timeline)}</b></span>`;
-  else if (src.timeline) h += `<span class="src-line warn">${esc(src.timeline)}: ${esc(src.note || "Chưa sync, đang dùng giờ trong file")}</span>`;
-  else h += `<span class="src-line">Giờ quay lấy từ ngày giờ ghi trong file (chưa chọn timeline).</span>`;
-  h += `<span class="src-line">${src.n_machines} máy · ${src.n_clips} clip</span>`;
+  if (src.timeline && !src.synced) h += `<span class="src-line warn">${esc(src.timeline)}: ${esc(src.note || "Chưa sync, đang dùng giờ trong file")}</span>`;
   if (src.n_missing) h += `<span class="src-line warn">${src.n_missing} clip chưa nằm trong timeline</span>`;
   if (src.n_extra) h += `<span class="src-line warn">${src.n_extra} clip trên timeline không có trong bin nguồn</span>`;
-  if (src.timeline && src.synced && S.machines.length > 1) h += `<span class="src-line">Nhiều máy: các giai đoạn liền nhau, không có khoảng trống.</span>`;
   el.innerHTML = h;
+  el.classList.toggle("hidden", !h);
   $("vertCams").checked = !!src.vertical;
 }
 $("vertCams").addEventListener("change", (e) => api().set_vertical(e.target.checked).then(setState));
@@ -458,9 +454,25 @@ $("suggestBtn").onclick = async () => {
 };
 $("saveTpl").onclick = async () => {
   if (!S || !S.stages.length) return;
-  const name = await ask("Lưu mẫu giờ cho đám sau", `Tên mẫu (trùng tên thì ghi đè):<br><input id="tplName" class="inp" style="width:100%;margin-top:8px" value="${esc(S.template)}">`, "Lưu mẫu", () => $("tplName").value);
-  if (name) { setState(await api().save_template(name)); status(`Đã lưu mẫu "${name}".`, "ok"); }
+  const st = await api().settings_get();
+  const curPath = (st && st.templates_path) || "";
+  const ok = await ask("Lưu mẫu giờ cho đám sau",
+    `<div class="v8"><label class="lbl">Tên mẫu (trùng tên thì ghi đè):<input id="tplName" class="inp" style="width:100%;margin-top:4px" value="${esc(S.template)}"></label>` +
+    `<label class="lbl">Đường dẫn lưu file mẫu:<div class="inline8" style="margin-top:4px"><input id="tplDir" class="inp flex1" value="${esc(curPath)}"><button type="button" class="btn" id="tplPick">Chọn...</button></div></label></div>`,
+    "Lưu mẫu", () => ({ name: document.getElementById("tplName").value, dir: document.getElementById("tplDir").value }));
+  if (ok && ok.name) {
+    const r = await api().save_template(ok.name, ok.dir);
+    if (r && r.error) return status(r.error, "warn");
+    setState(r); status(`Đã lưu mẫu "${ok.name}".`, "ok");
+  }
 };
+document.addEventListener("click", async (e) => {
+  if (e.target && e.target.id === "tplPick") {
+    const r = await api().settings_pick_dir();
+    const inp = document.getElementById("tplDir");
+    if (r && r.dir && inp) inp.value = r.dir + "\\templates.json";
+  }
+});
 $("loadBtn").onclick = () => { const b = $("binSel").value; if (b) { fitted = false; api().load(b, $("tlSel").value); } };
 $("tlSel").addEventListener("change", () => { if (S && S.n) $("loadBtn").click(); });          // đổi timeline nguồn: đọc lại ngay (chỉ đọc)
 
@@ -564,13 +576,13 @@ function renderPage2(rebuild) {
   const nk = s ? s.bins.filter((b) => b.key).length : 0;
   renderPage2b(s, nk, rebuild);
 }
-/* cột MEDIA POOL: bin giai đoạn (F1–F12) và bin con (số) */
+/* cột MEDIA POOL: luôn giữ toàn bộ bin mẹ và bin con mở giống DaVinci (không tự đóng nhóm trên) */
+const p2Closed = new Set();
 function renderPool() {
   let h = S.stages.map((s, i) => {
-    // khi kéo tới: mở THÊM bin con của bin đang trỏ, không gập bin đang mở (cây không dịch dưới con trỏ)
-    const open = i === gStage || i === poolOpen;
-    return `<div class="pool-stage"><div class="pool-row${i === gStage && gSub === null ? " on" : ""}${i === gStage && gSub !== null ? " parent" : ""}" data-stage="${i}" title="Bấm để xem cả giai đoạn (chỉ xem). Bấm đúp tên để đổi tên.">${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span>${i < MAX_F ? `<span class="k" title="F${i + 1}: chuyển clip đang chọn sang giai đoạn này">F${i + 1}</span>` : ""}</div>` +
-      (open ? `<div class="pool-subs"><div class="sub-none${i === gStage && gSub === NONE ? " on" : ""}" data-stage="${i}" title="Bấm để xem clip chưa có nhãn (chỉ xem)"><span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span><span class="dim12">${s.none.length}</span></div>${s.bins.map((b) => `<div class="sub${i === gStage && gSub === b.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(b.name)}" title="Bấm để xem clip của bin này (chỉ xem). Bấm đúp tên để đổi tên. Muốn chuyển clip vào: phím ${b.key || "số"} hoặc kéo thả"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span><span class="dim12">${b.count}</span>${b.key ? `<span class="k" title="${i === gStage ? "Phím " + b.key : "F" + (i + 1) + " rồi " + b.key}">${b.key}</span>` : ""}</div>`).join("")}
+    const open = !p2Closed.has(i);
+    return `<div class="pool-stage"><div class="pool-row${i === gStage && gSub === null ? " on" : ""}${i === gStage && gSub !== null ? " parent" : ""}" data-stage="${i}" title="Bấm để xem cả giai đoạn. Bấm đúp để đổi tên.">${folder(s.color, 18)}<span class="t">${esc(s.bin)}</span><span class="dim12">${s.count}</span>${i < MAX_F ? `<span class="k" title="F${i + 1}: chuyển clip sang giai đoạn này">F${i + 1}</span>` : ""}</div>` +
+      (open ? `<div class="pool-subs"><div class="sub-none${i === gStage && gSub === NONE ? " on" : ""}" data-stage="${i}"><span class="sq" style="background:var(--dim2);opacity:.5"></span><span class="t">Chưa xếp</span><span class="dim12">${s.none.length}</span></div>${s.bins.map((b) => `<div class="sub${i === gStage && gSub === b.name ? " on" : ""}" data-stage="${i}" data-bin="${esc(b.name)}"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span><span class="dim12">${b.count}</span>${b.key ? `<span class="k">${b.key}</span>` : ""}</div>`).join("")}
         ${i === gStage ? `<button class="sub-add" id="subAdd">+ Bin mới</button>` : ""}</div>` : "") + `</div>`;
   }).join("");
   if (S.outside) h += `<div class="pool-stage"><div class="pool-row${gStage === -1 ? " on" : ""}" data-stage="-1">${folder("#6A6A72", 18)}<span class="t" style="color:var(--dim)">Ngoài giai đoạn</span><span class="dim12">${S.outside}</span></div></div>`;
@@ -1109,6 +1121,7 @@ $("styleSel").onchange = async (e) => {
     defDataRoot = (r && r.data_root) || "";
     $("setCacheInp").value = (r && r.cache_root) || defDataRoot;
     $("setSrtInp").value = (r && r.srt_root) || "";
+    if ($("setTplPathInp")) $("setTplPathInp").value = (r && r.templates_path) || "";
     const tplSel = $("setTplSel"), stSel = $("setStyleSel");
     if (tplSel && S && Array.isArray(S.templates)) {
       tplSel.innerHTML = S.templates.map((t) => `<option value="${esc(t)}">${esc(shortTplName(t))}</option>`).join("");
@@ -1128,12 +1141,19 @@ $("styleSel").onchange = async (e) => {
     if (r && r.dir) $("setSrtInp").value = r.dir;
     else if (r && r.error) status(r.error, "warn");
   };
+  if ($("setPickTpl")) $("setPickTpl").onclick = async () => {
+    const r = await api().settings_pick_dir();
+    if (r && r.dir) $("setTplPathInp").value = r.dir + "\\templates.json";
+    else if (r && r.error) status(r.error, "warn");
+  };
   $("setReset").onclick = () => {
     $("setCacheInp").value = defDataRoot;
     $("setSrtInp").value = "";
+    if ($("setTplPathInp")) $("setTplPathInp").value = "";
   };
   $("setSave").onclick = async () => {
-    const r = await api().settings_save($("setCacheInp").value, $("setSrtInp").value);
+    const tplPath = $("setTplPathInp") ? $("setTplPathInp").value : null;
+    const r = await api().settings_save($("setCacheInp").value, $("setSrtInp").value, tplPath);
     if (r && r.error) return status(r.error, "warn");
     const tpl = $("setTplSel") ? $("setTplSel").value : "";
     const sty = $("setStyleSel") ? $("setStyleSel").value : "";

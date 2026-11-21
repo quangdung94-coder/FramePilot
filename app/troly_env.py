@@ -41,6 +41,11 @@ def srt_root():
     return config().get("srt_root") or ""
 
 
+def templates_path():
+    """Đường dẫn file/thư mục lưu mẫu sự kiện (rỗng = mặc định <data_root>/troly/templates.json)."""
+    return config().get("templates_path") or ""
+
+
 def save_config(patch):
     """Cập nhật một phần config.json qua file tạm (giữ nguyên các mục khác)."""
     p = config_path()
