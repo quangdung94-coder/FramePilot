@@ -398,19 +398,25 @@ class TrolyApi(object):
             self._wave = tw.WaveMaker(os.path.join(self._cache_root, "cache", "troly_wave", tc._safe(self._project)))
         return self._wave
 
+    def _media_src(self, c):
+        """Ưu tiên proxy trong proxy_root; nếu chưa có proxy thì fallback đọc file gốc c.path (chỉ ĐỌC)."""
+        import troly_play as tp
+        if c.proxy and os.path.isfile(c.proxy):
+            if self._proxy_root and not tp.inside(c.proxy, [self._proxy_root]):
+                return None, False, "Proxy nằm ngoài thư mục proxy đã cấu hình."
+            return c.proxy, True, None
+        if c.path and os.path.isfile(c.path):
+            return c.path, False, None
+        return None, False, "Chưa có proxy"
+
     def wave(self, uid):
-        """Sóng âm của clip, làm nền từ proxy (chỉ đọc): {'peaks': [0..100...]} | {'pending': True} | {'error': ...}."""
+        """Sóng âm của clip, làm nền từ proxy hoặc file gốc (chỉ đọc): {'peaks': [0..100...]} | {'pending': True} | {'error': ...}."""
         c = self._by_uid.get(uid)
         if c is None:
             return {"error": "Không thấy clip."}
-        if not self._proxy_root:
-            return {"error": "Chưa cấu hình proxy_root trong config.json."}
-        src = c.proxy
-        if not src or not os.path.isfile(src):
-            return {"error": "Chưa có proxy"}
-        import troly_play as tp
-        if not tp.inside(src, [self._proxy_root]):
-            return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
+        src, _is_p, err = self._media_src(c)
+        if err:
+            return {"error": err}
         return self._wave_maker().get(c.rel or c.name, src)
 
     def save_ui(self, ui):
@@ -1520,12 +1526,13 @@ class TrolyApi(object):
                         return
                     _has, lines = self._speech_lines_for(c)
                     vis = None
-                    if not lines and getattr(c, "proxy", None) and os.path.exists(c.proxy):
+                    msrc, _is_p, _merr = self._media_src(c)
+                    if not lines and msrc:
                         lb_low = (lb or "").lower()
                         if any(k in lb_low for k in ("phỏng vấn", "phong van", "lễ", "gia tiên", "phát biểu", "vows")):
-                            lines = tvio.analyze_proxy_vad(c.proxy, c.dur)
+                            lines = tvio.analyze_proxy_vad(msrc, c.dur)
                         if not lines:
-                            vis = tvio.analyze_proxy_vision(c.proxy, c.dur, target_len=3.5)
+                            vis = tvio.analyze_proxy_vision(msrc, c.dur, target_len=3.5)
                     with self._lock:
                         r = tc.compute_sug(self._plan, c, lb, lines, vision=vis)
                     if r:
@@ -1702,23 +1709,22 @@ class TrolyApi(object):
         return self._play
 
     def play_info(self, uid):
-        """URL phát file proxy của clip (chỉ đọc, KHÔNG tạo file nào; ADR-0029). Không phát được thì trả {"error": lời giải thích rõ ràng}
-        để giao diện hiện thumbnail. Clip không có proxy: {"error": "Chưa có proxy"}."""
-        import troly_play as tp
+        """URL phát proxy hoặc file gốc của clip (chỉ đọc, KHÔNG tạo file nào; ADR-0029)."""
         c = self._by_uid.get(uid)
         if c is None:
             return {"error": "Không thấy clip."}
-        if not self._proxy_root:
-            return {"error": "Chưa cấu hình proxy_root trong config.json."}
-        src = c.proxy
-        if not src or not os.path.isfile(src):
-            return {"error": "Chưa có proxy"}
-        if not tp.inside(src, [self._proxy_root]):
-            return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
-        url = self._play_server().url_for(src)
+        src, is_p, err = self._media_src(c)
+        if err:
+            return {"error": err}
+        srv = self._play_server()
+        if not is_p:
+            parent = os.path.dirname(os.path.abspath(src))
+            if parent and parent not in srv.roots:
+                srv.roots.append(parent)
+        url = srv.url_for(src)
         if not url:
             return {"error": "Không phát được file này."}
-        return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0}
+        return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "orig": not is_p}
 
     def _frame_store(self):
         import troly_frames as tf
@@ -1727,20 +1733,25 @@ class TrolyApi(object):
             self._play_server().frames = self._frames
         return self._frames
 
-    def frames_open(self, uid, prefetch=False):
-        """Kho khung nhỏ trong RAM của clip (ADR-0016 bản 2): ffmpeg ưu tiên thấp đọc proxy (chỉ ĐỌC) ra khung JPEG nhỏ giữ TRONG RAM, không ghi đĩa.
-        Trả {url, n, total, fps, done, ...}; giao diện lấy khung ở <url>/<chỉ số> và hỏi tiến độ ở <url>/info. prefetch=True: nạp trước khi rảnh."""
+    def frames_open(self, uid, prefetch=False, allow_orig=False):
+        """Kho khung nhỏ trong RAM của clip (ADR-0016 bản 2): ffmpeg ưu tiên thấp đọc proxy (hoặc file gốc nếu allow_orig=True và chưa có proxy)
+        ra khung JPEG nhỏ giữ TRONG RAM, không ghi đĩa."""
         c = self._by_uid.get(uid)
         if c is None:
             return {"error": "Không thấy clip."}
-        if not self._proxy_root or not c.proxy or not os.path.isfile(c.proxy):
-            return {"error": "Chưa có proxy"}
         import troly_play as tp
-        if not tp.inside(c.proxy, [self._proxy_root]):
-            return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
+        src = None
+        if self._proxy_root and c.proxy and os.path.isfile(c.proxy):
+            if not tp.inside(c.proxy, [self._proxy_root]):
+                return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
+            src = c.proxy
+        elif allow_orig and c.path and os.path.isfile(c.path):
+            src = c.path
+        else:
+            return {"error": "Chưa có proxy"}
         st = self._frame_store()
         lut_path = self._thumbs.lut_for(c.lut) if c.lut else None
-        r = st.open(c.rel or c.name, c.proxy, c.fps or 25.0, c.dur or 0, lut_path, bool(prefetch))
+        r = st.open(c.rel or c.name, src, c.fps or 25.0, c.dur or 0, lut_path, bool(prefetch))
         if r.get("token"):
             r["url"] = "http://127.0.0.1:%d/f/%s" % (self._play_server().port, r["token"])
         return r
@@ -1767,14 +1778,13 @@ class TrolyApi(object):
         return {"ok": True, "path": path}
 
     def keyframes(self, uid):
-        """Keyframe của proxy (giây) để lướt mượt; chỉ đọc proxy trong proxy_root. {'kf': [...]} hoặc {'error': ...}."""
-        import troly_play as tp
+        """Keyframe của proxy hoặc file gốc (giây) để lướt mượt; {'kf': [...]} hoặc {'error': ...}."""
         c = self._by_uid.get(uid)
-        if c is None or not self._proxy_root:
-            return {"error": "Không thấy clip hoặc chưa cấu hình proxy_root."}
-        src = c.proxy
-        if not src or not os.path.isfile(src) or not tp.inside(src, [self._proxy_root]):
-            return {"error": "Chưa có proxy"}
+        if c is None:
+            return {"error": "Không thấy clip."}
+        src, _is_p, err = self._media_src(c)
+        if err:
+            return {"error": err}
         kf = tkf.get(src, os.path.join(self._cache_root, "cache", "troly_kf", tc._safe(self._project)), tkf.ffprobe_path(self._thumbs.ffmpeg))
         return {"kf": kf} if kf else {"error": "Không đọc được keyframe"}
 
@@ -2574,7 +2584,7 @@ class TrolyApi(object):
                 continue
             ab = os.path.abspath(d).lower()
             if ab == repo or ab.startswith(repo + os.sep):
-                return {"error": f"{label} không được nằm trong thư mục mã nguồn của FramePilot."}
+                return {"error": f"{label} không được nằm trong thư mục mã nguồn của Trợ lý."}
         te.save_config({"cache_root": c_dir, "srt_root": s_dir})
         with self._lock:
             self._cache_root = c_dir or self._root

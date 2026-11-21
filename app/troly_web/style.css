@@ -229,13 +229,15 @@ button, input, select { font-family: inherit; }
 .keys { color: #71717A; font-size: 11px; }
 
 .col-right { width: 380px; flex-shrink: 0; border-left: 1px solid var(--line); padding: 20px; display: flex;
-  flex-direction: column; gap: 16px; background: var(--right); overflow-y: auto; }
+  flex-direction: column; gap: 16px; background: var(--right); overflow-y: auto; overflow-x: hidden; }
+#stageBox { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
 .preview { aspect-ratio: 16 / 9; border-radius: 10px; background: #2C3550; display: flex; align-items: center;
   justify-content: center; color: var(--dim2); font-size: 12px; overflow: hidden; flex-shrink: 0; }
 .preview img { width: 100%; height: 100%; object-fit: contain; background: #000; }
 .preview { position: relative; }
 .preview video.pv { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; cursor: pointer; }
-.player { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; margin-top: -8px; }
+.player { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; margin-top: 2px; }
+.player .row-between.dim12 { flex-wrap: wrap; gap: 4px 8px; }
 .player-ctl { display: flex; align-items: center; gap: 8px; }
 .player-ctl input[type=range] { flex: 1; min-width: 0; accent-color: #F2A33A; }
 .player-ctl select { background: var(--btn); color: var(--text, #E4E4E7); border: 1px solid var(--btn-line); border-radius: 6px; height: 32px; }
@@ -286,8 +288,10 @@ button, input, select { font-family: inherit; }
 @media (min-width: 2300px) { .grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 /* màn hình hẹp hơn demo (1440): thu cột hai bên để không lẹm mép */
 @media (max-width: 1400px) {
+  .top { padding: 0 14px; gap: 8px; }
   .col-left { width: 320px; } .col-right { width: 330px; } .col-pool { width: 240px; }
-  .steps .step { padding: 10px 12px; }
+  .steps .step { padding: 8px 10px; font-size: 12px; }
+  .top-right .sel { max-width: 165px; }
 }
 @media (max-width: 1250px) {
   .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

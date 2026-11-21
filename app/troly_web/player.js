@@ -263,7 +263,7 @@ function frNote() {                                             // "Đang nạp 
 async function frOpen(c) {                                       // gọi từ plOpen (clip mới)
   frReset(); if (!c) return;
   const uid = c.uid; FR.uid = uid;
-  let r; try { r = await api().frames_open(uid, false); } catch (e) { r = { error: String(e) }; }
+  let r; try { r = await api().frames_open(uid, false, true); } catch (e) { r = { error: String(e) }; }
   if (FR.uid !== uid) return;
   if (!r || r.error) { FR.err = (r && r.error) || "không có kho khung"; return; }
   FR.url = r.url; FR.fps = r.fps || 25; FR.total = r.total || 0; FR.n = r.n || 0; FR.done = !!r.done;
@@ -336,7 +336,7 @@ function plCurT() { return FR.active ? FR.t : (PL.vid ? PL.vid.currentTime : 0);
 
 /* ---- trình phát ---- */
 function plTime() {
-  if (!PL.vid) return;
+  if (!PL.vid && !FR.active) return;
   $("plTime").textContent = fmtF(plCurT(), PL.fps) + " / " + (PL.dur > 0 ? fmtF(PL.dur, PL.fps) : "chưa rõ độ dài");
   if (!SK.drag) $("plSeek").value = PL.dur ? Math.round(plCurT() / PL.dur * 1000) : 0;
   if (typeof p3TxNow === "function" && page === 3) p3TxNow();
@@ -385,9 +385,12 @@ async function plOpen(c) {                                    // gọi từ show
   if (!c) return;
   const uid = c.uid, r = await api().play_info(uid);
   if (curClip() == null || curClip().uid !== uid) return;     // đã chuyển clip khác
-  if (r.error) {                                              // không có proxy / chưa cấu hình: giữ thumbnail
-    $("plNote").textContent = r.error === "Chưa có proxy" ? "Chưa có proxy, chỉ xem hình tĩnh" : r.error;
-    $("player").classList.remove("hidden"); $("plCtl").classList.add("hidden"); return;
+  if (r.error) {                                              // không có proxy: nạp kho khung RAM từ file gốc (chỉ đọc) để vẫn lướt chuột mượt
+    PL.fps = c.fps || PL.fps || 25; PL.dur = c.dur || 0;
+    $("plNote").textContent = r.error === "Chưa có proxy" ? "Chưa có proxy (rê chuột để lướt nhanh)" : r.error;
+    $("player").classList.remove("hidden"); $("plCtl").classList.add("hidden");
+    if (r.error === "Chưa có proxy") frOpen(c);
+    return;
   }
   $("plCtl").classList.remove("hidden"); $("plNote").textContent = "";
   PL.fps = r.fps || PL.fps; PL.dur = r.dur || 0;         // clip thiếu độ dài: KHÔNG mượn độ dài clip trước (hiện "chưa rõ độ dài" tới khi video báo)
@@ -430,6 +433,7 @@ function plAttachHoverScrub(box) {
     if (t == null) return;
     PL.hoverT = t;
     if (PL.vid) plSeek(t, { fast: true });
+    else if (FR.url) frScrub(t);
   };
   box.addEventListener("mousemove", (e) => {
     if (e.buttons) return;
@@ -467,6 +471,7 @@ plAttachHoverScrub($("plSeek"));
     if (i === cur) {
       PL.hoverT = t;
       if (PL.vid) plSeek(t, { fast: true });
+      else if (FR.url) frScrub(t);
     }
   };
   grid.addEventListener("mousemove", (e) => {

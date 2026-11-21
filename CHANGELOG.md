@@ -1,6 +1,9 @@
 # Nhật ký thay đổi
 
 ## 2026-11-21 – Nâng cấp 3 giai đoạn (In/Out Hình+Tiếng, Thao tác chuẩn DaVinci, SigLIP, Nhiều Camera Trang 2-3), CHỜ ANH THỬ
+- **Không phụ thuộc proxy & Sửa lẹm chữ cột phải (`troly_api.py`, `player.js`, `style.css`):**
+  - Bỏ `margin-top: -8px` ở `.player`, bật `flex-wrap` và co gọn thanh `.top` ở màn vừa để hết tràn viền/lẹm nửa chữ dưới khung xem trước.
+  - Mở fallback chỉ-đọc sang file gốc `c.path` khi clip chưa tạo proxy cho toàn bộ 5 chỗ: Kho khung RAM (`frames_open` / rê chuột lướt hình Page 2), Sóng âm Bước 3 (`wave`), Phát video (`play_info`), Keyframe (`keyframes`) và Gợi ý In/Out Hình+Tiếng (`inout_suggest_start`). Proxy nay chỉ là yếu tố phụ trợ giúp nhẹ/mượt hơn.
 - **Cài đặt Cache & SRT (`troly_env.py`, `troly_api.py`, `index.html`, `app.js`):** Thêm nút bánh răng `⚙` trên thanh trên cùng để tùy chọn thư mục chứa Cache (thumbnail, sóng âm, keyframe, khung RAM) và thư mục mặc định xuất/chứa file SRT cho toàn bộ panel (lưu vào `config.json`, chặn lưu nhầm vào thư mục git).
 - **Giai đoạn 1 (`troly_vision_io.py`, `troly_core.py`, `troly_api.py`, `app.js`, `player.js`, `index.html`, `style.css`):**
   - Kiểm chứng 30 clip thật của LV_A: 88.5% bỏ >1s đầu (trung vị 1.42s), 63.3% đoạn giữ êm/nét hơn đoạn bỏ.
