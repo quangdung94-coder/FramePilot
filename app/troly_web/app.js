@@ -210,7 +210,7 @@ function stageCard(s, i) {
   const mk = (what, h, label) => `<div class="mk${h ? (h.auto ? " auto" : "") : " none"}"><span class="kb">${label}</span><span>${what}</span><span class="nm" title="${h && h.auto ? "Tự suy ra từ khoảng giờ; bấm clip rồi F để đặt mốc" : ""}">${h ? esc(h.name) + (h.auto ? " (tự động)" : "") : "chưa chọn"}</span></div>`;
   const chipHtml = s.incomplete ? `<span class="chip" style="color:#E0A030">thiếu mốc</span>` : `<span class="chip">${s.count} file</span>`;
   const subRows = (s.bins || []).map((b) => `<div class="p1-sub"><span class="sq" style="background:${b.color}"></span><span class="t">${esc(b.name)}</span>${b.key ? `<span class="k">${b.key}</span>` : ""}</div>`).join("");
-  const editRows = (s.bins || []).filter((b) => b.name !== "Khác").map((b) => `<div class="p1-bin-row"><div class="p1-bin-wrap"><input class="inp p1-bin-inp" data-bin-inp="1" value="${esc(b.name)}" placeholder="Chọn hoặc gõ tên bin..." autocomplete="off"><button type="button" class="p1-bin-ar" data-act="bin-dd" title="Mở danh sách bin gợi ý">▾</button></div><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`).join("");
+  const editRows = (s.bins || []).filter((b) => b.name !== "Khác").map((b) => `<div class="p1-bin-row"><div class="p1-bin-wrap"><input class="inp p1-bin-inp" data-bin-inp="1" value="${esc(b.name)}" placeholder="Chọn hoặc gõ tên bin..." autocomplete="off" spellcheck="false"><button type="button" class="p1-bin-ar" data-act="bin-dd" title="Mở danh sách bin gợi ý">▾</button></div><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`).join("");
   return `<div class="stage p1${editIdx === i ? " open" : ""}" data-i="${i}">
     <div class="stage-row"><div class="stage-bar" style="background:${s.color}"></div><div class="stage-txt">
       <div class="inline8" style="justify-content:space-between"><span class="stage-name" title="Bấm đúp để đổi tên giai đoạn">${esc(s.name)}</span>${chipHtml}</div>
@@ -426,7 +426,7 @@ $("stageList").addEventListener("click", async (e) => {
   if (act === "add-bin") {
     const box = card.querySelector(".p1-bin-rows");
     if (box) {
-      box.insertAdjacentHTML("beforeend", `<div class="p1-bin-row"><div class="p1-bin-wrap"><input class="inp p1-bin-inp" data-bin-inp="1" placeholder="Chọn hoặc gõ tên bin..." autocomplete="off"><button type="button" class="p1-bin-ar" data-act="bin-dd" title="Mở danh sách bin gợi ý">▾</button></div><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`);
+      box.insertAdjacentHTML("beforeend", `<div class="p1-bin-row"><div class="p1-bin-wrap"><input class="inp p1-bin-inp" data-bin-inp="1" placeholder="Chọn hoặc gõ tên bin..." autocomplete="off" spellcheck="false"><button type="button" class="p1-bin-ar" data-act="bin-dd" title="Mở danh sách bin gợi ý">▾</button></div><button type="button" class="p1-bin-del" data-act="del-bin" title="Xóa bin con">×</button></div>`);
       const last = box.querySelector(".p1-bin-row:last-child input");
       if (last) { last.focus(); p1DdOpen(last, true); }
     }
