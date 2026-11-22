@@ -2,8 +2,8 @@
    Python (troly_api.speech_*). Dùng chung $, api, S, esc, status, setState, page từ app.js. Chữ chép lời chỉ hiện trên màn hình. */
 "use strict";
 
-const LN = { rows: [], all: [], summary: null, info: null, sel: null, pick: new Set(), anchor: null, stage: "all", sub: "all", cam: "all", onlyStar: false, onlyGolden: false, dedup: true, onlyKey: false, min20: false, hideBad: false, find: "",
-  detail: null, edit: null, run: null, lastRefresh: 0, timer: null, vid: null, mediaUid: null, spanIdx: 0, newSpan: false, hoverT: null, jklRate: 0, jklTimer: 0 };
+const LN = { rows: [], all: [], summary: null, info: null, rec: null, sel: null, pick: new Set(), anchor: null, stage: "all", sub: "all", cam: "all", onlyStar: false, onlyGolden: false, dedup: true, onlyKey: false, min20: false, hideBad: false, find: "",
+  detail: null, edit: null, run: null, lastRefresh: 0, timer: null, vid: null, recAud: null, mediaUid: null, spanIdx: 0, newSpan: false, hoverT: null, jklRate: 0, jklTimer: 0 };
 const mmss = (s) => Math.floor((s || 0) / 60) + ":" + String(Math.round((s || 0) % 60)).padStart(2, "0");
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -39,6 +39,7 @@ async function lnRefresh() {
   if (!window.pywebview || !window.pywebview.api) return;
   LN.lastRefresh = Date.now();
   LN.info = await api().speech_info();
+  if (typeof api().recorder_list === "function") LN.rec = await api().recorder_list();
   const d = await api().speech_clips(LN.onlyKey, LN.min20 ? 20 : 0, LN.find);
   LN.rows = d.rows || []; LN.all = d.all || []; LN.summary = d.summary;
   const cur = LN.rows.find((r) => r.uid === LN.sel);
@@ -116,9 +117,47 @@ function renderSummary() {
     const n = S ? S.n : 0;
     if (n > c.total) t += ` Còn ${n - c.total} clip chưa chép.`;
   }
-  if (run) t = `Đang chép lời: ${run.n}/${run.total} clip. ` + t;
+  if (run) t = (run.phase === "sync" && run.text ? run.text + " " : `Đang chép lời: ${run.n}/${run.total} clip. `) + t;
   $("lnSummary").textContent = t;
   $("lnRun").textContent = LN.info && LN.info.running ? "Dừng chép lời" : "Chép lời cả bin";
+  lnRenderRec();
+}
+function lnRecUpdate(data) {
+  LN.rec = data;
+  lnRenderRec();
+}
+function lnRenderRec() {
+  const btn = $("lnRecBtn"), box = $("lnRecBox"), list = $("lnRecList"), stat = $("lnRecStat");
+  if (!btn || !list) return;
+  const r = LN.rec || { files: [], selected: [], n_synced: 0 };
+  const files = r.files || [], selSet = new Set(r.selected || []);
+  btn.textContent = selSet.size ? `🎙 Recorder (${selSet.size}${r.n_synced ? ` · ${r.n_synced} khớp` : ""})` : "🎙 Recorder rời…";
+  btn.classList.toggle("active", selSet.size > 0);
+  if (stat) stat.textContent = files.length ? `${files.length} file audio trong Media Pool · đã chọn ${selSet.size}${r.n_synced ? ` · đã sync ${r.n_synced} clip` : ""}` : "Chưa thấy file audio rời nào trong Media Pool DaVinci";
+  if (!files.length) {
+    list.innerHTML = '<div class="dim12">Hãy import file WAV/MP3 (Tascam/Zoom/Mixer) vào Media Pool DaVinci rồi bấm "Đọc clip" ở Bước 1.</div>';
+    return;
+  }
+  list.innerHTML = files.map((f) => {
+    const chk = selSet.has(f.rel) ? " checked" : "";
+    return `<label class="chk" title="${esc(f.bin_path || "")}"><input type="checkbox" class="ln-rec-chk" value="${esc(f.rel)}"${chk}> ${esc(f.name)} <span class="dim12">(${mmss(f.dur)})</span></label>`;
+  }).join("");
+  list.querySelectorAll(".ln-rec-chk").forEach((cb) => {
+    cb.onchange = async () => {
+      const picked = [...list.querySelectorAll(".ln-rec-chk:checked")].map((x) => x.value);
+      LN.rec = await api().recorder_set(picked);
+      lnRenderRec();
+      status(picked.length ? `Đã chọn ${picked.length} file Recorder rời. Bấm "Chép lời" hoặc "Phân tích cả project" để tự động sync âm thanh.` : "Đã tắt dùng file Recorder rời.", "info");
+    };
+  });
+}
+if ($("lnRecBtn")) {
+  $("lnRecBtn").addEventListener("click", async () => {
+    const box = $("lnRecBox"); if (!box) return;
+    if (!LN.rec && typeof api().recorder_list === "function") LN.rec = await api().recorder_list();
+    lnRenderRec();
+    box.classList.toggle("hidden");
+  });
 }
 
 function renderStore() {
@@ -146,9 +185,10 @@ function renderRows() {
     const hl = r.silent ? '<span class="ln-text none">Không có tiếng nói</span>'
       : `${r.suspect ? '<span class="ln-flag">có thể sai</span>' : ""}${r.dup_count ? `<span class="ln-dup">+${r.dup_count} máy</span>` : ""}<span class="ln-text${r.headline ? (r.n_keys ? "" : " dim") : " none"}">${esc(r.headline || "Có tiếng nhưng chưa ra chữ")}</span>`;
     const mChip = r.mk ? `<span class="cam-chip sm">${esc(r.mk)}</span>` : "";
+    const recTag = r.rec_sync ? `<span class="ln-dup" style="margin-left:4px;background:rgba(79,193,166,.18);color:#4FC1A6" title="Đã sync tiếng sạch từ ${esc(r.rec_sync.name)} (lệch ${r.rec_sync.offset_s}s, khớp ${Math.round((r.rec_sync.conf || 0) * 100)}%)">🎙 ${Math.round((r.rec_sync.conf || 0) * 100)}%</span>` : "";
     const muteTag = r.muted ? '<span class="ln-flag" style="margin-left:4px" title="Đã tắt tiếng A1 (giữ hình V1 khi lên timeline)">🔇 A1</span>' : "";
     return `<button class="ln-row${r.uid === LN.sel ? " on" : ""}${LN.pick.has(r.uid) ? " pk" : ""}" data-uid="${esc(r.uid)}">
-      <span class="ln-id"><b${r.star ? ' class="star"' : ""}>${mChip}${esc(r.name)}${muteTag}</b><span>${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · nói ${Math.round(r.spoken_s)}s</span></span>
+      <span class="ln-id"><b${r.star ? ' class="star"' : ""}>${mChip}${esc(r.name)}${recTag}${muteTag}</b><span>${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · nói ${Math.round(r.spoken_s)}s</span></span>
       <span class="ln-bar">${barHtml(r, false)}</span>
       <span class="ln-hl">${hl}</span>
       <span class="ln-k${r.n_keys ? "" : " zero"}">${r.n_keys || "·"}</span>
@@ -191,6 +231,7 @@ function lnEnsureMedia(r) {
   $("lnTime").textContent = `0:00 / ${mmss(r.dur)}`;
   $("lnPlayNote").textContent = "";
   if (LN.vid) { try { LN.vid.pause(); LN.vid.removeAttribute("src"); LN.vid.load(); } catch (e) {} LN.vid = null; }
+  if (LN.recAud) { try { LN.recAud.pause(); LN.recAud.removeAttribute("src"); LN.recAud.load(); } catch (e) {} LN.recAud = null; }
   if (typeof lutDetachEl === "function" && lt) lutDetachEl(lt);
   if (!src && typeof api === "function") {
     api().want_thumbs([r.uid]).then((ready) => {
@@ -203,11 +244,29 @@ function lnEnsureMedia(r) {
       if (!pi || pi.error) { $("lnPlayNote").textContent = (pi && pi.error) || ""; return; }
       const v = document.createElement("video");
       v.preload = "auto"; v.playsInline = true; v.crossOrigin = "anonymous"; v.src = pi.url; v.style.opacity = "0";
+      let ra = null, rOff = 0;
+      if (pi.rec_url) {
+        ra = document.createElement("audio");
+        ra.preload = "auto"; ra.src = pi.rec_url;
+        rOff = Number(pi.rec_offset || 0);
+        v.muted = true;
+        LN.recAud = ra;
+        $("lnPlayNote").textContent = `🎙 Tiếng Recorder: ${pi.rec_name || ""} (${Math.round((pi.rec_conf || 0) * 100)}%)`;
+      }
+      const syncRa = (force) => {
+        if (!ra) return;
+        const want = Math.max(0, (v.currentTime || 0) + rOff);
+        if (force || Math.abs((ra.currentTime || 0) - want) > 0.15) { try { ra.currentTime = want; } catch (e) {} }
+        try { ra.playbackRate = v.playbackRate || 1; } catch (e) {}
+      };
       v.addEventListener("loadeddata", () => { if (LN.sel === r.uid) v.style.opacity = "1"; });
-      v.addEventListener("play", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "❚❚"; });
-      v.addEventListener("pause", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "▶"; });
+      v.addEventListener("play", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "❚❚"; syncRa(true); if (ra) ra.play().catch(() => {}); });
+      v.addEventListener("pause", () => { if ($("lnPlayBtn")) $("lnPlayBtn").textContent = "▶"; if (ra) try { ra.pause(); } catch (e) {} });
+      v.addEventListener("seeked", () => { syncRa(true); });
+      v.addEventListener("ratechange", () => { syncRa(false); });
       v.addEventListener("timeupdate", () => {
         if (LN.sel !== r.uid) return;
+        syncRa(false);
         const dur = v.duration || r.dur || 1;
         $("lnTime").textContent = `${mmss(v.currentTime)} / ${mmss(dur)}`;
         $("lnWHead").style.left = Math.min(100, (v.currentTime / dur) * 100).toFixed(2) + "%";
@@ -636,9 +695,9 @@ function lnKey(e) {
 /* sự kiện từ luồng chép lời */
 function lnProgress(d) {
   LN.run = d;
-  status(`Chép lời ${d.n}/${d.total} clip...`, "info");
+  status(d.phase === "sync" && d.text ? d.text : `Chép lời ${d.n}/${d.total} clip...`, "info");
   $("progBar").style.width = (d.n / Math.max(1, d.total) * 100) + "%";
-  if (page === 4 && Date.now() - LN.lastRefresh > 5000) lnRefresh(); else renderSummary();
+  if (page === 4 && d.phase !== "sync" && Date.now() - LN.lastRefresh > 5000) lnRefresh(); else renderSummary();
 }
 function lnDone(s) {
   LN.run = null;

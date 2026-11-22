@@ -1,5 +1,14 @@
 # Nhật ký thay đổi
 
+## 2026-11-22 – Thêm 2 mẫu Event (Hội nghị/Khai trương/Khai trường + Gala/YEP), nút Event 5:00 & Tự động Sync tiếng Recorder rời (Media Pool → Bước 4 → A2), CHỜ ANH THỬ
+- **Mẫu sự kiện Event (`troly_core.py`, `troly_ai.py`, `wedding_phrases.json`, `app.js`, `index.html`):**
+  - Thêm 2 mẫu gọn (mỗi giai đoạn ≤ 6 bin con): **`Event · Hội nghị / Khai trương / Khai trường`** và **`Event · Gala Dinner / Year End Party`**, kèm quy tắc In/Out Bước 3, **8 thẻ cảnh AI nhóm Event** (có đầy đủ từ đồng nghĩa như đánh trống, cắt băng, múa lân, lucky draw, keynote, booth...), bộ từ khóa lời nói `"event"`, và nút preset **`Event 5:00`** ở Bước 5.
+- **Tự động Sync âm thanh Recorder rời từ Media Pool DaVinci (`troly_sync.py`, `troly_resolve.py`, `troly_speech.py`, `troly_speech_run.py`, `troly_wave.py`, `troly_api.py`, `index.html`, `speech.js`, `player.js`):**
+  - Tự quét các file audio rời (`.WAV`/`.MP3` của Tascam/Zoom/Mixer) có trong Media Pool DaVinci; Bước 4 thêm nút **`🎙 Recorder rời…`** để chọn 1 hoặc nhiều file Recorder.
+  - Khi bấm **Chép lời** hoặc **Phân tích cả project**, chạy ngầm đối khớp sóng âm **2 tầng (100 Hz đường bao toàn file 1–3 tiếng → GCC-PHAT 8000 Hz khóa tinh + kiểm chéo tương quan loại khớp giả)** cho từng clip video.
+  - Clip khớp Recorder tự động hiện nhãn **`🎙 XX%`**, vẽ sóng âm, phát nghe khớp miệng (Bước 3 & 4), và chạy Whisper chép lời trực tiếp bằng **tiếng Recorder sạch** (không tạo file rác).
+  - Khi đưa lên Timeline mới ở Bước 5: tự đặt lát âm thanh Recorder đã sync xuống track **`A2`**, mặc định **`A1` TẮT (mic máy quay)** và **`A2` BẬT (tiếng Recorder sạch)** để anh dễ so sánh và kiểm tra lại (nếu đã tắt tiếng bằng phím `M` hoặc khối tắt tiếng thì tắt cả 2).
+
 ## 2026-11-22 – `Ctrl+Z` / `Ctrl+Y` 50 bước cho mọi thao tác nhỏ (cả 5 trang) & Sửa giữ `Shift` chọn nhiều file Bước 2 (Hướng A), CHỜ ANH THỬ
 - **Hoàn tác / Làm lại 50 bước (`troly_api.py`, `app.js`, `index.html`):**
   - Thêm ngăn xếp `_undo_stack` / `_redo_stack` (tối đa 50 bước) cho mọi thao tác nhỏ trên cả 5 trang (đặt/xóa mốc Bước 1, xếp bin `1–9`/chuyển giai đoạn/gắn sao `P`/bỏ `X`/AI tự xếp Bước 2, chỉnh In-Out đơn & đa khúc Bước 3–4, bật/tắt tiếng A1 phím `M`, kéo bin/đổi track/tốc độ/thời lượng Bước 5...).

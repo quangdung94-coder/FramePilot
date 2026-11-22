@@ -24,6 +24,11 @@ def is_video(props):
     return "Video" in t and "Timeline" not in t and "Compound" not in t
 
 
+def is_audio_only(props):
+    t = props.get("Type") or ""
+    return "Audio" in t and "Video" not in t and "Timeline" not in t and "Compound" not in t
+
+
 def walk_bins(folder, path, out):
     n = 0
     for c in folder.GetClipList() or []:
@@ -90,6 +95,7 @@ class TrolyWorker(threading.Thread):
         self.pm = None
         self.project_uid = ""
         self.items = {}                   # uid -> (đường bin, MediaPoolItem) của lần đọc gần nhất
+        self.audio_items = {}             # uid -> (đường bin, MediaPoolItem) các file audio rời (Tascam/Zoom/Mixer) trong Media Pool
         self._factory = resolve_factory
 
     def post(self, kind, data=None):
@@ -188,6 +194,34 @@ class TrolyWorker(threading.Thread):
             if i % 50 == 0:
                 self.post("progress", ("Đang đọc clip", i + 1, len(rows)))
         self.post("tl_fps", self._read_tl_fps())
+        # Quét toàn bộ Media Pool lấy các file audio rời (Tascam / Zoom / Mixer WAV/MP3) để Bước 4 tự chọn & sync
+        audio_list, self.audio_items = [], {}
+        try:
+            all_rows = walk_clips(root, root.GetName(), [])
+            seen_a = set()
+            for bp_a, mpi_a in all_rows:
+                pr_a = mpi_a.GetClipProperty() or {}
+                if not is_audio_only(pr_a):
+                    continue
+                uid_a = mpi_a.GetUniqueId()
+                if uid_a in seen_a:
+                    continue
+                seen_a.add(uid_a)
+                self.audio_items[uid_a] = (bp_a, mpi_a)
+                path_a = pr_a.get("File Path") or ""
+                audio_list.append({
+                    "uid": uid_a,
+                    "name": pr_a.get("File Name") or pr_a.get("Clip Name") or "",
+                    "path": path_a,
+                    "rel": tc.rel_path(path_a),
+                    "dur": tc.clip_duration_s(pr_a),
+                    "fps": float(pr_a.get("FPS") or 0) or None,
+                    "frames": int(float(pr_a.get("Frames") or 0)),
+                    "bin_path": bp_a,
+                })
+        except Exception:                                     # noqa: BLE001
+            pass
+        self.post("audio_clips", audio_list)
         self.post("clips", (bin_path, clips))
 
     def _read_tl_fps(self):
@@ -585,7 +619,7 @@ class TrolyWorker(threading.Thread):
         after = self._timeline_names()
         res = {"name": name, "n": len(segs), "before": None if before is None else len(before), "after": None if after is None else len(after),
                "old_intact": None, "verified": False, "layout_ok": notes["layout_ok"], "layout_msgs": notes["msgs"], "n_slow": notes["n_slow"],
-               "n_muted": notes["n_muted"], "n_v2": len(v_more)}
+               "n_muted": notes["n_muted"], "n_v2": len(v_more), "n_rec_a2": notes.get("n_rec_a2", 0)}
         if before is not None and after is not None:
             res["old_intact"] = all(after.count(n) >= before.count(n) for n in set(before))
             res["verified"] = len(after) == len(before) + 1 and bool(res["old_intact"]) and name in after
@@ -595,8 +629,9 @@ class TrolyWorker(threading.Thread):
         """Slow ở V1, khối V2..V4, tắt tiếng, đọc lại kiểm (xem do_create_cut_timeline). Mọi lỗi nhỏ được ghi lại, không làm hỏng timeline đã tạo."""
         if _t_idx is None:
             _t_idx = lambda x: 2 if str(x.get("track") or "").upper() == "V2" else 1
-        notes = {"layout_ok": None, "msgs": [], "n_slow": 0, "n_muted": 0}
-        need = any(float(x.get("pct", 100)) < 99.95 for x in segs_all(v1, v2)) or v2 or any(x.get("mute") for x in segs_all(v1, v2))
+        notes = {"layout_ok": None, "msgs": [], "n_slow": 0, "n_muted": 0, "n_rec_a2": 0}
+        has_rec = any(x.get("rec_uid") for x in v1)
+        need = any(float(x.get("pct", 100)) < 99.95 for x in segs_all(v1, v2)) or v2 or any(x.get("mute") for x in segs_all(v1, v2)) or has_rec
         if not need:
             return notes
         pool = self.pool
@@ -667,16 +702,59 @@ class TrolyWorker(threading.Thread):
                             except Exception:                 # noqa: BLE001
                                 notes["msgs"].append("CẢNH BÁO: chưa mở khóa lại track %s%d, bạn mở tay." % ("V" if kind == "video" else "A", t))
                 v2_start[j] = (ti, rec)
-        # 3) tắt tiếng đúng khối (clip tiếng cùng vị trí với clip hình)
+        # 2b) Chèn âm thanh Recorder rời đã sync xuống track A2 khớp vị trí từng clip V1 (mặc định A1 tắt, A2 bật để so sánh)
+        rec_placed = {}
+        if is_cur and has_rec and self.audio_items:
+            try:
+                while int(tl.GetTrackCount("audio") or 0) < 2:
+                    tl.AddTrack("audio", "stereo")
+                v1_now = tl.GetItemListInTrack("video", 1) or []
+                for i, x in enumerate(v1):
+                    ru = x.get("rec_uid")
+                    if not ru or ru not in self.audio_items or i >= len(v1_now):
+                        continue
+                    pos_f = int(v1_now[i].GetStart())
+                    ci_a = {
+                        "mediaPoolItem": self.audio_items[ru][1],
+                        "mediaType": 2,
+                        "trackIndex": 2,
+                        "recordFrame": pos_f,
+                        "startFrame": int(x.get("rec_a", 0)),
+                        "endFrame": int(x.get("rec_b", 1)),
+                    }
+                    try:
+                        if pool.AppendToTimeline([ci_a]):
+                            rec_placed[i] = pos_f
+                            notes["n_rec_a2"] += 1
+                    except Exception as e:                    # noqa: BLE001
+                        notes["msgs"].append("Không đặt được tiếng Recorder A2 ở clip V1 số %d: %s" % (i + 1, e))
+            except Exception as e:                            # noqa: BLE001
+                notes["msgs"].append("Chèn tiếng Recorder A2 lỗi: %s" % e)
+        # 3) tắt tiếng đúng khối (clip tiếng cùng vị trí với clip hình) + với clip có Recorder A2: mặc định A1 tắt, A2 bật (trừ khi anh tắt tiếng ở Bước 4/5)
         try:
             v1_items = tl.GetItemListInTrack("video", 1) or []
             a_by_track = {1: {int(it.GetStart()): it for it in (tl.GetItemListInTrack("audio", 1) or [])}}
+            if rec_placed or v2:
+                a_by_track[2] = {int(it.GetStart()): it for it in (tl.GetItemListInTrack("audio", 2) or [])}
             if v2:
                 for ti in {_t_idx(x) for x in v2}:
                     a_by_track[ti] = {int(it.GetStart()): it for it in (tl.GetItemListInTrack("audio", ti) or [])}
             for i, x in enumerate(v1):
-                if x.get("mute") and i < len(v1_items):
-                    ai = a_by_track[1].get(int(v1_items[i].GetStart()))
+                if i >= len(v1_items):
+                    continue
+                st_f = int(v1_items[i].GetStart())
+                if i in rec_placed:
+                    # Có Recorder A2: mặc định A1 TẮT, A2 BẬT (nếu clip bị tắt tiếng bởi nút M / khối tắt tiếng -> tắt cả A1 lẫn A2)
+                    a1_it = a_by_track[1].get(st_f)
+                    if a1_it is not None:
+                        a1_it.SetClipEnabled(False)
+                    a2_it = a_by_track.get(2, {}).get(rec_placed[i])
+                    if a2_it is not None:
+                        a2_it.SetClipEnabled(not bool(x.get("mute")))
+                    if x.get("mute"):
+                        notes["n_muted"] += 1
+                elif x.get("mute"):
+                    ai = a_by_track[1].get(st_f)
                     if ai is not None and ai.SetClipEnabled(False):
                         notes["n_muted"] += 1
             for j, x in enumerate(v2):

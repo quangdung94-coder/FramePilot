@@ -70,6 +70,7 @@ class TrolyApi(object):
         self._mk_letter, self._machines = {}, []                 # {uid: chữ máy}, danh sách máy (hàng của thanh thời gian)
         self._tl_stats = {"n_clips": 0, "n_missing": 0, "n_extra": 0}
         self._clips, self._by_uid, self._day0 = [], {}, None
+        self._audio_clips, self._audio_by_uid, self._audio_by_rel = [], {}, {}
         self._assign = {}
         self._bins = []
         self._busy = False
@@ -134,6 +135,11 @@ class TrolyApi(object):
                 self._emit("timelines", {"names": self._tl_names, "current": data[1], "pick": self._tl_want})
             elif kind == "tl_data":
                 self._on_tl_data(data)
+            elif kind == "audio_clips":
+                self._audio_clips = list(data or [])
+                self._audio_by_uid = {a["uid"]: a for a in self._audio_clips if a.get("uid")}
+                self._audio_by_rel = {a["rel"]: a for a in self._audio_clips if a.get("rel")}
+                self._emit("audio_clips", self.recorder_list())
             elif kind == "clips":
                 self._on_clips(*data)
             elif kind == "applied":
@@ -163,6 +169,8 @@ class TrolyApi(object):
                     extra = " Lưu ý: %s" % " ".join(data.get("layout_msgs"))
                 if data.get("n_slow") or data.get("n_muted"):
                     extra += " Slow: %d khối clip, tắt tiếng: %d clip." % (data.get("n_slow", 0), data.get("n_muted", 0))
+                if data.get("n_rec_a2"):
+                    extra += " Tiếng Recorder A2: %d clip (mặc định A1 tắt, A2 bật để so sánh)." % data.get("n_rec_a2", 0)
                 self._emit("status", {"text": "Đã tạo timeline mới “%s” gồm %d đoạn. %s%s" % (data["name"], data["n"], chk, extra),
                                       "kind": "ok" if (ok and lay is not False) else "warn"})
                 self._emit("dur_timeline_done", data)
@@ -483,10 +491,13 @@ class TrolyApi(object):
         return None, False, "Chưa có proxy"
 
     def wave(self, uid):
-        """Sóng âm của clip, làm nền từ proxy hoặc file gốc (chỉ đọc): {'peaks': [0..100...]} | {'pending': True} | {'error': ...}."""
+        """Sóng âm của clip: ưu tiên lát âm thanh Recorder rời đã sync (sạch tiếng), không có thì lấy từ proxy hoặc file gốc."""
         c = self._by_uid.get(uid)
         if c is None:
             return {"error": "Không thấy clip."}
+        rec = self._synced_recorder_for(c)
+        if rec and rec.get("path") and os.path.isfile(rec["path"]):
+            return self._wave_maker().get(c.rel or c.name, rec["path"], ss=rec["offset_s"], dur=c.dur or 0)
         src, _is_p, err = self._media_src(c)
         if err:
             return {"error": err}
@@ -1922,7 +1933,19 @@ class TrolyApi(object):
         url = srv.url_for(src)
         if not url:
             return {"error": "Không phát được file này."}
-        return {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "orig": not is_p}
+        out = {"url": url, "fps": c.fps or 25.0, "dur": c.dur or 0, "orig": not is_p}
+        rec = self._synced_recorder_for(c)
+        if rec and rec.get("path") and os.path.isfile(rec["path"]):
+            r_parent = os.path.dirname(os.path.abspath(rec["path"]))
+            if r_parent and r_parent not in srv.roots:
+                srv.roots.append(r_parent)
+            r_url = srv.url_for(rec["path"])
+            if r_url:
+                out["rec_url"] = r_url
+                out["rec_offset"] = rec["offset_s"]
+                out["rec_name"] = rec["name"]
+                out["rec_conf"] = rec["conf"]
+        return out
 
     def _frame_store(self):
         import troly_frames as tf
@@ -2689,8 +2712,17 @@ class TrolyApi(object):
                 a, b = tc.cut_frames(x["in_s"], x["out_s"], c.fps, c.frames)
                 mk = self._mk_letter.get(c.uid, "")
                 tr_name = ("V%d" % cam_map[mk]) if (use_cam_tracks and mk in cam_map) else x["track"]
-                segs.append({"uid": c.uid, "a": a, "b": b, "pct": x["pct"], "track": tr_name, "start_f": int(round(x["start_s"] * fps)),
-                             "mute": bool(x["mute"]), "multi_track": bool(use_cam_tracks)})
+                seg_d = {"uid": c.uid, "a": a, "b": b, "pct": x["pct"], "track": tr_name, "start_f": int(round(x["start_s"] * fps)),
+                         "mute": bool(x["mute"]), "multi_track": bool(use_cam_tracks)}
+                if tr_name == "V1" and float(x.get("pct", 100.0)) >= 99.95:
+                    rec = self._synced_recorder_for(c)
+                    if rec and rec.get("uid") and rec["uid"] in self._audio_by_uid:
+                        rec_fps = float(rec.get("fps") or fps or 25.0)
+                        ra, rb = tc.cut_frames(rec["offset_s"] + x["in_s"], rec["offset_s"] + x["out_s"], rec_fps, rec.get("frames") or 0)
+                        seg_d["rec_uid"] = rec["uid"]
+                        seg_d["rec_a"] = ra
+                        seg_d["rec_b"] = rb
+                segs.append(seg_d)
                 rows.append({"rel": c.rel, "stage": x["stage"], "bin": x["bin"], "in_s": x["in_s"], "out_s": x["out_s"], "in_frame": a, "out_frame": b,
                              "pct": x["pct"], "track": tr_name, "start_s": x["start_s"], "mute": bool(x["mute"])})
             if not segs:
@@ -2802,6 +2834,127 @@ class TrolyApi(object):
             self._save_now()
         return {"ok": True, "dir": p}
 
+    # ------------------------------------------------------------------ RECORDER RỜI (Tascam / Zoom / Mixer từ Media Pool)
+    def _selected_recorders(self):
+        rels = set(self._plan.get("recorder_rels") or [])
+        if not rels:
+            return []
+        return [a for a in self._audio_clips if a.get("rel") in rels and a.get("path") and os.path.isfile(a["path"])]
+
+    def _synced_recorder_for(self, c):
+        if c is None:
+            return None
+        rels = set(self._plan.get("recorder_rels") or [])
+        if not rels:
+            return None
+        entry = (self._plan.get("audio_sync") or {}).get(c.rel)
+        if not isinstance(entry, dict) or entry.get("rec_rel") not in rels:
+            return None
+        a = self._audio_by_rel.get(entry["rec_rel"])
+        path = (a["path"] if a else None) or entry.get("rec_path")
+        if not path or not os.path.isfile(path):
+            return None
+        return {
+            "uid": a["uid"] if a else entry.get("rec_uid"),
+            "rel": entry["rec_rel"],
+            "name": (a["name"] if a else None) or entry.get("rec_name") or os.path.basename(path),
+            "path": path,
+            "offset_s": float(entry.get("offset_s") or 0.0),
+            "conf": float(entry.get("conf") or 0.0),
+            "fps": a.get("fps") if a else None,
+            "frames": a.get("frames") if a else 0,
+            "dur": a.get("dur") if a else 0.0,
+        }
+
+    def recorder_list(self):
+        """Danh sách file audio rời (Tascam/Zoom/Mixer) đọc từ Media Pool của DaVinci + file anh đang chọn & số clip đã sync."""
+        with self._lock:
+            rels = list(self._plan.get("recorder_rels") or [])
+            rel_set = set(rels)
+            sync_map = self._plan.get("audio_sync") or {}
+            n_synced = sum(1 for v in sync_map.values() if isinstance(v, dict) and v.get("rec_rel") in rel_set)
+            return {"files": list(self._audio_clips), "selected": rels, "n_synced": n_synced}
+
+    def recorder_set(self, rels):
+        """Chọn 0, 1 hoặc nhiều file Recorder rời từ Media Pool DaVinci để tự sync khi phân tích lời."""
+        with self._lock:
+            clean = [str(r) for r in (rels or []) if str(r).strip()]
+            self._plan["recorder_rels"] = clean
+            rel_set = set(clean)
+            sync_map = self._plan.get("audio_sync")
+            if isinstance(sync_map, dict):
+                for k in list(sync_map.keys()):
+                    if not isinstance(sync_map[k], dict) or sync_map[k].get("rec_rel") not in rel_set:
+                        sync_map.pop(k, None)
+            self._save_soon()
+            return self.recorder_list()
+
+    def _sync_recorders_for_items(self, items, stop_fn=None):
+        """Bước chạy ngầm tự động đối khớp sóng âm 2 tầng (Tascam/Zoom/Mixer) cho từng clip trước khi chép lời.
+        Clip đã sync rồi bỏ qua; clip khớp thành công gắn audio_src/audio_ss/audio_dur để Whisper & sóng âm dùng tiếng sạch."""
+        import troly_sync as tsy
+        with self._lock:
+            recs = self._selected_recorders()
+            if not recs:
+                return items
+            rel_set = {a["rel"] for a in recs}
+            sync_map = dict(self._plan.get("audio_sync") or {})
+            by_rel = {c.rel: c for c in self._clips}
+        # Tính đường bao năng lượng 100Hz 1 lần duy nhất cho mỗi file Recorder (tốn ~4MB/file 3 tiếng)
+        envs = {}
+        todo_sync = [it for it in items if not (isinstance(sync_map.get(it["key"]), dict) and sync_map[it["key"]].get("rec_rel") in rel_set)]
+        if todo_sync:
+            self._emit("speech_progress", {"n": 0, "total": len(todo_sync), "phase": "sync", "text": "Đang đọc file Recorder (%d file)..." % len(recs)})
+            for a in recs:
+                if stop_fn and stop_fn():
+                    break
+                env, rdur = tsy.extract_envelope(a["path"], ffmpeg=self._thumbs.ffmpeg)
+                if env is not None:
+                    envs[a["rel"]] = (a, env, rdur or a.get("dur") or 0.0)
+            if envs:
+                changed = False
+                for idx_s, it in enumerate(todo_sync):
+                    if stop_fn and stop_fn():
+                        break
+                    c = by_rel.get(it["key"])
+                    clip_src = (c.proxy if (c and c.proxy and os.path.isfile(c.proxy)) else None) or it["path"]
+                    best = None
+                    for rec_rel, (a, env, rdur) in envs.items():
+                        off, conf = tsy.sync_clip_to_recorder(
+                            clip_src, a["path"], rec_env=env, rec_dur=rdur,
+                            clip_dur=(c.dur if c else None), ffmpeg=self._thumbs.ffmpeg,
+                        )
+                        if off is not None and (best is None or conf > best[0]):
+                            best = (conf, off, a)
+                    if best is not None:
+                        conf, off, a = best
+                        sync_map[it["key"]] = {
+                            "rec_rel": a["rel"], "rec_uid": a["uid"], "rec_name": a["name"],
+                            "rec_path": a["path"], "offset_s": off, "conf": conf,
+                        }
+                        changed = True
+                    self._emit("speech_progress", {
+                        "n": idx_s + 1, "total": len(todo_sync), "phase": "sync",
+                        "text": "Đang sync tiếng Recorder %d/%d..." % (idx_s + 1, len(todo_sync)),
+                    })
+                if changed:
+                    with self._lock:
+                        self._plan["audio_sync"] = sync_map
+                        self._save_soon()
+                    self._emit("audio_clips", self.recorder_list())
+        # Gắn lát âm thanh Recorder sạch vào các clip khớp để SpeechRun dùng cho Whisper
+        out = []
+        for it in items:
+            d = dict(it)
+            c = by_rel.get(it["key"])
+            rec = self._synced_recorder_for(c) if c else None
+            if rec and rec.get("path") and os.path.isfile(rec["path"]):
+                d["audio_src"] = rec["path"]
+                d["audio_ss"] = rec["offset_s"]
+                d["audio_dur"] = (c.dur if c and c.dur else None)
+            out.append(d)
+        return out
+
     def speech_info(self):
         """Số liệu cho tab Lời nói: thư mục kho, ngôn ngữ mặc định, đang chạy không, số đối chiếu của cả kho."""
         with self._lock:
@@ -2859,7 +3012,11 @@ class TrolyApi(object):
 
         def go():
             try:
-                s = run.run(items, lang)
+                synced_items = self._sync_recorders_for_items(items, stop_fn=lambda: run.stop)
+                if run.stop:
+                    s = {"ok": False, "stopped": True, "message": "Đã dừng trong lúc sync Recorder."}
+                else:
+                    s = run.run(synced_items, lang)
             except Exception as e:                      # noqa: BLE001
                 s = {"ok": False, "message": "Lỗi: %s" % e}
             with self._lock:
@@ -2956,6 +3113,7 @@ class TrolyApi(object):
                 if cam and cam != "all" and mk != cam:
                     continue
                 fl = flags.get(r["key"], [])
+                rec = self._synced_recorder_for(c)
                 rows.append({"uid": c.uid, "key": r["key"], "name": c.name, "stage": self._assign.get(c.uid), "mk": mk,
                              "m0": m[0] if m else None, "m1": m[1] if m else None,
                              "time": c.t_start.strftime("%H:%M:%S") if c.t_start else None,
@@ -2965,7 +3123,8 @@ class TrolyApi(object):
                              "headline": r["headline"] or "", "suspect": bool(r["suspect"]), "silent": r["status"] == "silent",
                              "segs": self._seg_colors(r["speech"], fl, (r["gain_db"] or 0) > 18.0),
                              "span": self._span(r["key"], r, fl, c), "star": tc.is_starred(self._plan, c),
-                             "muted": tc.is_muted(self._plan, c)})
+                             "muted": tc.is_muted(self._plan, c),
+                             "rec_sync": ({"name": rec["name"], "offset_s": rec["offset_s"], "conf": rec["conf"]} if rec else None)})
             rows.sort(key=lambda x: (x["t_sort"], x["key"]))
             # Phát hiện clip trùng lời nói giữa các máy quay cùng lúc (chồng giờ chung & không phải câm)
             for i in range(len(rows)):
@@ -3001,9 +3160,11 @@ class TrolyApi(object):
                 return {"lines": [], "span": None, "has_row": False}                  # chưa chép lời
             lines = st.lines_of(c.rel)
             fl = [(l["t0"], l["t1"], len(l["keys"]), ",".join(l["why"])) for l in lines]
+            rec = self._synced_recorder_for(c)
             return {"lines": lines, "span": self._span(c.rel, row, fl, c), "has_row": True, "lang": row["lang"], "dur": row["dur"], "fps": c.fps or 25.0,
                     "tc": row["tc"], "suspect": bool(row["suspect"]), "star": tc.is_starred(self._plan, c),
-                    "muted": tc.is_muted(self._plan, c)}
+                    "muted": tc.is_muted(self._plan, c),
+                    "rec_sync": ({"name": rec["name"], "offset_s": rec["offset_s"], "conf": rec["conf"]} if rec else None)}
 
     def speech_set_inout(self, uid, in_s, out_s):
         """Lưu In/Out người dựng đặt tay VÀO KẾ HOẠCH CỦA PANEL (không ghi vào DaVinci). in_s/out_s = None thì xóa."""
@@ -3135,7 +3296,10 @@ class TrolyApi(object):
         with self._lock:
             self._speech_run = run
         try:
-            return run.run(items, cfg.get("lang", "vi"))
+            synced_items = self._sync_recorders_for_items(items, stop_fn=lambda: run.stop or stop_check())
+            if run.stop or stop_check():
+                return {"ok": False, "stopped": True, "message": "Đã dừng trong lúc sync Recorder."}
+            return run.run(synced_items, cfg.get("lang", "vi"))
         finally:
             with self._lock:
                 self._speech_run = None

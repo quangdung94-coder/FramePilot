@@ -74,7 +74,10 @@ class SpeechRun(object):
             if self.stop:
                 break
             k = it["key"]
-            sig = st.file_sig(it["path"])
+            a_src = it.get("audio_src") or it["path"]
+            sig = st.file_sig(a_src)
+            if sig and it.get("audio_src"):
+                sig = "%s@rec:%.2f+%.2f" % (sig, float(it.get("audio_ss") or 0.0), float(it.get("audio_dur") or 0.0))
             sigs[k] = sig
             if self.store.needs_run(k, sig):
                 todo.append(it)
@@ -95,7 +98,9 @@ class SpeechRun(object):
                     try:
                         if sig is None:
                             raise RuntimeError("không thấy file")
-                        p = sp.prepare_clip(it["path"], self.vad, tmp, "c%d" % j, self.ffmpeg, self.max_gain)
+                        a_src = it.get("audio_src") or it["path"]
+                        p = sp.prepare_clip(a_src, self.vad, tmp, "c%d" % j, self.ffmpeg, self.max_gain,
+                                            ss=it.get("audio_ss"), dur=it.get("audio_dur"))
                         if self.stop:
                             break
                         if p["wav"]:

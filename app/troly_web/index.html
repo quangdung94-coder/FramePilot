@@ -298,7 +298,12 @@
       </div>
       <button class="btn" id="lnExport" title="Mỗi giai đoạn một file SRT, giờ nối tiếp liên tục qua các clip, mã clip + số dòng nằm trong dòng chữ">Xuất SRT theo giai đoạn</button>
     </div>
-    <div class="ln-store dim12"><span class="ln-storeinfo" id="lnStore"></span><button class="btn" id="lnPickRunBtn" type="button" title="Chọn riêng các bin và máy cần chép lời Whisper">Chọn bin/máy…</button><button class="btn" id="lnRun" title="Chép lời các clip đã chọn (hoặc cả bin); chạy tiếp được nếu bị ngắt">Chép lời</button></div>
+    <div class="ln-store dim12"><span class="ln-storeinfo" id="lnStore"></span><button class="btn" id="lnRecBtn" type="button" title="Chọn file âm thanh rời (Tascam/Zoom/Mixer) trong Media Pool của DaVinci để tự động sync khi chép lời">🎙 Recorder rời…</button><button class="btn" id="lnPickRunBtn" type="button" title="Chọn riêng các bin và máy cần chép lời Whisper">Chọn bin/máy…</button><button class="btn" id="lnRun" title="Chép lời các clip đã chọn (hoặc cả bin); chạy tiếp được nếu bị ngắt">Chép lời</button></div>
+    <div class="ln-pickbox hidden" id="lnRecBox">
+      <div class="row-between center"><b>Chọn file Recorder rời (Tascam / Zoom / Mixer) từ Media Pool DaVinci</b><span class="dim12" id="lnRecStat"></span></div>
+      <div class="ln-pick-grid" id="lnRecList"></div>
+      <div class="dim12" style="margin-top:4px">Khi bấm <b>Chép lời</b> hoặc <b>Phân tích cả project</b>, app sẽ tự chạy ngầm sync tiếng Recorder vào từng clip quay, hiển thị sóng âm &amp; chữ từ tiếng sạch, và tự đặt lên track <b>A2</b> (A1 tắt, A2 bật) khi xuất timeline Bước 5.</div>
+    </div>
     <div class="ln-pickbox hidden" id="lnPickBox">
       <div class="row-between center"><b>Chọn bin &amp; máy nguồn tiếng để chép Whisper</b><span class="dim12" id="lnPickCnt"></span></div>
       <div class="ln-pick-grid" id="lnPickBins"></div>
@@ -389,6 +394,7 @@
         <div class="d5-presets" id="d5Presets">
           <button class="tl-bn" type="button" data-min="1">Teaser 1:00</button>
           <button class="tl-bn" type="button" data-min="4">Highlight 4:00</button>
+          <button class="tl-bn" type="button" data-min="5">Event 5:00</button>
           <button class="tl-bn" type="button" data-min="10">Phóng sự 10:00</button>
           <button class="tl-bn" type="button" data-min="18">Truyền thống 18:00</button>
         </div>

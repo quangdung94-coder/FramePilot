@@ -57,9 +57,15 @@ def peaks_from_pcm(raw, bins=BINS):
     return [int(round(v * 100.0 / top)) for v in out]
 
 
-def make_peaks(src, out_path, ffmpeg="ffmpeg", timeout=TIMEOUT_S, runner=troly_proc.chay_an):
-    """Làm file đỉnh sóng. Trả {'peaks': [...], ...} hoặc {'error': lời báo}. Không bao giờ ném lỗi."""
-    cmd = [ffmpeg, "-v", "error", "-nostdin", "-i", src, "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"]
+def make_peaks(src, out_path, ffmpeg="ffmpeg", timeout=TIMEOUT_S, runner=troly_proc.chay_an, ss=None, dur=None):
+    """Làm file đỉnh sóng (hỗ trợ cắt lát [ss, ss+dur] cho file Recorder đã sync). Trả {'peaks': [...]} hoặc {'error': ...}."""
+    cmd = [ffmpeg, "-v", "error", "-nostdin"]
+    if ss is not None and float(ss) > 0:
+        cmd += ["-ss", "%.3f" % float(ss)]
+    cmd += ["-i", src]
+    if dur is not None and float(dur) > 0:
+        cmd += ["-t", "%.3f" % float(dur)]
+    cmd += ["-vn", "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"]
     try:
         r = runner(cmd, capture_output=True, timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -94,25 +100,26 @@ class WaveMaker(object):
         self._busy = {}                         # key -> Thread
         self._gate = threading.Semaphore(1)
 
-    def get(self, key, src):
+    def get(self, key, src, ss=None, dur=None):
         if not src or not os.path.isfile(src):
             return {"error": "Chưa có proxy"}
-        path = cache_file(self._dir, key)
+        ckey = "%s|rec:%.2f+%.2f" % (key, float(ss or 0.0), float(dur or 0.0)) if (ss is not None or dur is not None) else key
+        path = cache_file(self._dir, ckey)
         d = read_cached(path, src)
         if d:
             return {"peaks": d["peaks"]}
         with self._lock:
-            if key in self._done:                 # kết quả trong bộ nhớ (lỗi giữ đến khi mở lại panel; đỉnh sóng khi không ghi được cache)
-                return self._done[key]
-            if key not in self._busy:
-                t = threading.Thread(target=self._work, args=(key, src, path), daemon=True)
-                self._busy[key] = t
+            if ckey in self._done:                 # kết quả trong bộ nhớ (lỗi giữ đến khi mở lại panel; đỉnh sóng khi không ghi được cache)
+                return self._done[ckey]
+            if ckey not in self._busy:
+                t = threading.Thread(target=self._work, args=(ckey, src, path, ss, dur), daemon=True)
+                self._busy[ckey] = t
                 t.start()
         return {"pending": True}
 
-    def _work(self, key, src, path):
+    def _work(self, key, src, path, ss=None, dur=None):
         with self._gate:
-            res = make_peaks(src, path, self._ffmpeg, self._timeout, self._runner)
+            res = make_peaks(src, path, self._ffmpeg, self._timeout, self._runner, ss=ss, dur=dur)
         with self._lock:
             self._done[key] = {"error": res["error"]} if res.get("error") else {"peaks": res["peaks"]}
             self._busy.pop(key, None)

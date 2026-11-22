@@ -75,10 +75,15 @@ def find_keys(text, index):
 # ---------------------------------------------------------------------------
 # ÂM THANH: trích, đo, kéo lên mức chuẩn
 # ---------------------------------------------------------------------------
-def extract_wav(src, out_wav, ffmpeg="ffmpeg"):
-    """Trích âm thanh từ file gốc (chỉ đọc) ra WAV 16 kHz mono. Lỗi thì ném RuntimeError."""
-    cmd = [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-vn", "-ac", "1",
-           "-ar", str(RATE), "-c:a", "pcm_s16le", out_wav]
+def extract_wav(src, out_wav, ffmpeg="ffmpeg", ss=None, dur=None):
+    """Trích âm thanh từ file gốc (hoặc 1 lát [ss, ss+dur] của file Recorder đã sync) ra WAV 16 kHz mono."""
+    cmd = [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y"]
+    if ss is not None and float(ss) > 0:
+        cmd += ["-ss", "%.3f" % float(ss)]
+    cmd += ["-i", src]
+    if dur is not None and float(dur) > 0:
+        cmd += ["-t", "%.3f" % float(dur)]
+    cmd += ["-vn", "-ac", "1", "-ar", str(RATE), "-c:a", "pcm_s16le", out_wav]
     try:
         r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW,
                                timeout=EXTRACT_TIMEOUT_S, tag="speech")
@@ -369,12 +374,12 @@ def english_ratio(lines):
     return sum(1 for w in words if w in EN_WORDS) / float(len(words)), len(words)
 
 
-def prepare_clip(path, vad_run, tmp, tag="a", ffmpeg="ffmpeg", max_gain=MAX_GAIN_DB):
+def prepare_clip(path, vad_run, tmp, tag="a", ffmpeg="ffmpeg", max_gain=MAX_GAIN_DB, ss=None, dur=None):
     """Trích + kéo âm lượng + lọc khoảng lặng. Trả về dict 'prep'; prep['wav'] là file ghép các đoạn có tiếng
     (None nếu không có tiếng người). WAV trung gian xóa ngay, chỉ giữ file ghép trong thư mục tmp."""
     raw = os.path.join(tmp, "%s_raw.wav" % tag)
     try:
-        extract_wav(path, raw, ffmpeg)
+        extract_wav(path, raw, ffmpeg, ss=ss, dur=dur)
         x, rate = read_wav(raw)
     finally:
         if os.path.isfile(raw):

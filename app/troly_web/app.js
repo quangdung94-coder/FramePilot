@@ -73,6 +73,7 @@ window.onEvent = function (kind, data) {
     $("tlSel").innerHTML = `<option value="">Timeline: giờ trong file</option>` + data.names.map((n) => `<option value="${esc(n)}"${n === data.pick ? " selected" : ""}>${esc(n)}</option>`).join("");
   } else if (kind === "speech_progress") lnProgress(data);
   else if (kind === "speech_done") lnDone(data);
+  else if (kind === "audio_clips") { if (typeof lnRecUpdate === "function") lnRecUpdate(data); }
   else if (kind.indexOf("analyze_") === 0) anEvent(kind, data);
   else if (kind === "dur_timeline_done") { if (page === 5) renderPage5(); }
   else if (kind.indexOf("inout_sug_") === 0) p3SugEvent(kind, data);
@@ -1435,7 +1436,7 @@ $("styleSel").onchange = async (e) => {
   const modal = $("settingsModal"), btn = $("btnSettings");
   if (!modal || !btn) return;
   let defDataRoot = "";
-  const shortTplName = (t) => /mừng thọ/i.test(t) ? t : (/tiệc/i.test(t) && !/sáng|đầy đủ/i.test(t) ? "Chỉ tiệc" : (/đầy đủ/i.test(t) ? "Lễ sáng + Tiệc tối" : t));
+  const shortTplName = (t) => /mừng thọ/i.test(t) ? t : (/^event\b/i.test(t) ? t : (/tiệc/i.test(t) && !/sáng|đầy đủ/i.test(t) ? "Chỉ tiệc" : (/đầy đủ/i.test(t) ? "Lễ sáng + Tiệc tối" : t)));
   const addLutRow = (pref, path, hint) => {
     const list = $("setLutList");
     if (!list) return;

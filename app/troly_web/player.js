@@ -490,9 +490,22 @@ function plToggle() {
   }
   if (PL.vid.paused) PL.vid.play(); else PL.vid.pause();
 }
+function plRecStop() {
+  if (PL.recAud) { try { PL.recAud.pause(); PL.recAud.removeAttribute("src"); PL.recAud.load(); } catch (e) {} }
+  PL.recOff = 0; PL.recOn = false;
+}
+function plRecSync(v, force) {
+  if (!PL.recOn || !PL.recAud || !v) return;
+  const want = Math.max(0, (v.currentTime || 0) + (PL.recOff || 0));
+  if (force || Math.abs((PL.recAud.currentTime || 0) - want) > 0.15) {
+    try { PL.recAud.currentTime = want; } catch (e) {}
+  }
+  try { PL.recAud.playbackRate = v.playbackRate || 1; } catch (e) {}
+}
 function plStop() {
   const v = PL.el;
-  if (v) { try { v.pause(); } catch (e) { /* bỏ qua */ } v.style.opacity = "0"; v.removeAttribute("src"); v.load(); }       // giữ thẻ, chỉ bỏ nguồn
+  plRecStop();
+  if (v) { try { v.pause(); } catch (e) { /* bỏ qua */ } v.muted = false; v.style.opacity = "0"; v.removeAttribute("src"); v.load(); }       // giữ thẻ, chỉ bỏ nguồn
   PL.vid = null; PL.ok = false; PL.edge = null; PL.kf = null; SK.want = null; SK.busy = false; SK.drag = false; clearTimeout(SK.dwell); frReset(); lutDetach();
   $("player").classList.add("hidden");
 }
@@ -513,10 +526,11 @@ function plEl() {                                               // MỘT thẻ <
     if (!v.videoWidth) return noPlay();
     PL.ok = true; if (v.duration) PL.dur = v.duration; plTime(); plRenderIo(curClip());
   });
-  v.addEventListener("timeupdate", () => { plHead(); plTime(); });
-  v.addEventListener("play", () => { $("plPlay").textContent = "❚❚"; });
-  v.addEventListener("pause", () => { $("plPlay").textContent = "▶"; });
-  v.addEventListener("seeked", () => { SK.busy = false; clearTimeout(SK.timer); lutDraw(); plPump(); if (SK.want == null && !SK.busy) frRelease(); });
+  v.addEventListener("timeupdate", () => { plHead(); plTime(); plRecSync(v, false); });
+  v.addEventListener("play", () => { $("plPlay").textContent = "❚❚"; plRecSync(v, true); if (PL.recOn && PL.recAud) PL.recAud.play().catch(() => {}); });
+  v.addEventListener("pause", () => { $("plPlay").textContent = "▶"; if (PL.recAud) try { PL.recAud.pause(); } catch (e) {} });
+  v.addEventListener("ratechange", () => { plRecSync(v, false); });
+  v.addEventListener("seeked", () => { SK.busy = false; clearTimeout(SK.timer); lutDraw(); plRecSync(v, true); plPump(); if (SK.want == null && !SK.busy) frRelease(); });
   v.addEventListener("loadeddata", () => { if (PL.vid === v) { v.style.opacity = "1"; if (PL.t0) { PL.openMs = Math.round(performance.now() - PL.t0); PL.t0 = 0; } } lutDraw(); });
   v.addEventListener("error", () => { if (v.getAttribute("src")) noPlay(); });          // WebView2 không phát được định dạng này -> báo rõ
   PL.el = v; return v;
@@ -542,6 +556,17 @@ async function plOpen(c) {                                    // gọi từ show
   v.style.opacity = "0"; PL.vid = v; PL.ok = false;
   PL.t0 = performance.now();                                    // đo thời gian từ lúc mở tới có hình (nút Đo lướt báo lại)
   v.src = r.url;
+  if (r.rec_url) {
+    if (!PL.recAud) { PL.recAud = document.createElement("audio"); PL.recAud.preload = "auto"; }
+    PL.recAud.src = r.rec_url;
+    PL.recOff = Number(r.rec_offset || 0);
+    PL.recOn = true;
+    v.muted = true;
+    $("plNote").textContent = `🎙 Tiếng Recorder: ${r.rec_name || ""} (khớp ${Math.round((r.rec_conf || 0) * 100)}%)`;
+  } else {
+    plRecStop();
+    v.muted = false;
+  }
   $("player").classList.remove("hidden");
   lutAttach(c, v);
   frOpen(c); api().keyframes(uid).then((k) => { if (PL.uid === uid && k && k.kf) PL.kf = k.kf; });

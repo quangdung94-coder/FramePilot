@@ -186,19 +186,20 @@ TRAD_HEAD_S, TRAD_TAIL_S = 1.5, 1.5               # Truyền thống: chỉ gợ
 # Bộ mặc định theo số đo thật (ADR-0021, anh duyệt 18/11/2026): p25–p75 độ dài anh giữ trên timeline thành phẩm, làm tròn 0,5s. Cột: từ khóa nhãn bin, chữ giải thích,
 # giữ tối thiểu (giây), tối đa (giây; None = không giới hạn), trọn câu (giữ đến gần hết clip, không chặn tối đa).
 BUILTIN_RULES = (
-    (("decor", "chi tiết", "trang trí"), "Decor: 3.0s ổn định", 3.0, 3.0, False),
+    (("decor", "chi tiết", "trang trí", "không gian", "sảnh tiệc", "sân khấu led"), "Decor/Không gian: 3.0s ổn định", 3.0, 3.0, False),
+    (("logo", "sản phẩm", "thương hiệu", "booth", "flycam"), "Logo/Sản phẩm/Flycam: giữ 2.5–4s", 2.5, 4.0, False),
     (("phỏng vấn",), "Phỏng vấn: trích 4–8.5s", 4.0, 8.5, False),                 # ADR-0021: anh chỉ trích ~7s từ clip dài, không giữ trọn câu
-    (("chúc thọ", "phát biểu"), "Phát biểu/Chúc thọ: trích 4–8.5s", 4.0, 8.5, False),
+    (("chúc thọ", "phát biểu", "keynote", "tọa đàm"), "Phát biểu/Chúc thọ: trích 4–8.5s", 4.0, 8.5, False),
     (("gia đình", "họ hàng"), "Gia đình: giữ 3–4s", 3.0, 4.0, False),
     (("beauty", "nhẫn"), "Beauty: 4.0s cảm xúc", 4.0, 4.0, False),                  # chưa có mẫu thật, giữ số cũ
     (("cô dâu", "chú rể"), "CD-CR: giữ 2–3s", 2.0, 3.0, False),
     (("cụ ông", "cụ bà", "ông bà"), "Cụ ông bà: giữ 2.5–4s", 2.5, 4.0, False),
-    (("trao quà", "mừng thọ"), "Trao quà/Mừng thọ: giữ 3–5s", 3.0, 5.0, False),
-    (("văn nghệ",), "Văn nghệ: giữ 3–4.5s", 3.0, 4.5, False),
-    (("chào bàn",), "Chào bàn: giữ 3–4s", 3.0, 4.0, False),
+    (("trao quà", "mừng thọ", "vinh danh", "trao giải"), "Trao quà/Vinh danh: giữ 3–5s", 3.0, 5.0, False),
+    (("văn nghệ", "opening", "múa lân", "minigame", "bốc thăm"), "Văn nghệ/Minigame: giữ 3–4.5s", 3.0, 4.5, False),
+    (("chào bàn", "bàn tiệc"), "Chào bàn/Tiệc: giữ 3–4s", 3.0, 4.0, False),
     (("nhà trai đến",), "Nhà trai đến: giữ 3–4.5s", 3.0, 4.5, False),
-    (("khách",), "Khách: giữ 2.5–4s", 2.5, 4.0, False),
-    (("nghi lễ", "gia tiên", "lễ"), "Nghi lễ: giữ 2.5–5s", 2.5, 5.0, False),
+    (("khách", "check-in", "khán giả", "học sinh"), "Khách/Check-in/Khán giả: giữ 2.5–4s", 2.5, 4.0, False),
+    (("nghi lễ", "gia tiên", "lễ", "nghi thức", "cắt băng", "chào cờ", "nâng ly"), "Nghi lễ/Nghi thức: giữ 2.5–5s", 2.5, 5.0, False),
 )
 DEFAULT_RULE = ("Quy tắc v4: vào +1.2s, giữ 3s", 3.0, 3.0, False)
 RULE_MAX_S = 600.0
@@ -599,6 +600,18 @@ BUILTIN_TEMPLATES = {
         ("Nghi lễ mừng thọ", ["Sân khấu", "Nghi lễ", "Chúc thọ · Phát biểu", "Trao quà · Mừng thọ", "Cụ ông cụ bà", "Khách"]),
         ("Tiệc · Chào bàn", ["Cụ ông cụ bà", "Văn nghệ", "Khách", "Gia đình"]),
     ],
+    "Event · Hội nghị / Khai trương / Khai trường": [
+        ("Không gian · Setup", ["Không gian · Decor", "Logo · Sản phẩm", "Flycam · Toàn cảnh", "Chuẩn bị · Teabreak"]),
+        ("Đón khách · Check-in", ["Check-in · Backdrop", "Khách mời · VIP", "Học sinh · Phụ huynh", "Phỏng vấn"]),
+        ("Nghi thức · Khai mạc", ["Múa lân · Opening", "Nghi thức · Cắt băng · Chào cờ", "MC · Phát biểu", "Vinh danh · Trao giải", "Khán giả · Phản ứng", "Phỏng vấn"]),
+        ("Hoạt động · Kết thúc", ["Tọa đàm · Demo · Lớp học", "Văn nghệ · Biểu diễn", "Tham quan · Trải nghiệm", "Chụp hình tập thể", "Khán giả · Giao lưu", "Phỏng vấn"]),
+    ],
+    "Event · Gala Dinner / Year End Party": [
+        ("Không gian · Setup", ["Sảnh tiệc · Bàn tiệc", "Sân khấu LED", "Logo · Thương hiệu", "Chuẩn bị"]),
+        ("Đón khách · Check-in", ["Check-in · Photobooth", "Khách mời · VIP", "Phỏng vấn"]),
+        ("Khai tiệc · Phát biểu", ["Opening show", "MC · Phát biểu", "Nâng ly khai tiệc", "Vinh danh · Trao giải", "Khán giả · Phản ứng", "Phỏng vấn"]),
+        ("Văn nghệ · Minigame · Tiệc", ["Văn nghệ · Ca sĩ/DJ", "Minigame · Bốc thăm", "Không khí bàn tiệc", "Chụp hình tập thể", "Kết thúc"]),
+    ],
 }
 # Bin mẹ (sự kiện) của từng giai đoạn trong mẫu: {mẫu: {tên giai đoạn: tên bin mẹ}}. Mẫu không có ở đây (mẫu người dựng tự lưu) thì mọi giai đoạn
 # vào một bin mẹ mặc định. Bin mẹ chỉ là NHÓM trong panel (ADR-0032): bin giai đoạn vẫn tạo trong bin nguồn.
@@ -613,6 +626,14 @@ TEMPLATE_EVENTS = {
     "Lễ mừng thọ (đầy đủ)": {"Chuẩn bị": "Lễ mừng thọ", "Đón khách": "Lễ mừng thọ",
                              "Nghi lễ mừng thọ": "Tiệc mừng thọ", "Văn nghệ · Tiệc": "Tiệc mừng thọ"},
     "Lễ mừng thọ (chỉ tiệc)": {"Đón khách": "Tiệc mừng thọ", "Nghi lễ mừng thọ": "Tiệc mừng thọ", "Tiệc · Chào bàn": "Tiệc mừng thọ"},
+    "Event · Hội nghị / Khai trương / Khai trường": {
+        "Không gian · Setup": "Trước sự kiện", "Đón khách · Check-in": "Trước sự kiện",
+        "Nghi thức · Khai mạc": "Chương trình chính", "Hoạt động · Kết thúc": "Chương trình chính",
+    },
+    "Event · Gala Dinner / Year End Party": {
+        "Không gian · Setup": "Đón khách", "Đón khách · Check-in": "Đón khách",
+        "Khai tiệc · Phát biểu": "Gala & Tiệc", "Văn nghệ · Minigame · Tiệc": "Gala & Tiệc",
+    },
 }
 
 
