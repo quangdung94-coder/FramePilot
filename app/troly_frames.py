@@ -178,10 +178,12 @@ class FrameStore(object):
                         for f in frames:
                             c.frames.append(f)
                             c.bytes += len(f)
+                            if c.bytes > self.max_bytes // 2:     # một clip không được chiếm quá nửa kho: dừng nạp ngay
+                                flag.set()
+                                c.done = True
+                                break
                         self._evict(keep=c.key)
-                        if c.bytes > self.max_bytes // 2:         # một clip không được chiếm quá nửa kho: dừng nạp (còn phần đã có)
-                            flag.set()
-                            c.done = True
+                        if flag.is_set():
                             break
             if not flag.is_set():
                 frames, _rest = split_jpegs(buf, final=True)

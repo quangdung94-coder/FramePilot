@@ -3,6 +3,7 @@ pywebview==6.2.1
 Pillow>=10.4.0
 numpy>=1.26.4,<2.3.0
 opencv-python-headless>=4.10.0
+psutil>=6.0.0
 pyobjc-framework-Cocoa>=10.0
 pyobjc-framework-WebKit>=10.0
 pyinstaller>=6.10.0

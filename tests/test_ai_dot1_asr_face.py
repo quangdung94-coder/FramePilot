@@ -45,7 +45,7 @@ class TestDot1AsrAndFace(unittest.TestCase):
                 with open(cfg_p, "w", encoding="utf-8") as f:
                     json.dump({"data_root": tmp, "ai_python": fake_py, "asr_engine": "constme"}, f)
                 c3 = tsp.load_whisper_cfg()
-                self.assertEqual(c3["engine"], "constme")
+                self.assertEqual(c3["engine"], "whisper_turbo" if sys.platform == "darwin" else "constme")
             finally:
                 if old is None:
                     os.environ.pop("TROLY_CONFIG", None)

@@ -145,6 +145,7 @@ class WhisperStop(unittest.TestCase):
 
 
 class OrphanChildren(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Windows Job Object test (macOS dung atexit + killpg)")
     def test_tien_trinh_con_chet_theo_khi_panel_thoat(self):
         """Lỗi: ffmpeg/Whisper/AI do panel chạy ra vẫn sống tiếp khi cửa sổ đóng (tiến trình mồ côi)."""
         import troly_env
@@ -192,7 +193,14 @@ class PlaySecurity(unittest.TestCase):
         os.makedirs(self.root + "2")
         with open(os.path.join(self.root + "2", "x.mov"), "wb") as f:
             f.write(b"x")
-        self.junction = subprocess.run(["cmd", "/c", "mklink", "/J", os.path.join(self.root, "jn"), self.out], capture_output=True).returncode == 0
+        if os.name == "nt":
+            self.junction = subprocess.run(["cmd", "/c", "mklink", "/J", os.path.join(self.root, "jn"), self.out], capture_output=True).returncode == 0
+        else:
+            try:
+                os.symlink(self.out, os.path.join(self.root, "jn"))
+                self.junction = True
+            except OSError:
+                self.junction = False
 
     def test_inside_chan_ra_ngoai_thu_muc(self):
         ins = self.tp.inside

@@ -81,7 +81,7 @@ class TestBuoc3SyncAndInstaller(unittest.TestCase):
             with open(os.path.join(existing_m, "model.bin"), "wb") as f:
                 f.write(b"EXISTING_ON_PC_DO_NOT_OVERWRITE")
 
-            plan = tset.scan_system(pkg, target_root=dst, target_data_root=dst_data, target_ai_dir=dst_ai)
+            plan = tset.scan_system(pkg, target_root=dst, target_data_root=dst_data, target_ai_dir=dst_ai, is_mac_os=False)
             by_id = {it["id"]: it for it in plan["items"]}
             self.assertTrue(by_id["model_whisper_large_v3_turbo"]["exists"])
             self.assertFalse(by_id["model_siglip2_vitb16"]["exists"])
