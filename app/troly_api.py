@@ -73,6 +73,8 @@ class TrolyApi(object):
         self._assign = {}
         self._bins = []
         self._busy = False
+        self._undo_stack = []
+        self._redo_stack = []
         self._lock = threading.RLock()
         self._q = queue.Queue()
         self._worker = tr.TrolyWorker(project, self._q, resolve_factory=resolve_factory)
@@ -199,6 +201,57 @@ class TrolyApi(object):
         self._recompute_stages()                          # giờ giai đoạn theo mốc luôn khớp với số đếm
         self._assign = tc.assign(self._clips, self._stages, self._day0, self._plan["offsets"],
                                  manual=self._plan.get("manual")) if self._day0 else {}
+
+    def _plan_snap(self):
+        import copy
+        snap = copy.deepcopy(self._plan)
+        snap.pop("moves", None)                           # lịch sử chuyển clip DaVinci (Áp dụng) giữ riêng, không đụng khi Ctrl+Z thao tác nhỏ
+        return snap
+
+    def _push_undo(self, label):
+        """Lưu bản chụp kế hoạch vào ngăn xếp Hoàn tác (tối đa 50 bước) trước mọi thao tác nhỏ."""
+        self._undo_stack.append((str(label or "Thao tác"), self._plan_snap()))
+        if len(self._undo_stack) > 50:
+            del self._undo_stack[:-50]
+        self._redo_stack.clear()
+
+    def plan_undo(self):
+        """Ctrl+Z: hoàn tác 1 thao tác nhỏ gần nhất trên kế hoạch (tối đa 50 bước). Không đụng lệnh lớn DaVinci."""
+        with self._lock:
+            if not self._undo_stack:
+                return {"empty": True, "n_undo": 0, "n_redo": len(self._redo_stack)}
+            label, snap = self._undo_stack.pop()
+            self._redo_stack.append((label, self._plan_snap()))
+            if len(self._redo_stack) > 50:
+                del self._redo_stack[:-50]
+            moves = self._plan.get("moves")
+            self._plan = snap
+            if moves is not None:
+                self._plan["moves"] = moves
+            self._recount()
+            self._save_soon()
+            st = self.state()
+            st["undo_info"] = {"action": label, "n_undo": len(self._undo_stack), "n_redo": len(self._redo_stack)}
+            return st
+
+    def plan_redo(self):
+        """Ctrl+Y / Ctrl+Shift+Z: làm lại thao tác vừa hoàn tác."""
+        with self._lock:
+            if not self._redo_stack:
+                return {"empty": True, "n_undo": len(self._undo_stack), "n_redo": 0}
+            label, snap = self._redo_stack.pop()
+            self._undo_stack.append((label, self._plan_snap()))
+            if len(self._undo_stack) > 50:
+                del self._undo_stack[:-50]
+            moves = self._plan.get("moves")
+            self._plan = snap
+            if moves is not None:
+                self._plan["moves"] = moves
+            self._recount()
+            self._save_soon()
+            st = self.state()
+            st["redo_info"] = {"action": label, "n_undo": len(self._undo_stack), "n_redo": len(self._redo_stack)}
+            return st
 
     def _label_in_stage(self, c, si):
         if si is None or si >= len(self._stages):
@@ -764,6 +817,7 @@ class TrolyApi(object):
                 return {"error": "Mốc đầu không được sau mốc cuối của %s." % s["name"]}
             if which == "tail" and other and p[0] < other[0]:
                 return {"error": "Mốc cuối không được trước mốc đầu của %s." % s["name"]}
+            self._push_undo("Đặt mốc %s (%s)" % ("cuối" if which == "tail" else "đầu", s["name"]))
             if "head" not in s:                                # đang theo khoảng giờ: giữ clip đầu/cuối suy ra làm mốc, chỉ đổi mốc vừa bấm
                 h0, t0 = self._implied(s)
                 s["head"] = tc.clip_key(h0) if h0 is not None else None
@@ -918,6 +972,7 @@ class TrolyApi(object):
             names = {x["name"] for x in self._stages}
             while "Giai đoạn %d" % n in names:
                 n += 1
+            self._push_undo("Thêm giai đoạn")
             st = tc.make_stage("Giai đoạn %d" % n, -1.0, -1.0, [], len(self._stages), ev)
             st["head"], st["tail"] = None, None                 # chưa có mốc: chưa có giờ, chưa nhận clip nào
             self._stages.append(st)
@@ -931,6 +986,7 @@ class TrolyApi(object):
             n = len(names) + 1
             while "Sự kiện %d" % n in names:
                 n += 1
+            self._push_undo("Thêm sự kiện")
             self._plan["events"] = names + ["Sự kiện %d" % n]
             self._save_soon()
             return self.state()
@@ -944,6 +1000,7 @@ class TrolyApi(object):
             n, err = tc.check_new_name(new, names, old)
             if err:
                 return {"error": err}
+            self._push_undo("Đổi tên sự kiện")
             for s in self._stages:
                 if self._event_of_stage(s) == old:
                     s["event"] = n
@@ -960,6 +1017,7 @@ class TrolyApi(object):
                 return {"error": "Mốc cắt không hợp lệ."}
             for i, s in enumerate(self._stages):
                 if s["start"] < at < s["end"]:
+                    self._push_undo("Cắt giai đoạn")
                     taken = {x["name"] for x in self._stages}
                     n = 2
                     while "%s %d" % (s["name"], n) in taken:
@@ -974,6 +1032,7 @@ class TrolyApi(object):
 
     def del_stage(self, i):
         with self._lock:
+            self._push_undo("Xóa giai đoạn")
             del self._stages[i]
             self._save_soon()
             return self.state()
@@ -1019,6 +1078,7 @@ class TrolyApi(object):
             s = self._stages[stage_i]
             if bin_name is not None and bin_name not in s["bins"]:
                 return {"error": "Bin %s không thuộc giai đoạn %s." % (bin_name, s["name"])}
+            self._push_undo(("Xếp bin %s" % bin_name) if bin_name else "Bỏ nhãn bin")
             for u in uids:
                 c = self._by_uid.get(u)
                 if c:
@@ -1035,6 +1095,7 @@ class TrolyApi(object):
             s = self._stages[stage_i]
             if bin_name is not None and bin_name not in s["bins"]:
                 return {"error": "Bin %s không thuộc giai đoạn %s." % (bin_name, s["name"])}
+            self._push_undo("Chuyển sang %s%s" % (s["name"], (" › " + bin_name) if bin_name else ""))
             n = 0
             for u in uids:
                 c = self._by_uid.get(u)
@@ -1052,6 +1113,7 @@ class TrolyApi(object):
     def clear_manual(self):
         """Bỏ mọi chọn tay: clip quay về giai đoạn tính theo giờ (nhãn bin con vẫn giữ)."""
         with self._lock:
+            self._push_undo("Bỏ chọn tay giai đoạn")
             self._plan["manual"] = {}
             self._save_soon()
             return self.state()
@@ -1065,6 +1127,7 @@ class TrolyApi(object):
             name, err = tc.check_new_name(name, list(s["bins"]))
             if err:
                 return {"error": err}
+            self._push_undo("Thêm bin %s" % name)
             pos = len(s["bins"]) - 1 if s["bins"][-1:] == [tc.OTHER_BIN] else len(s["bins"])
             s["bins"].insert(pos, name)
             self._save_soon()
@@ -1452,6 +1515,7 @@ class TrolyApi(object):
                 return {"error": why}
             pool = list(uids) if uids is not None else [c.uid for c in self._clips]
             scope = self._auto_scope(pool)
+            self._push_undo("AI tự xếp")
             labels = self._plan.get("labels") or {}
             items, below, released = [], 0, 0
             for c in self._clips:
@@ -1489,6 +1553,7 @@ class TrolyApi(object):
             if not batches:
                 return {"error": "Chưa có lần AI tự xếp nào để hoàn tác."}
             last = batches.pop()
+            self._push_undo("AI tự xếp")
             labels = self._plan.get("labels") or {}
             undone, kept = 0, 0
             for it in last["items"]:
@@ -1508,6 +1573,7 @@ class TrolyApi(object):
     def ai_accept(self, pairs):
         """Nhận gợi ý: pairs = [[uid, tên bin]]. Chỉ gán NHÃN trong kế hoạch (by='ai_duyet'); không đụng DaVinci."""
         with self._lock:
+            self._push_undo("Nhận gợi ý AI")
             n, bad = 0, 0
             for u, b in pairs:
                 c = self._by_uid.get(u)
@@ -1678,6 +1744,7 @@ class TrolyApi(object):
             v = self._sug_view(c, lb)
             if not v:
                 return {"error": "Clip này chưa có gợi ý."}
+            self._push_undo("Nhận gợi ý In/Out")
             r = tc.set_manual_inout(self._plan, c, v["in_s"], v["out_s"])
             if not r:
                 return {"error": "Gợi ý không hợp lệ."}
@@ -1703,9 +1770,11 @@ class TrolyApi(object):
             c = self._by_uid.get(uid)
             if c is None:
                 return {"error": "Không thấy clip."}
+            self._push_undo("Xóa In/Out" if (in_s is None or out_s is None) else "Chỉnh In/Out")
             try:
                 r = tc.set_manual_inout(self._plan, c, in_s, out_s)
             except (TypeError, ValueError):
+                self._undo_stack.pop()
                 return {"error": "In/Out không hợp lệ."}
             if r:
                 self._track_edit(c, r[0], r[1])
@@ -1720,6 +1789,7 @@ class TrolyApi(object):
             c = self._by_uid.get(uid)
             if c is None:
                 return {"error": "Không thấy clip."}
+            self._push_undo("Chỉnh nhiều khúc In/Out")
             parsed = []
             try:
                 for sp in (spans or []):
@@ -1729,6 +1799,7 @@ class TrolyApi(object):
                         parsed.append((float(sp[0]), float(sp[1])))
                 res = tc.set_manual_inouts(self._plan, c, parsed)
             except (TypeError, ValueError, KeyError):
+                self._undo_stack.pop()
                 return {"error": "Danh sách In/Out không hợp lệ."}
             if res:
                 self._track_edit(c, res[0][0], res[0][1])
@@ -2001,11 +2072,12 @@ class TrolyApi(object):
     def toggle_star(self, uids):
         """Bật / tắt dấu sao ★ cho danh sách clip uid (phím P hoặc nút bấm)."""
         with self._lock:
-            for uid in uids:
-                c = self._by_uid.get(uid)
-                if c:
+            clips = [self._by_uid.get(uid) for uid in (uids or []) if self._by_uid.get(uid)]
+            if clips:
+                self._push_undo("Gắn/bỏ sao (P)")
+                for c in clips:
                     tc.toggle_star(self._plan, c)
-            self._save_soon()
+                self._save_soon()
         return self.state()
 
     def toggle_mute(self, uids, val=None):
@@ -2013,6 +2085,7 @@ class TrolyApi(object):
         with self._lock:
             clips = [self._by_uid.get(uid) for uid in (uids or []) if self._by_uid.get(uid)]
             if clips:
+                self._push_undo("Bật/tắt tiếng A1 (M)")
                 # Nếu chọn nhiều clip: có ít nhất 1 clip đang bật tiếng -> tắt A1 tất cả; nếu tất cả đã tắt -> bật lại tất cả
                 want = (not all(tc.is_muted(self._plan, c) for c in clips)) if val is None else bool(val)
                 for c in clips:
@@ -2023,11 +2096,12 @@ class TrolyApi(object):
     def toggle_reject(self, uids, val=None):
         """Gắn / bỏ cờ Bỏ (phím X) trong kế hoạch JSON. Không bao giờ đụng file thật hay Media Pool."""
         with self._lock:
-            for uid in (uids or []):
-                c = self._by_uid.get(uid)
-                if c:
+            clips = [self._by_uid.get(uid) for uid in (uids or []) if self._by_uid.get(uid)]
+            if clips:
+                self._push_undo("Đánh dấu/bỏ Bỏ (X)")
+                for c in clips:
                     tc.set_rejected(self._plan, c, val)
-            self._save_soon()
+                self._save_soon()
         return self.state()
 
     def rename_machine(self, key, name):
@@ -2400,6 +2474,7 @@ class TrolyApi(object):
             ok, v = td.check_target(minutes)
             if not ok:
                 return {"error": v}
+            self._push_undo("Đổi mục tiêu thời lượng")
             self._plan.setdefault("durations", {})["target_min"] = v
             self._save_soon()
             return self._dur_view()
@@ -2412,6 +2487,7 @@ class TrolyApi(object):
                 return {"error": "Không có giai đoạn số %s." % index}
             name = self._stages[index]["name"]
             if seconds is None or seconds == "":
+                self._push_undo("Đổi thời lượng cụm")
                 d = self._plan.get("durations") or {}
                 (d.get("stage_s") or {}).pop(name, None)
                 (d.get("bin_s") or {}).pop(name, None)
@@ -2424,6 +2500,7 @@ class TrolyApi(object):
                     return {"error": "Thời lượng giai đoạn phải là số giây (hoặc phút:giây)."}
                 if v != v or v < 0 or v > td.STAGE_MAX_S:
                     return {"error": "Thời lượng giai đoạn từ 0:00 đến %s." % td.mmss(td.STAGE_MAX_S)}
+                self._push_undo("Đổi thời lượng cụm")
                 v = min(v, self._dur_build()["stages"][index]["avail_s"])        # chặn ở cuối thanh
                 d = self._plan.setdefault("durations", {})
                 d.setdefault("stage_s", {})[name] = round(v, 1)
@@ -2444,6 +2521,7 @@ class TrolyApi(object):
                 return {"error": "Không có bin “%s” trong giai đoạn này." % bin_name}
             name = self._stages[stage_i]["name"]
             if seconds is None or seconds == "":
+                self._push_undo("Đổi thời lượng bin")
                 d = self._plan.get("durations") or {}
                 (d.get("bin_s") or {}).get(name, {}).pop(bin_name, None)
             else:
@@ -2453,6 +2531,7 @@ class TrolyApi(object):
                     return {"error": "Số giây của bin phải là số (hoặc phút:giây)."}
                 if v != v or v < 0 or v > td.STAGE_MAX_S:
                     return {"error": "Số giây của bin từ 0:00 đến %s." % td.mmss(td.STAGE_MAX_S)}
+                self._push_undo("Đổi thời lượng bin")
                 take = min(v, b["avail_s"])
                 new_total = min(st["total_s"] - b["total_s"] + take, st["avail_s"])
                 d = self._plan.setdefault("durations", {})
@@ -2462,39 +2541,41 @@ class TrolyApi(object):
             return self._dur_view()
 
     # ---- timeline kéo thả (bản 3, ADR-0013): thứ tự cụm/khối, track V1/V2, tốc độ, tiếng. Chỉ sửa kế hoạch trong panel.
-    def _tl_op(self, fn):
+    def _tl_op(self, fn, label="Chỉnh timeline Bước 5"):
         with self._lock:
             r = self._dur_build()
+            self._push_undo(label)
             err = fn(r)
             if err:
+                self._undo_stack.pop()
                 return {"error": err}
             ttl.tidy(self._plan)
             self._save_soon()
             return self._dur_view()
 
     def dur_tl_move_cluster(self, stage, to_index):
-        return self._tl_op(lambda r: ttl.move_cluster(self._plan, r, stage, to_index))
+        return self._tl_op(lambda r: ttl.move_cluster(self._plan, r, stage, to_index), "Dời cụm sự kiện")
 
     def dur_tl_move_block(self, key, to_cluster, to_index):
-        return self._tl_op(lambda r: ttl.move_block(self._plan, r, key, to_cluster, to_index))
+        return self._tl_op(lambda r: ttl.move_block(self._plan, r, key, to_cluster, to_index), "Dời bin con")
 
     def dur_tl_set_track(self, key, track, at=None):
-        return self._tl_op(lambda r: ttl.set_track(self._plan, r, key, track, at))
+        return self._tl_op(lambda r: ttl.set_track(self._plan, r, key, track, at), "Đổi track V1/V2")
 
     def dur_tl_set_speed(self, kind, name, spec):
         """kind 'stage' | 'block'; spec 100 | 'auto' | số % | None (bỏ đặt riêng)."""
         if kind not in ("stage", "block"):
             return {"error": "Chỉ đặt tốc độ cho cụm mẹ hoặc khối con."}
-        return self._tl_op(lambda r: ttl.set_speed(self._plan, kind, name, spec))
+        return self._tl_op(lambda r: ttl.set_speed(self._plan, kind, name, spec), "Đổi tốc độ khối")
 
     def dur_tl_set_mute(self, kind, name, mute):
         if kind not in ("stage", "block"):
             return {"error": "Chỉ đặt tiếng cho cụm mẹ hoặc khối con."}
-        return self._tl_op(lambda r: ttl.set_mute(self._plan, kind, name, mute))
+        return self._tl_op(lambda r: ttl.set_mute(self._plan, kind, name, mute), "Bật/tắt tiếng khối")
 
     def dur_tl_set_sort(self, mode):
         """Đổi chế độ xếp V1 ở Bước 5: 'chrono' (theo giờ quay thật - Truyền thống) hoặc 'bin' (gom theo bin - PSC)."""
-        return self._tl_op(lambda r: ttl.set_sort_mode(self._plan, mode))
+        return self._tl_op(lambda r: ttl.set_sort_mode(self._plan, mode), "Đổi chế độ xếp Bước 5")
 
     def dur_tl_unslow(self):
         """Gợi ý "Đưa khối Slow về 100%": khối Slow bớt được nhiều nhất trên timeline."""
@@ -2502,8 +2583,10 @@ class TrolyApi(object):
             bu = td.best_unslow(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
             if not bu:
                 return {"error": "Không có khối Slow nào để đưa về 100%."}
+            self._push_undo("Đưa khối Slow về 100%")
             err = ttl.set_speed(self._plan, "block", bu[0], 100)
             if err:
+                self._undo_stack.pop()
                 return {"error": err}
             self._save_soon()
             return self._dur_view()
@@ -2518,13 +2601,14 @@ class TrolyApi(object):
 
     def dur_tl_reset(self):
         """"Xếp lại theo giờ quay": bỏ thứ tự cụm/khối, V2 và vị trí đã xếp tay (giữ tốc độ, tiếng). Giao diện đã hỏi xác nhận nếu đã xếp tay."""
-        return self._tl_op(lambda r: ttl.reset_order(self._plan))
+        return self._tl_op(lambda r: ttl.reset_order(self._plan), "Xếp lại theo giờ quay")
 
     def dur_toggle_lock(self, index):
         """Ổ khóa: khóa giữ nguyên số giây hiện tại của giai đoạn (các giai đoạn khác co giãn); bấm lại thì mở khóa và giai đoạn co giãn trở lại."""
         with self._lock:
             if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(self._stages):
                 return {"error": "Không có giai đoạn số %s." % index}
+            self._push_undo("Khóa/mở thời lượng cụm")
             name = self._stages[index]["name"]
             d = self._plan.setdefault("durations", {})
             locked = d.setdefault("locked", [])
@@ -2543,6 +2627,7 @@ class TrolyApi(object):
             return self._dur_view()
 
     def _dur_apply(self, durations):
+        self._push_undo("Điều chỉnh thời lượng Bước 5")
         self._plan["durations"] = durations
         self._save_soon()
         return self._dur_view()
@@ -2668,6 +2753,7 @@ class TrolyApi(object):
                 return chk
             if chk["same"]:
                 return {"ok": True, "same": True}
+            self._push_undo("Đổi tên %s" % ("giai đoạn" if kind == "stage" else "bin con"))
             self._recount()
             cur = self._stages[i]["name"] if kind == "stage" else old
             old_cid = None
@@ -2925,6 +3011,7 @@ class TrolyApi(object):
             c = self._by_uid.get(uid)
             if c is None:
                 return {"error": "Không thấy clip."}
+            self._push_undo("Xóa In/Out lời nói" if (in_s is None or out_s is None) else "Chỉnh In/Out lời nói")
             d = self._plan.setdefault("inout", {})
             ds = self._plan.get("inouts")
             if isinstance(ds, dict):

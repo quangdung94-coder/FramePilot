@@ -619,15 +619,11 @@ plAttachHoverScrub($("plSeek"));
     if (page !== 2 || e.buttons || e.ctrlKey || e.shiftKey) return;
     const th = e.target.closest(".thumb"), card = e.target.closest(".card");
     if (!th || !card) { line.style.display = "none"; return; }
+    // Hướng A (chuẩn DaVinci / Explorer): rê chuột trên lưới CHỈ scrub xem hình clip đang chọn,
+    // KHÔNG tự gọi moveCur() để tránh cướp mốc gốc (anchor) khi anh chuẩn bị giữ Shift chọn nhiều file.
     if (curCard !== card) {
       clearTimeout(hoverTimer);
       curCard = card; curThumb = th;
-      const idx = +card.dataset.i;
-      if (idx !== cur && sel.size <= 1) {
-        hoverTimer = setTimeout(() => {
-          if (curCard === card && sel.size <= 1 && typeof moveCur === "function") { moveCur(idx); flush(); }
-        }, 120);
-      }
     }
     lx = e.clientX;
     if (!pend) { pend = true; requestAnimationFrame(flush); }

@@ -1,5 +1,13 @@
 # Nhật ký thay đổi
 
+## 2026-11-22 – `Ctrl+Z` / `Ctrl+Y` 50 bước cho mọi thao tác nhỏ (cả 5 trang) & Sửa giữ `Shift` chọn nhiều file Bước 2 (Hướng A), CHỜ ANH THỬ
+- **Hoàn tác / Làm lại 50 bước (`troly_api.py`, `app.js`, `index.html`):**
+  - Thêm ngăn xếp `_undo_stack` / `_redo_stack` (tối đa 50 bước) cho mọi thao tác nhỏ trên cả 5 trang (đặt/xóa mốc Bước 1, xếp bin `1–9`/chuyển giai đoạn/gắn sao `P`/bỏ `X`/AI tự xếp Bước 2, chỉnh In-Out đơn & đa khúc Bước 3–4, bật/tắt tiếng A1 phím `M`, kéo bin/đổi track/tốc độ/thời lượng Bước 5...).
+  - Bấm `Ctrl+Z` hoàn tác ngay thao tác nhỏ vừa làm; `Ctrl+Y` (hoặc `Ctrl+Shift+Z`) làm lại. Tách riêng hoàn tác lớn trên DaVinci (`Hoàn tác áp dụng`, `Khôi phục In/Out`) để không bị kích nhầm.
+- **Chọn nhiều file Bước 2 (`player.js`, `app.js`, `style.css`):**
+  - Hướng A: tách `Hover Scrub` khỏi `moveCur()` để rê chuột trên lưới không tự cướp mốc chọn (`anchor`) trước khi giữ `Shift+Click`.
+  - Chặn `dragstart` khi đang giữ `Shift`/`Ctrl`, dùng `event.code` cho phím mũi tên, làm rõ viền/nền `.card.picked` + hiện nhãn **`Đang chọn N clip · Esc bỏ chọn`** ngay đầu lưới.
+
 ## 2026-11-22 – Sửa triệt để lỗi cụm cuối bị đứng 1 tấm hình (DaVinci `CreateTimelineFromClips` lệch offset âm khi 1 clip cắt 2 khúc `Shift+I/O`), XONG (anh đã thử OK)
 - `troly_resolve.py`: tách danh sách đoạn `V1` thành từng lô không trùng `mediaPoolItem` trong cùng 1 lời gọi `CreateTimelineFromClips` / `AppendToTimeline` (tránh lỗi C++ trong DaVinci Resolve 21.1.1 làm lệch toàn bộ clip sau khúc lặp `Shift+I/O` với `LeftOffset` âm hàng nghìn frame khiến mọi clip phía sau bị đứng thành 1 tấm hình).
 - `troly_resolve.py`: bổ sung bước kiểm tra `GetLeftOffset() < 0` ngay sau khi tạo timeline trong `_finish_layout` để cảnh báo ngay nếu DaVinci sinh offset âm.

@@ -718,7 +718,7 @@ function renderPage2(rebuild) {
   if (!S) { $("pool").innerHTML = ""; $("grid").innerHTML = ""; return; }
   renderPool();
   const s = stageObj();
-  $("gridTitle").textContent = (viewLabel() || "Chưa chọn giai đoạn") + (S.n && gStage !== null ? ` (${viewUids().length} clip)` : "");
+  updateSelTitle();
   const nk = s ? s.bins.filter((b) => b.key).length : 0;
   renderPage2b(s, nk, rebuild);
 }
@@ -785,6 +785,11 @@ function renderGrid() {
     </div>`).join("") : `<div class="empty">${S && S.n ? "Không có clip." : 'Bấm "Đọc clip" ở bước 1 trước.'}</div>`;
   observeCards();
 }
+function updateSelTitle() {
+  if (!S) return;
+  const base = (viewLabel() || "Chưa chọn giai đoạn") + (S.n && gStage !== null ? ` (${viewUids().length} clip)` : "");
+  $("gridTitle").innerHTML = esc(base) + (sel.size > 1 ? ` <span class="sel-pill">Đang chọn ${sel.size} clip · Esc bỏ chọn</span>` : "");
+}
 function patchGrid() {
   document.querySelectorAll("#grid .card").forEach((el) => {
     const i = +el.dataset.i, c = items[i]; if (!c) return;
@@ -797,6 +802,7 @@ function patchGrid() {
     const key = cardKey(c);
     if (el.dataset.label !== key) { el.dataset.label = key; el.querySelector(".tag").outerHTML = tagHtml(c); }
   });
+  updateSelTitle();
 }
 let io = null, wantTimer = null;
 const visible = new Set();
@@ -936,21 +942,31 @@ $("keyList").addEventListener("click", (e) => {
   const k = e.target.closest(".ks"); if (k) moveSel(+k.dataset.stage, null);
 });
 $("grid").addEventListener("mousedown", (e) => {
-  if (e.shiftKey || e.ctrlKey) e.preventDefault();          // Shift/Ctrl + bấm: không để trình duyệt tự bôi chọn chữ/ảnh
-  cancelPending();                                           // bấm chuột chọn ô khác: kết thúc chế độ chờ bin con
+  if (e.shiftKey || e.ctrlKey || e.metaKey) e.preventDefault(); // Shift/Ctrl + bấm: không để trình duyệt tự bôi chọn chữ/ảnh hoặc nuốt click
+  cancelPending();                                               // bấm chuột chọn ô khác: kết thúc chế độ chờ bin con
 });
 $("grid").addEventListener("selectstart", (e) => e.preventDefault());
 $("grid").addEventListener("click", (e) => {
   const card = e.target.closest(".card"); if (!card) return;
   const i = +card.dataset.i;
   $("gridScroll").focus();
-  if (e.shiftKey) { sel = new Set(e.ctrlKey ? sel : []); for (let k = Math.min(anchor, i); k <= Math.max(anchor, i); k++) sel.add(k); moveCur(i, false, true); }
-  else if (e.ctrlKey) { sel.has(i) ? sel.delete(i) : sel.add(i); anchor = i; moveCur(i, false, true); }
-  else moveCur(i);
+  if (e.shiftKey) {
+    const a = (anchor != null && anchor >= 0 && anchor < items.length) ? anchor : cur;
+    sel = new Set((e.ctrlKey || e.metaKey) ? sel : []);
+    for (let k = Math.min(a, i); k <= Math.max(a, i); k++) sel.add(k);
+    moveCur(i, false, true);
+  } else if (e.ctrlKey || e.metaKey) {
+    if (sel.has(i) && sel.size > 1) sel.delete(i); else sel.add(i);
+    anchor = i;
+    moveCur(i, false, true);
+  } else {
+    moveCur(i);
+  }
 });
 $("grid").addEventListener("dblclick", () => reveal());
 /* kéo thả: kéo một hoặc nhiều thumbnail đang chọn, thả vào bin giai đoạn (đổi giai đoạn) hoặc bin con (+ nhãn) */
 $("grid").addEventListener("dragstart", (e) => {
+  if (e.shiftKey || e.ctrlKey || e.metaKey) { e.preventDefault(); return; } // giữ Shift/Ctrl để chọn nhiều, không kéo nhầm
   const card = e.target.closest(".card"); if (!card) return;
   const i = +card.dataset.i;
   if (!sel.has(i)) { sel = new Set([i]); cur = i; anchor = i; patchGrid(); }
@@ -1152,6 +1168,24 @@ async function finishPending(binName) {
   status(binName ? `Đã xếp ${uids.length} clip vào ${S.stages[si].bin} › ${binName}.` : `Đã bỏ nhãn ${uids.length} clip.`, "ok");
 }
 
+async function doPlanUndoRedo(isRedo) {
+  const r = await (isRedo ? api().plan_redo() : api().plan_undo());
+  if (!r || r.empty) {
+    status(isRedo ? "Không còn thao tác nào để làm lại (Ctrl+Y)." : "Chưa có thao tác nhỏ nào để hoàn tác (Ctrl+Z).", "info");
+    return;
+  }
+  const info = isRedo ? r.redo_info : r.undo_info;
+  setState(r);
+  if (page === 5 && typeof renderPage5 === "function") renderPage5();
+  if (page === 4 && typeof lnRefresh === "function") {
+    await lnRefresh();
+    if (typeof LN !== "undefined" && LN.uid && typeof lnSelect === "function") lnSelect(LN.uid);
+  }
+  if (info) {
+    const left = isRedo ? info.n_redo : info.n_undo;
+    status(`${isRedo ? "Đã làm lại" : "Đã hoàn tác"}: ${info.action}${left ? ` (còn ${left} bước)` : ""}.`, "ok");
+  }
+}
 document.addEventListener("keydown", (e) => {
   if (F_BLOCK.has(e.code) && !e.ctrlKey && !e.altKey && !e.metaKey) e.preventDefault();   // không để F1/F5/F11/F12 làm việc của trình duyệt
   if (!$("modal").classList.contains("hidden")) {
@@ -1171,16 +1205,20 @@ document.addEventListener("keydown", (e) => {
     if (typeof openHelpModal === "function") openHelpModal();
     return;
   }
-  if (e.ctrlKey && !e.altKey && !e.metaKey && e.code === "KeyZ") {
+  if (e.ctrlKey && !e.altKey && !e.metaKey && (e.code === "KeyZ" || e.code === "KeyY")) {
     if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
     e.preventDefault();
-    if (page === 3) return $("ioUndo").click();
-    if (S && S.moves && S.moves.length) { confirmUndo(); return; }
-    status("Chưa có thao tác nào để hoàn tác (Ctrl+Z).", "info");
+    const isRedo = e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey);
+    doPlanUndoRedo(isRedo);
     return;
   }
   if (page === 1) { if (e.key === "Escape") { if (selUid) { selUid = null; renderGrid1(); renderMeta(); renderTimeline(); } return; } key1(e); return; }
-  if (e.key === "Escape") { $("ctx").classList.add("hidden"); if (pending) { cancelPending(); status("Đã thôi chờ bin con (clip giữ nguyên giai đoạn mới).", "info"); } return; }
+  if (e.key === "Escape") {
+    $("ctx").classList.add("hidden");
+    if (pending) { cancelPending(); status("Đã thôi chờ bin con (clip giữ nguyên giai đoạn mới).", "info"); return; }
+    if (page === 2 && sel.size > 1) { sel = new Set([cur]); anchor = cur; patchGrid(); showCur(); return; }
+    return;
+  }
   if (page === 4) { lnKey(e); return; }
   if (page === 3) {                                                  // Bước 3: P sao, 4 phím mũi tên di chuyển source, Enter; số KHÔNG xếp bin ở đây
     if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.altKey || e.metaKey) return;
@@ -1222,7 +1260,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (d !== null && e.shiftKey) { e.preventDefault(); status("Đã đổi phím: giai đoạn chọn bằng F1–F12, rồi bấm số bin con.", "info"); return; }
-  const dir = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols(), ArrowDown: cols() }[e.key];
+  const dir = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols(), ArrowDown: cols() }[e.code];
   if (dir) { cancelPending(); e.preventDefault(); moveCur(cur + dir, e.shiftKey); return; }
   if (e.ctrlKey && e.code === "KeyA") { cancelPending(); e.preventDefault(); sel = new Set(items.map((_, i) => i)); patchGrid(); showCur(); return; }
   if (e.key === "Enter") { e.preventDefault(); reveal(); return; }
