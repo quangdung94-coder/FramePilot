@@ -186,7 +186,7 @@ TRAD_HEAD_S, TRAD_TAIL_S = 1.5, 1.5               # Truyền thống: chỉ gợ
 # Bộ mặc định theo số đo thật (ADR-0021, anh duyệt 18/11/2026): p25–p75 độ dài anh giữ trên timeline thành phẩm, làm tròn 0,5s. Cột: từ khóa nhãn bin, chữ giải thích,
 # giữ tối thiểu (giây), tối đa (giây; None = không giới hạn), trọn câu (giữ đến gần hết clip, không chặn tối đa).
 BUILTIN_RULES = (
-    (("decor", "chi tiết", "trang trí", "không gian", "sảnh tiệc", "sân khấu led"), "Decor/Không gian: 3.0s ổn định", 3.0, 3.0, False),
+    (("decor", "chi tiết", "trang trí", "không gian", "sảnh tiệc", "sân khấu led"), "Decor: 3.0s ổn định", 3.0, 3.0, False),
     (("logo", "sản phẩm", "thương hiệu", "booth", "flycam"), "Logo/Sản phẩm/Flycam: giữ 2.5–4s", 2.5, 4.0, False),
     (("phỏng vấn",), "Phỏng vấn: trích 4–8.5s", 4.0, 8.5, False),                 # ADR-0021: anh chỉ trích ~7s từ clip dài, không giữ trọn câu
     (("chúc thọ", "phát biểu", "keynote", "tọa đàm"), "Phát biểu/Chúc thọ: trích 4–8.5s", 4.0, 8.5, False),
@@ -339,13 +339,13 @@ def suggest_inout(dur, label=None, style="", rules=None, trad_trim=None, trad_bi
         head, tail = h, t
         return {"in_s": round(head, 2), "out_s": round(dur - tail, 2), "dur": round(dur - head - tail, 2),
                 "rule": "Truyền thống: giữ dài, cắt %.1fs đầu và %.1fs đuôi" % (head, tail)}
-    if style == "teaser":
+    rule, mn, mx, whole, _ed = rule_for(label, rules)
+    if style == "teaser" and not _ed:
         a = min(0.8, max(0.0, dur - 1.5))
         keep = min(2.0, max(1.0, dur - a - 0.3))
         b = min(dur, a + keep)
         return {"in_s": round(a, 2), "out_s": round(b, 2), "dur": round(b - a, 2),
                 "rule": "Teaser: cắt siêu gọn %.1fs nhịp nhanh" % (b - a)}
-    rule, mn, mx, whole, _ed = rule_for(label, rules)
     if whole:
         trim = max(mn, dur - 1.0)
     else:

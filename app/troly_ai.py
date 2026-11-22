@@ -40,7 +40,7 @@ THUMB_WIDTH = 320
 
 def _root():
     import troly_env
-    return troly_env.data_root() or r"D:\VideoAI\data", (troly_env.config().get("proxy_root") or r"F:\02_Proxy Media")
+    return troly_env.default_data_root(), (troly_env.config().get("proxy_root") or "")
 
 
 def _norm(s):
@@ -953,7 +953,8 @@ def rank_for_clip(key, cand_bins, vectors, labeled, desc, k=KNN_K, temp=KNN_TEMP
 
 
 def ai_python(cfg_value=None):
-    return cfg_value or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+    import troly_env
+    return troly_env.ai_python(cfg_value)
 
 
 class AiJob(object):

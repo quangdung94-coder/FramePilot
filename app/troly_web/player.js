@@ -490,6 +490,10 @@ function plToggle() {
   }
   if (PL.vid.paused) PL.vid.play(); else PL.vid.pause();
 }
+function plRecEl() {
+  if (!PL.recAud) { PL.recAud = document.createElement("audio"); PL.recAud.preload = "auto"; }
+  return PL.recAud;
+}
 function plRecStop() {
   if (PL.recAud) { try { PL.recAud.pause(); PL.recAud.removeAttribute("src"); PL.recAud.load(); } catch (e) {} }
   PL.recOff = 0; PL.recOn = false;
@@ -557,8 +561,7 @@ async function plOpen(c) {                                    // gọi từ show
   PL.t0 = performance.now();                                    // đo thời gian từ lúc mở tới có hình (nút Đo lướt báo lại)
   v.src = r.url;
   if (r.rec_url) {
-    if (!PL.recAud) { PL.recAud = document.createElement("audio"); PL.recAud.preload = "auto"; }
-    PL.recAud.src = r.rec_url;
+    plRecEl().src = r.rec_url;
     PL.recOff = Number(r.rec_offset || 0);
     PL.recOn = true;
     v.muted = true;

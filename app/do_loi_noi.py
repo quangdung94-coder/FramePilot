@@ -17,7 +17,8 @@ import troly_speech as sp   # noqa: E402
 
 
 def whisper_cfg():
-    """Cấu hình whisper: config.json của dự án (khóa "whisper"); chưa có thì dùng mặc định đã thử 04/11/2026."""
+    """Cấu hình whisper: config.json của dự án (khóa "whisper"); chưa có thì dùng mặc định chuẩn hóa."""
+    import troly_env
     p = os.path.join(os.path.dirname(HERE), "config.json")
     cfg = {}
     try:
@@ -25,8 +26,8 @@ def whisper_cfg():
             cfg = (json.load(f).get("whisper") or {})
     except (OSError, ValueError):
         pass
-    cfg.setdefault("exe", r"D:\VideoAI\tools\whisper\constme\cli\main.exe")
-    cfg.setdefault("model", r"E:\Kho dữ liệu\Tài nguyên\WhisperDesktop_SUB_AUTO\ggml-medium.bin")
+    cfg.setdefault("exe", troly_env.constme_exe())
+    cfg.setdefault("model", troly_env.constme_model())
     return cfg
 
 

@@ -911,6 +911,7 @@ class TrolyWorker(threading.Thread):
             return
         self._miss += 1
         if self._miss >= 2:
+            self._miss = 0
             self._watch_stopped = True
             self.post("project_closed", cur_name)
 

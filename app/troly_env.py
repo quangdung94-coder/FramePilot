@@ -22,6 +22,106 @@ else:
 CONFIG = os.path.join(ROOT, "config.json")
 
 
+def ensure_tools_path():
+    """Đưa các thư mục công cụ đi kèm (tools/ffmpeg, ...) vào PATH để ffmpeg/ffprobe chạy được trên máy mới chưa cài sẵn PATH."""
+    cands = [
+        os.path.join(ROOT, "tools", "ffmpeg"),
+        os.path.join(APP, "tools", "ffmpeg"),
+        os.path.join(ROOT, "tools"),
+        r"D:\VideoAI\tools\ffmpeg",
+        r"C:\VideoAI\tools\ffmpeg",
+    ]
+    cur = os.environ.get("PATH") or ""
+    parts = [p for p in cur.split(os.pathsep) if p]
+    low = {os.path.normcase(os.path.abspath(p)) for p in parts}
+    added = []
+    for d in cands:
+        if os.path.isdir(d):
+            nd = os.path.normcase(os.path.abspath(d))
+            if nd not in low:
+                added.append(d)
+                low.add(nd)
+    if added:
+        os.environ["PATH"] = os.pathsep.join(added + parts)
+
+
+ensure_tools_path()
+
+
+def default_data_root(cfg=None):
+    """Đường dẫn data_root từ config hoặc thư mục data mặc định trên máy hiện tại (không phụ thuộc ổ D: nếu máy chỉ có ổ C:)."""
+    c = cfg if isinstance(cfg, dict) else config()
+    v = c.get("data_root")
+    if v:
+        return v
+    if os.path.isdir(r"D:\VideoAI\data"):
+        return r"D:\VideoAI\data"
+    return os.path.join(ROOT, "data")
+
+
+def ai_python(cfg_value=None, cfg=None):
+    """Tìm Python của môi trường AI theo thứ tự: tham số -> config.ai_python -> ai_env đóng gói kèm -> C:\\VideoAI_ai_venv -> C:\\VideoAI_venv."""
+    if cfg_value and os.path.isfile(cfg_value):
+        return cfg_value
+    c = cfg if isinstance(cfg, dict) else config()
+    cands = [
+        cfg_value,
+        c.get("ai_python"),
+        os.path.join(ROOT, "ai_env", "Scripts", "python.exe"),
+        os.path.join(ROOT, "ai_env", "python.exe"),
+        r"C:\VideoAI_ai_venv\Scripts\python.exe",
+        r"C:\VideoAI_ai_venv\python.exe",
+        r"C:\VideoAI_venv\Scripts\python.exe",
+    ]
+    for p in cands:
+        if p and os.path.isfile(p):
+            return p
+    return cfg_value or c.get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+
+
+def vad_python(cfg=None):
+    """Tìm Python có silero-vad cho troly_vad_worker.py (ưu tiên config.python / ai_env / VideoAI_venv / VideoAI_ai_venv)."""
+    c = cfg if isinstance(cfg, dict) else config()
+    cands = [
+        c.get("python"),
+        os.path.join(ROOT, "ai_env", "Scripts", "python.exe"),
+        os.path.join(ROOT, "ai_env", "python.exe"),
+        r"C:\VideoAI_venv\Scripts\python.exe",
+        c.get("ai_python"),
+        r"C:\VideoAI_ai_venv\Scripts\python.exe",
+        r"C:\VideoAI_ai_venv\python.exe",
+    ]
+    for p in cands:
+        if p and os.path.isfile(p):
+            return p
+    return None
+
+
+def constme_exe():
+    """Đường dẫn Const-me Whisper CLI dự phòng (ưu tiên thư mục đóng gói cạnh app)."""
+    for p in (
+        os.path.join(ROOT, "tools", "whisper", "constme", "cli", "main.exe"),
+        r"D:\VideoAI\tools\whisper\constme\cli\main.exe",
+        r"C:\VideoAI\tools\whisper\constme\cli\main.exe",
+    ):
+        if os.path.isfile(p):
+            return p
+    return os.path.join(ROOT, "tools", "whisper", "constme", "cli", "main.exe")
+
+
+def constme_model(droot=None):
+    """Đường dẫn model ggml-medium.bin cho Const-me Whisper (không chứa đường dẫn cá nhân)."""
+    base = droot or default_data_root()
+    for p in (
+        os.path.join(base, "models", "ggml-medium.bin"),
+        os.path.join(ROOT, "models", "ggml-medium.bin"),
+        r"D:\VideoAI\data\models\ggml-medium.bin",
+    ):
+        if os.path.isfile(p):
+            return p
+    return os.path.join(base, "models", "ggml-medium.bin")
+
+
 def config_path():
     """config.json mặc định ở thư mục gốc; biến môi trường TROLY_CONFIG trỏ sang file khác (dùng để thử panel trên BẢN SAO dữ liệu)."""
     return os.environ.get("TROLY_CONFIG") or CONFIG

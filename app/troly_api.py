@@ -122,6 +122,7 @@ class TrolyApi(object):
             self._handle(*self._q.get())
 
     def _handle(self, kind, data):
+        auto_close_cb = None
         with self._lock:
             if kind == "bins":
                 self._on_bins(*data)
@@ -142,12 +143,13 @@ class TrolyApi(object):
                 self._emit("audio_clips", self.recorder_list())
             elif kind == "project_closed":
                 if self._busy or self._speech_run is not None or self._analyze is not None:
+                    self._worker._watch_stopped = False
                     self._emit("status", {"text": "DaVinci đã đổi/đóng project, nhưng đang chạy dở tác vụ nền nên chưa tự đóng panel.", "kind": "warn"})
                 else:
                     self._save_now()
                     cb = getattr(self, "on_auto_close", None)
                     if callable(cb):
-                        cb(data)
+                        auto_close_cb = cb
             elif kind == "clips":
                 self._on_clips(*data)
             elif kind == "applied":
@@ -196,6 +198,8 @@ class TrolyApi(object):
                     self._apply_source()
                     self._emit("state", self.state())
                 self._emit("status", {"text": "Lỗi (%s): %s" % (job, msg), "kind": "error"})
+        if auto_close_cb is not None:
+            auto_close_cb(data)
 
     def _save_soon(self):
         """Giữ tên cũ cho các chỗ gọi: nay LƯU NGAY (ghi nguyên tử, giữ .bak). Kế hoạch chỉ vài trăm KB nên ghi mỗi lần
@@ -241,9 +245,15 @@ class TrolyApi(object):
             if len(self._redo_stack) > 50:
                 del self._redo_stack[:-50]
             moves = self._plan.get("moves")
+            io_bak = self._plan.get("inout_backups")
+            a_sync = self._plan.get("audio_sync")
             self._plan = snap
             if moves is not None:
                 self._plan["moves"] = moves
+            if io_bak is not None:
+                self._plan["inout_backups"] = io_bak
+            if a_sync is not None and "audio_sync" not in self._plan:
+                self._plan["audio_sync"] = a_sync
             self._recount()
             self._save_soon()
             st = self.state()
@@ -260,9 +270,15 @@ class TrolyApi(object):
             if len(self._undo_stack) > 50:
                 del self._undo_stack[:-50]
             moves = self._plan.get("moves")
+            io_bak = self._plan.get("inout_backups")
+            a_sync = self._plan.get("audio_sync")
             self._plan = snap
             if moves is not None:
                 self._plan["moves"] = moves
+            if io_bak is not None:
+                self._plan["inout_backups"] = io_bak
+            if a_sync is not None and "audio_sync" not in self._plan:
+                self._plan["audio_sync"] = a_sync
             self._recount()
             self._save_soon()
             st = self.state()
@@ -371,7 +387,7 @@ class TrolyApi(object):
     def init(self):
         """Giao diện đã sẵn sàng: đọc danh sách bin (chạy nền) và trả thông tin ban đầu."""
         self._worker.jobs.put(("bins", None))
-        return {"project": self._project, "version": "v0.2.4", "parsed": self._parse_name(),
+        return {"project": self._project, "version": "v0.4.0 (22h01)", "parsed": self._parse_name(),
                 "ui": self._plan.get("ui") or {}}
 
     def set_shoot_style(self, style):
@@ -2328,7 +2344,7 @@ class TrolyApi(object):
                 return {"error": "Không tìm thấy clip."}
             src, _is_p, _merr = self._media_src(c)
             croot = self._cache_base()
-            droot = self._root or r"D:\VideoAI\data"
+            droot = self._root or te.default_data_root()
         if not src or not os.path.isfile(src):
             return {"error": _merr or "Không tìm thấy file nguồn hoặc proxy của clip."}
         cdir = os.path.join(croot, "cache", "troly_aev", tc._safe(self._project))
@@ -2340,7 +2356,7 @@ class TrolyApi(object):
                     return {"ok": True, "events": json.load(f), "cached": True}
             except (OSError, ValueError):
                 pass
-        py = (te.config() or {}).get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+        py = te.ai_python((te.config() or {}).get("ai_python"))
         mdir = os.path.join(droot, "models", "clap_htsat_unfused")
         worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "troly_audio_events.py")
         if not (os.path.isfile(py) and os.path.isdir(mdir) and os.path.isfile(worker)):
@@ -2382,13 +2398,13 @@ class TrolyApi(object):
             if c is None or st is None:
                 return {"error": "Chưa có clip hoặc kho lời nói."}
             src, _is_p, _merr = self._media_src(c)
-            droot = self._root or r"D:\VideoAI\data"
+            droot = self._root or te.default_data_root()
             lines = st.lines_of(c.rel)
         if not lines:
             return {"error": "Clip này chưa có câu chép lời để tách người nói."}
         if not src or not os.path.isfile(src):
             return {"error": _merr or "Không tìm thấy file nguồn hoặc proxy."}
-        py = (te.config() or {}).get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+        py = te.ai_python((te.config() or {}).get("ai_python"))
         mdir = os.path.join(droot, "models", "wavlm_sv")
         worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "troly_diarize_worker.py")
         if not (os.path.isfile(py) and os.path.isdir(mdir) and os.path.isfile(worker)):
@@ -2928,6 +2944,8 @@ class TrolyApi(object):
                     clip_src = (c.proxy if (c and c.proxy and os.path.isfile(c.proxy)) else None) or it["path"]
                     best = None
                     for rec_rel, (a, env, rdur) in envs.items():
+                        if stop_fn and stop_fn():
+                            break
                         off, conf = tsy.sync_clip_to_recorder(
                             clip_src, a["path"], rec_env=env, rec_dur=rdur,
                             clip_dur=(c.dur if c else None), ffmpeg=self._thumbs.ffmpeg,

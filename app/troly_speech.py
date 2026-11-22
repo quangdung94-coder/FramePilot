@@ -154,8 +154,7 @@ def _load_vad_worker():
     if not os.path.isfile(worker):
         return None, None
     cfg = te.config() or {}
-    candidates = [cfg.get("python"), r"C:\VideoAI_venv\Scripts\python.exe", cfg.get("ai_python")]
-    py = next((p for p in candidates if p and os.path.isfile(p)), None)
+    py = te.vad_python(cfg)
     if not py:
         return None, None
 
@@ -274,7 +273,8 @@ def whisper_cmd(cfg, wav, lang="vi", prompt=None):
 
 def faster_whisper_model_dir(engine, data_root=None):
     """Thư mục model CTranslate2 cục bộ cho Whisper large-v3-turbo hoặc PhoWhisper-medium."""
-    root = data_root or r"D:\VideoAI\data"
+    import troly_env
+    root = data_root or troly_env.default_data_root()
     sub = {"whisper_turbo": "whisper_large_v3_turbo", "phowhisper": "phowhisper_medium_ct2"}.get(engine)
     return os.path.join(root, "models", sub) if sub else ""
 
@@ -474,13 +474,19 @@ def load_whisper_cfg():
     try:
         import troly_env
         full = troly_env.config() or {}
+        data_root = troly_env.default_data_root(full)
+        ai_py = troly_env.ai_python(full.get("ai_python"), full)
+        def_exe = troly_env.constme_exe()
+        def_mod = troly_env.constme_model(data_root)
     except Exception:                                     # noqa: BLE001
         full = {}
+        data_root = r"D:\VideoAI\data"
+        ai_py = r"C:\VideoAI_ai_venv\Scripts\python.exe"
+        def_exe = r"D:\VideoAI\tools\whisper\constme\cli\main.exe"
+        def_mod = os.path.join(data_root, "models", "ggml-medium.bin")
     cfg = dict(full.get("whisper") or {})
-    cfg.setdefault("exe", r"D:\VideoAI\tools\whisper\constme\cli\main.exe")
-    cfg.setdefault("model", r"E:\Kho dữ liệu\Tài nguyên\WhisperDesktop_SUB_AUTO\ggml-medium.bin")
-    data_root = full.get("data_root") or r"D:\VideoAI\data"
-    ai_py = full.get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+    cfg.setdefault("exe", def_exe)
+    cfg.setdefault("model", def_mod)
     want = str(full.get("asr_engine") or cfg.get("engine") or "auto").strip().lower()
     chosen, ct2_dir = "constme", ""
     if want == "auto":

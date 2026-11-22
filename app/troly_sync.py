@@ -26,7 +26,7 @@ def extract_pcm(path, max_sec=180, sr=8000):
         "-f", "f32le", "-",
     ]
     try:
-        p = troly_proc.chay_an(cmd, capture_output=True, timeout=60)
+        p = troly_proc.chay_an(cmd, capture_output=True, timeout=60, tag="speech")
         if p.returncode != 0 or not p.stdout:
             return None
         arr = np.frombuffer(p.stdout, dtype=np.float32)
@@ -80,7 +80,7 @@ def extract_slice_pcm(path, start_s=0.0, dur_s=30.0, sr=8000, ffmpeg=None):
         cmd += ["-ss", "%.3f" % float(start_s)]
     cmd += ["-i", path, "-t", "%.3f" % float(dur_s), "-vn", "-ac", "1", "-ar", str(int(sr)), "-f", "f32le", "-"]
     try:
-        p = troly_proc.chay_an(cmd, capture_output=True, timeout=60)
+        p = troly_proc.chay_an(cmd, capture_output=True, timeout=60, tag="speech")
         if p.returncode != 0 or not p.stdout:
             return None
         arr = np.frombuffer(p.stdout, dtype=np.float32)
@@ -102,7 +102,7 @@ def extract_envelope(path, hop_sr=100, sr=2000, max_sec=None, ffmpeg=None):
         cmd += ["-t", "%.2f" % float(max_sec)]
     cmd += ["-vn", "-ac", "1", "-ar", str(int(sr)), "-f", "f32le", "-"]
     try:
-        p = troly_proc.chay_an(cmd, capture_output=True, timeout=180)
+        p = troly_proc.chay_an(cmd, capture_output=True, timeout=180, tag="speech")
         if p.returncode != 0 or not p.stdout:
             return None, 0.0
         pcm = np.frombuffer(p.stdout, dtype=np.float32)

@@ -1,5 +1,17 @@
 # Nhật ký thay đổi
 
+## 2026-11-22 (22h01) – Rà soát & sửa 5 lỗi + Đóng gói bản sạch `FramePilot.exe` v0.4.0 (22h01) kèm Plugin/Model & Bộ cài thông minh cho máy mới, CHỜ ANH THỬ
+- **Rà soát & Sửa 5 lỗi trong code trước khi đóng gói (`troly_core.py`, `player.js`, `troly_api.py`, `troly_resolve.py`, `troly_sync.py`, `troly_speech.py`, `do_loi_noi.py`):**
+  1. `troly_core.py`: Giữ nguyên nhãn quy tắc mặc định `"Decor: 3.0s ổn định"` cho bộ từ khóa Decor + Event (`không gian`, `sảnh tiệc`, `sân khấu led`) để không phá hợp đồng ADR-0018/0019 (`test_troly_rules_wave` & `test_troly_style`); ưu tiên quy tắc bin người dùng tự sửa ở Bước 3 kể cả khi đang chọn kiểu `Teaser 1:00`.
+  2. `player.js`: Tách hàm tạo thẻ `<audio>` dùng lại 1 lần `plRecEl()` ra ngoài `plOpen()` để giữ đúng kiến trúc tái sử dụng thẻ media đơn (`test_dung_lai_mot_the_video`).
+  3. `troly_api.py` & `troly_resolve.py`: Gọi callback `on_auto_close` (`win.destroy()`) bên ngoài khóa `self._lock` để tránh nguy cơ deadlock luồng GUI khi tự đóng panel; tự bật lại cờ theo dõi `_watch_stopped = False` nếu DaVinci đóng/đổi project đúng lúc panel đang bận tác vụ nền; giữ nguyên `inout_backups` và `audio_sync` khi bấm `Ctrl+Z` / `Ctrl+Y`.
+  4. `troly_sync.py` & `troly_api.py`: Gắn `tag="speech"` cho mọi tiến trình `ffmpeg` đọc đường bao & trích PCM trong sync Recorder 2 tầng và kiểm tra `stop_fn()` ở vòng lặp trong để bấm `Dừng` ngắt ngay lập tức (0 tiến trình mồ côi).
+  5. `troly_env.py`, `troly_speech.py`, `do_loi_noi.py`, `troly_ai.py`, `troly_vision_io.py`: Loại bỏ hoàn toàn đường dẫn cá nhân `E:\Kho dữ liệu\...` trong code và dọn sạch đường dẫn project khách cũ khỏi `config.json`; bổ sung `ensure_tools_path()` tự nhận `tools/ffmpeg` đi kèm và gom đủ `silero-vad` vào `C:\VideoAI_ai_venv` (651/651 unit test đạt 100%).
+- **Đóng gói bản sạch `v0.4.0 (22h01)` & Bộ cài thông minh sang máy khác (`troly_setup.py`, `build_exe.py`, `CaiDat_MayMoi.bat`):**
+  - Bản đóng gói tại `dist/FramePilot/` và `D:\VideoAI\FramePilot_EXE\` sạch 100% (không chứa dữ liệu project cũ hay tên khách hàng).
+  - Đóng gói kèm đầy đủ plugin hỗ trợ (`tools/ffmpeg/ffmpeg.exe`, `ffprobe.exe`, `tools/whisper/constme`), môi trường chạy AI (`ai_env`) và đủ 9 bộ Model AI (`models/`).
+  - Thêm trình cài đặt thông minh `CaiDat_MayMoi.bat` (`troly_setup.py` / `FramePilot.exe --setup`): tự quét máy đích trước khi cài, hiển thị rõ mục nào `[ĐÃ CÓ -> BỎ QUA]` và mục nào `[CHƯA CÓ -> CÀI]`, hỏi xác nhận người dùng trước khi cài và tự động bỏ qua mọi plugin/model đã có sẵn trên máy đích.
+
 ## 2026-11-22 – Đồng bộ 5 kiểu quay/dựng với Bước 5 & Tự đóng panel khi tắt/đổi project DaVinci, CHỜ ANH THỬ
 - **Đồng bộ Kiểu quay / dựng (`troly_core.py`, `troly_dur.py`, `index.html`, `app.js`, `step5.js`):**
   - Đồng bộ 2 chiều dropdown `#styleSel` (thanh trên cùng), `#setStyleSel` (Cài đặt `⚙`) và 5 nút mục tiêu ở Bước 5: `Teaser 1:00`, `Highlight 4:00`, `Event 5:00`, `Phóng sự 10:00`, `Truyền thống 18:00`, kèm khoảng cảnh báo gợi ý riêng từng kiểu.

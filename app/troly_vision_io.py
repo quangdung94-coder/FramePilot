@@ -32,10 +32,12 @@ def analyze_proxy_faces(proxy_path, timestamps, ai_python=None, model_path=None)
     try:
         import troly_env
         cfg = troly_env.config() or {}
+        py = ai_python or troly_env.ai_python(cfg.get("ai_python"), cfg)
+        droot = troly_env.default_data_root(cfg)
     except Exception:                                     # noqa: BLE001
         cfg = {}
-    py = ai_python or cfg.get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
-    droot = cfg.get("data_root") or r"D:\VideoAI\data"
+        py = ai_python or r"C:\VideoAI_ai_venv\Scripts\python.exe"
+        droot = r"D:\VideoAI\data"
     mp_model = model_path or os.path.join(droot, "models", "mediapipe", "face_landmarker.task")
     worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "troly_face_worker.py")
     if not (os.path.isfile(py) and os.path.isfile(mp_model) and os.path.isfile(worker)):

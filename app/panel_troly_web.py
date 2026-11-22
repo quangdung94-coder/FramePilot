@@ -1,5 +1,5 @@
 r"""
-panel_troly_web.py - FramePilot (trước 18/11/2026 tên là "Trợ lý File Quay") v0.2.0, giao diện HTML (ADR-0010, người dựng duyệt 15/11/2026).
+panel_troly_web.py - FramePilot (trước 18/11/2026 tên là "Trợ lý File Quay") v0.4.0 (22/11/2026 22h01), giao diện HTML (ADR-0010, người dựng duyệt 15/11/2026).
 
 Mở cửa sổ pywebview (WebView2 của Windows) hiển thị src\troly_web\index.html; chức năng ở troly_api.TrolyApi
 (JavaScript gọi qua window.pywebview.api). Menu DaVinci "FramePilot" mở file này (cài bằng install.py ở thư mục gốc).
@@ -49,6 +49,9 @@ def fail(msg):
 
 
 def main():
+    if "--setup" in sys.argv:
+        import troly_setup
+        sys.exit(troly_setup.main(sys.argv[1:]))
     import argparse
     a_ = argparse.ArgumentParser(description="FramePilot (giao diện HTML)")
     a_.add_argument("--project", help="tên project đang mở trong DaVinci")
