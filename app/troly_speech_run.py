@@ -81,11 +81,15 @@ class SpeechRun(object):
                 group = todo[b0:b0 + self.batch]
                 preps = {}
                 for j, it in enumerate(group):
+                    if self.stop:
+                        break
                     k, sig = it["key"], sigs[it["key"]]
                     try:
                         if sig is None:
                             raise RuntimeError("không thấy file")
                         p = sp.prepare_clip(it["path"], self.vad, tmp, "c%d" % j, self.ffmpeg, self.max_gain)
+                        if self.stop:
+                            break
                         if p["wav"]:
                             preps[k] = p
                         else:                                       # không có tiếng người: im lặng
@@ -94,12 +98,14 @@ class SpeechRun(object):
                             n_done += 1
                             self._progress(n_done, len(todo))
                     except Exception as e:                          # noqa: BLE001
+                        if self.stop:
+                            break
                         self.store.put_error(k, it.get("uid"), it.get("name"), sig, it.get("tc"), "pre", e)
                         self.log("LỖI (trước khi chép) %s: %s" % (k, str(e)[:120]))
                         n_done += 1
                         self._progress(n_done, len(todo))
                 by_key = {it["key"]: it for it in group}
-                if preps:
+                if preps and not self.stop:
                     n_done = self._whisper_group(preps, by_key, sigs, lang, n_done, len(todo))
                 self._cleanup(tmp)
         finally:

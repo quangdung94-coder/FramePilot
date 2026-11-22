@@ -81,7 +81,7 @@ def extract_wav(src, out_wav, ffmpeg="ffmpeg"):
            "-ar", str(RATE), "-c:a", "pcm_s16le", out_wav]
     try:
         r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW,
-                               timeout=EXTRACT_TIMEOUT_S)
+                               timeout=EXTRACT_TIMEOUT_S, tag="speech")
     except subprocess.TimeoutExpired:
         raise RuntimeError("ffmpeg trích âm quá %d giây (file hỏng?), bỏ qua clip này." % EXTRACT_TIMEOUT_S)
     if r.returncode != 0 or not os.path.isfile(out_wav):
@@ -161,7 +161,7 @@ def _load_vad_worker():
                 f.write(x.astype("<i2", copy=False).tobytes())
             r = troly_proc.chay_an(
                 [py, "-X", "utf8", worker, "--pcm", pcm, "--rate", str(RATE)],
-                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, tag="speech",
             )
             if r.returncode != 0:
                 raise RuntimeError("Lỗi silero-vad worker: %s" % (r.stderr or "")[-200:])
@@ -295,7 +295,7 @@ def _run_faster_whisper_batch(cfg, wavs, lang="vi", prompt=None):
     lim = WHISPER_TIMEOUT_S * max(1, len(wavs))
     try:
         r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                               creationflags=NO_WINDOW, timeout=lim)
+                               creationflags=NO_WINDOW, timeout=lim, tag="speech")
     except subprocess.TimeoutExpired:
         raise RuntimeError("Whisper AI chạy quá %d giây, đã dừng." % lim)
     took = time.time() - t
@@ -319,7 +319,7 @@ def whisper_run(cfg, wav, lang="vi", prompt=None):
     t = time.time()
     try:
         r = troly_proc.chay_an(whisper_cmd(cfg, wav, lang, prompt), capture_output=True, text=True, encoding="utf-8",
-                               errors="replace", creationflags=NO_WINDOW, timeout=WHISPER_TIMEOUT_S)
+                               errors="replace", creationflags=NO_WINDOW, timeout=WHISPER_TIMEOUT_S, tag="speech")
     except subprocess.TimeoutExpired:
         raise RuntimeError("Whisper chạy quá %d giây, đã dừng." % WHISPER_TIMEOUT_S)
     took = time.time() - t
@@ -421,7 +421,7 @@ def whisper_batch(cfg, wavs, lang="vi", prompt=None):
     t = time.time()
     lim = WHISPER_TIMEOUT_S * max(1, len(wavs))
     try:
-        r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW, timeout=lim)
+        r = troly_proc.chay_an(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW, timeout=lim, tag="speech")
     except subprocess.TimeoutExpired:
         r = None                                      # vẫn đọc các SRT đã xong (và xóa hết SRT) ở dưới
     took = time.time() - t

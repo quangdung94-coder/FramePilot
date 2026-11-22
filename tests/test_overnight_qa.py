@@ -197,9 +197,54 @@ class TestOvernightQAReporterAndWatchdog(unittest.TestCase):
 
         with open(os.path.join(repo, "build_exe.py"), encoding="utf-8") as f:
             be_src = f.read()
-        self.assertIn("troly_vad_worker.py", be_src)
-        self.assertIn("wedding_phrases.json", be_src)
-        self.assertTrue(os.path.isfile(os.path.join(repo, "app", "troly_vad_worker.py")))
+        for needed in (
+            "troly_asr_worker.py",
+            "troly_face_worker.py",
+            "troly_audio_events.py",
+            "troly_diarize_worker.py",
+            "troly_vad_worker.py",
+            "troly_ai.py",
+            "troly_thumbs.py",
+            "troly_core.py",
+            "troly_env.py",
+            "troly_proc.py",
+            "troly_src.py",
+            "wedding_phrases.json",
+        ):
+            self.assertIn(needed, be_src, f"build_exe.py missing {needed}")
+            self.assertTrue(os.path.isfile(os.path.join(repo, "app", needed)))
+
+        self.assertIn("if (bks.length > 40)", js_src)
+
+    def test_troly_proc_cancellable_group_kills_immediately(self):
+        import sys
+        import threading
+        import time
+        repo = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        app_dir = os.path.join(repo, "app")
+        if app_dir not in sys.path:
+            sys.path.insert(0, app_dir)
+        import troly_proc
+
+        done = {}
+        t0 = time.time()
+
+        def run_sleep():
+            r = troly_proc.chay_an(
+                [sys.executable, "-c", "import time; time.sleep(30)"],
+                capture_output=True,
+                timeout=35,
+                tag="qa_cancel_test",
+            )
+            done["rc"] = r.returncode
+
+        th = threading.Thread(target=run_sleep, daemon=True)
+        th.start()
+        time.sleep(0.5)
+        troly_proc.huy_nhom("qa_cancel_test")
+        th.join(timeout=4.0)
+        self.assertFalse(th.is_alive(), "Tiến trình con không bị ngắt ngay khi gọi huy_nhom")
+        self.assertLess(time.time() - t0, 5.0)
 
 
 if __name__ == "__main__":

@@ -1270,7 +1270,12 @@ async function showCur() {
   if (bigs[uid]) { showImg(bigs[uid]); return; }
   if (thumbs[uid]) showImg(thumbs[uid]); else if (!$("preview").querySelector("video")) $("preview").innerHTML = "<span>Đang làm hình xem trước...</span>";
   const r = await api().big(uid);
-  if (r && r.src) { bigs[uid] = r.src; notes[uid] = notes[uid] || r.note; }
+  if (r && r.src) {
+    bigs[uid] = r.src;
+    const bks = Object.keys(bigs);
+    if (bks.length > 40) delete bigs[bks[0]];
+    notes[uid] = notes[uid] || r.note;
+  }
   if (items[cur] && items[cur].uid === uid && bigs[uid]) showImg(bigs[uid]);
 }
 

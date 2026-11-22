@@ -923,23 +923,45 @@ class AiJob(object):
         if os.path.isfile(stop):
             os.remove(stop)
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        self._proc = troly_proc.mo_an([self.python, "-X", "utf8", os.path.join(APP, "troly_ai.py"), "run", "--project", self.project],
-                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
+        log_dir = os.path.join(self.root, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        err_path = os.path.join(log_dir, "ai_embed_%s.err.log" % hashlib.sha1(self.project.encode("utf-8")).hexdigest()[:8])
+        err_f = open(err_path, "wb")
+        try:
+            self._proc = troly_proc.mo_an([self.python, "-X", "utf8", os.path.join(APP, "troly_ai.py"), "run", "--project", self.project],
+                                          stdout=subprocess.DEVNULL, stderr=err_f, creationflags=flags)
+        finally:
+            err_f.close()
         return True
 
-    def stop(self):
+    def stop(self, force=False):
         d = embed_dir(self.root, self.project)
         os.makedirs(d, exist_ok=True)
-        open(os.path.join(d, "STOP"), "w").close()
+        with open(os.path.join(d, "STOP"), "w", encoding="utf-8"):
+            pass
+        if force and self.running():
+            import troly_proc
+            troly_proc.kill_tree(self._proc.pid)
 
     def last_log(self):
-        log = os.path.join(self.root, "logs", "ai_embed_%s.log" % hashlib.sha1(self.project.encode("utf-8")).hexdigest()[:8])
+        h = hashlib.sha1(self.project.encode("utf-8")).hexdigest()[:8]
+        log = os.path.join(self.root, "logs", "ai_embed_%s.log" % h)
         try:
             with open(log, "r", encoding="utf-8") as f:
                 lines = f.read().strip().splitlines()
-            return lines[-1][9:] if lines else ""
+            if lines:
+                return lines[-1][9:]
         except OSError:
-            return ""
+            pass
+        err_log = os.path.join(self.root, "logs", "ai_embed_%s.err.log" % h)
+        try:
+            with open(err_log, "r", encoding="utf-8", errors="replace") as f:
+                el = [ln.strip() for ln in f.read().splitlines() if ln.strip()]
+            if el:
+                return "LỖI AI: " + el[-1][:180]
+        except OSError:
+            pass
+        return ""
 
 
 def main(argv=None):

@@ -1272,7 +1272,15 @@ class TrolyApi(object):
 
     def ai_stop(self):
         with self._lock:
-            self._ai_jobobj().stop()
+            job = self._ai_jobobj()
+            job.stop()
+        # Chờ tối đa 1.5s cho worker thoát êm theo cờ STOP; nếu vẫn kẹt (vd đang nạp model lớn) thì diệt gọn cây tiến trình
+        t0 = time.time()
+        while job.running() and time.time() - t0 < 1.5:
+            time.sleep(0.1)
+        if job.running():
+            job.stop(force=True)
+        with self._lock:
             return self.ai_info()
 
     def ai_for(self, uids, include_labeled=False):
@@ -2752,9 +2760,17 @@ class TrolyApi(object):
         return {"ok": True, "count": len(items)}
 
     def speech_stop(self):
+        import troly_proc
         with self._lock:
             if self._speech_run is not None:
                 self._speech_run.stop = True
+        troly_proc.huy_nhom("speech")
+        t0 = time.time()
+        while time.time() - t0 < 1.5:
+            with self._lock:
+                if self._speech_run is None:
+                    break
+            time.sleep(0.08)
         return {"ok": True}
 
     def speech_pick_dir(self):
@@ -3075,6 +3091,8 @@ class TrolyApi(object):
                 self._analyze.cancel_shutdown = True
             if self._speech_run is not None:
                 self._speech_run.stop = True
+        import troly_proc
+        troly_proc.huy_nhom("speech")
         return {"ok": True}
 
     def analyze_cancel_shutdown(self):
@@ -3194,8 +3212,10 @@ class TrolyApi(object):
             self._analyze.cancel_shutdown = True
         if self._speech_run is not None:
             self._speech_run.stop = True
-        if self._ai_job is not None and self._ai_job.running():       # AI nền: gửi cờ dừng (dừng sau lô ảnh hiện tại, chạy lại thì làm tiếp)
-            self._ai_job.stop()
+            import troly_proc
+            troly_proc.huy_nhom("speech")
+        if self._ai_job is not None and self._ai_job.running():       # AI nền: gửi cờ dừng và diệt cây tiến trình khi đóng cửa sổ
+            self._ai_job.stop(force=True)
         if self._save_timer:
             self._save_timer.cancel()
         self._save_now()
