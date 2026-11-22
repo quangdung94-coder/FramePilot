@@ -195,6 +195,11 @@ class TestOvernightQAReporterAndWatchdog(unittest.TestCase):
         self.assertIn('typeof a.load === "function"', js_src)
         self.assertIn('$("loadBtn").disabled = !data.bins.length', js_src)
 
+        with open(os.path.join(repo, "build_exe.py"), encoding="utf-8") as f:
+            be_src = f.read()
+        self.assertIn("troly_vad_worker.py", be_src)
+        self.assertTrue(os.path.isfile(os.path.join(repo, "app", "troly_vad_worker.py")))
+
 
 if __name__ == "__main__":
     unittest.main()

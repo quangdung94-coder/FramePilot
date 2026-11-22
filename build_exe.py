@@ -33,6 +33,7 @@ def main():
         "--add-data=" + os.path.join(APP, "troly_face_worker.py") + SEP + ".",
         "--add-data=" + os.path.join(APP, "troly_audio_events.py") + SEP + ".",
         "--add-data=" + os.path.join(APP, "troly_diarize_worker.py") + SEP + ".",
+        "--add-data=" + os.path.join(APP, "troly_vad_worker.py") + SEP + ".",
         "--hidden-import=PIL._tkinter_finder",
         "--hidden-import=troly_sync",
         "--exclude-module=torch",

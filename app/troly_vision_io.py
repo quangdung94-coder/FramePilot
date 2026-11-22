@@ -180,11 +180,18 @@ def analyze_proxy_vad(proxy_path, dur, pad=0.35):
     """
     if np is None or not proxy_path or not os.path.exists(proxy_path):
         return []
+    use_worker = None
     try:
         import torch
         from silero_vad import load_silero_vad, get_speech_timestamps
     except ImportError:
-        return []
+        try:
+            import troly_speech as _sp
+            _name, use_worker = _sp._load_vad_worker()
+        except Exception:  # noqa: BLE001
+            use_worker = None
+        if use_worker is None:
+            return []
 
     tmp_wav = None
     try:
@@ -201,10 +208,15 @@ def analyze_proxy_vad(proxy_path, dur, pad=0.35):
         import wave
         with wave.open(tmp_wav, "rb") as wf:
             raw = wf.readframes(wf.getnframes())
-        audio = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
-        if len(audio) < 1600:
+        audio_i16 = np.frombuffer(raw, dtype=np.int16)
+        if len(audio_i16) < 1600:
             return []
 
+        if use_worker is not None:
+            segs = use_worker(audio_i16)
+            return [{"t0": round(float(s[0]), 2), "t1": round(float(s[1]), 2)} for s in (segs or []) if float(s[1]) - float(s[0]) >= 0.4]
+
+        audio = audio_i16.astype(np.float32) / 32768.0
         model = getattr(analyze_proxy_vad, "_model", None)
         if model is None:
             model = load_silero_vad()
@@ -218,7 +230,7 @@ def analyze_proxy_vad(proxy_path, dur, pad=0.35):
             if t1 - t0 >= 0.4:
                 out.append({"t0": round(t0, 2), "t1": round(t1, 2)})
         return out
-    except (subprocess.TimeoutExpired, OSError, ValueError):
+    except (subprocess.TimeoutExpired, OSError, ValueError, RuntimeError):
         return []
     finally:
         if tmp_wav and os.path.exists(tmp_wav):

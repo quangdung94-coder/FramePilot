@@ -138,6 +138,44 @@ def apply_gain(x, gain_db):
 # ---------------------------------------------------------------------------
 # LỌC KHOẢNG LẶNG (silero-vad) và ghép đoạn
 # ---------------------------------------------------------------------------
+def _load_vad_worker():
+    """Dự phòng cho bản đóng gói FramePilot.exe (loại torch): gọi troly_vad_worker.py bằng Python venv có silero-vad."""
+    import tempfile
+    import troly_env as te
+    import troly_proc
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    worker = os.path.join(here, "troly_vad_worker.py")
+    if not os.path.isfile(worker):
+        return None, None
+    cfg = te.config() or {}
+    candidates = [cfg.get("python"), r"C:\VideoAI_venv\Scripts\python.exe", cfg.get("ai_python")]
+    py = next((p for p in candidates if p and os.path.isfile(p)), None)
+    if not py:
+        return None, None
+
+    def run(x):
+        fd, pcm = tempfile.mkstemp(suffix=".pcm", prefix="fp_vad_")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(x.astype("<i2", copy=False).tobytes())
+            r = troly_proc.chay_an(
+                [py, "-X", "utf8", worker, "--pcm", pcm, "--rate", str(RATE)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+            )
+            if r.returncode != 0:
+                raise RuntimeError("Lỗi silero-vad worker: %s" % (r.stderr or "")[-200:])
+            lines = [ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip()]
+            return json.loads(lines[-1]) if lines else []
+        finally:
+            try:
+                os.remove(pcm)
+            except OSError:
+                pass
+
+    return "silero-vad(worker)", run
+
+
 def load_vad():
     """(tên, hàm(mono16k int16) -> [[giây đầu, giây cuối]]) hoặc (None, None) nếu thiếu thư viện."""
     try:
@@ -153,7 +191,7 @@ def load_vad():
             return [[round(t["start"], 2), round(t["end"], 2)] for t in ts]
         return "silero-vad(CPU)", run
     except ImportError:
-        return None, None
+        return _load_vad_worker()
 
 
 def join_chunks(chunks, pad=VAD_PAD_S, join=VAD_JOIN_S, total=None):
