@@ -42,12 +42,6 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install -r requirements_mac.txt
 
-      - name: Run full unit test suite on macOS Apple Silicon
-        env:
-          TROLY_NO_SHUTDOWN: "1"
-        run: |
-          python3 -m unittest discover -s tests -v
-
       - name: Download static arm64 ffmpeg & ffprobe (zero Homebrew dylib deps)
         run: |
           mkdir -p dist/FramePilot_Mac_ARM64/tools/ffmpeg
@@ -56,8 +50,15 @@ jobs:
           unzip -o /tmp/ffmpeg.zip -d dist/FramePilot_Mac_ARM64/tools/ffmpeg/
           unzip -o /tmp/ffprobe.zip -d dist/FramePilot_Mac_ARM64/tools/ffmpeg/
           chmod +x dist/FramePilot_Mac_ARM64/tools/ffmpeg/ffmpeg dist/FramePilot_Mac_ARM64/tools/ffmpeg/ffprobe
+          echo "$PWD/dist/FramePilot_Mac_ARM64/tools/ffmpeg" >> "$GITHUB_PATH"
           dist/FramePilot_Mac_ARM64/tools/ffmpeg/ffmpeg -version | head -n 2
           otool -L dist/FramePilot_Mac_ARM64/tools/ffmpeg/ffmpeg
+
+      - name: Run full unit test suite on macOS Apple Silicon
+        env:
+          TROLY_NO_SHUTDOWN: "1"
+        run: |
+          python3 -m unittest discover -s tests
 
       - name: Build clean FramePilot.app (arm64) & stage portable bundle
         run: |
