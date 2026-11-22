@@ -129,7 +129,10 @@ function d5Paint() {
   // A1, A2
   const ab = (b) => `<div class="tl-ab${b.mute ? " mute" : ""}" style="left:${pc(b.start)}%;width:${pc(b.dur)}%">${b.mute ? "tắt" : ""}</div>`;
   const bl = Object.values(L.blocks);
-  const a1m = bl.filter((b) => b.track === "V1"), a2m = bl.filter((b) => b.track === "V2");
+  const a1m = (L.sort_mode === "chrono" && L.chrono_runs)
+    ? L.clusters.flatMap((c) => (L.chrono_runs[c.stage] || []))
+    : bl.filter((b) => b.track === "V1");
+  const a2m = bl.filter((b) => b.track === "V2");
   $("d5A1").innerHTML = grid + a1m.map(ab).join("");
   $("d5A2").innerHTML = grid + a2m.map(ab).join("");
   $("d5A1Lab").className = "tl-lab a" + (a1m.length && a1m.every((b) => b.mute) ? " off" : "");
@@ -509,7 +512,7 @@ document.addEventListener("keydown", (e) => {
 if ($("d5SortMode")) {
   $("d5SortMode").addEventListener("change", (e) => {
     const m = e.target.value;
-    d5Run(() => api().dur_tl_set_sort(m), m === "chrono" ? "Đã chuyển sang xếp theo giờ quay thật (Truyền thống — không đảo thứ tự theo bin)." : "Đã chuyển sang gom theo bin (Phóng sự).");
+    d5Run(() => api().dur_tl_set_sort(m), m === "chrono" ? "Đã chuyển sang đan theo giờ quay (tách bin theo thời gian thực)." : "Đã chuyển sang gom theo bin (mỗi bin con 1 khối, kéo thả tự do).");
   });
 }
 $("d5Reset").addEventListener("click", async () => {
@@ -547,7 +550,7 @@ $("d5Create").addEventListener("click", async () => {
     `<div>Độ dài V1: <b>${d5mm(v.total_s)}</b> · mục tiêu ${d5mm(v.target_s)}</div>` +
     `<div>Số clip: <b>${sm.n_v1 + sm.n_v2}</b> (V1 ${sm.n_v1}${sm.n_v2 ? `, V2 chồng ${sm.n_v2}` : ""}) / ${v.n_starred} clip sao</div>` + gap +
     `<div>Khối Slow: <b>${sm.slow.length ? esc(sm.slow.join(", ")) : "không có"}</b></div><div>Khối tắt tiếng: <b>${sm.muted.length ? esc(sm.muted.join(", ")) : "không có"}${sm.n_clip_muted ? ` (+ ${sm.n_clip_muted} clip tắt A1 riêng ở Bước 4)` : ""}</b></div>` +
-    `<div>Thứ tự: <b>${v.tl_sort_mode === "chrono" ? "Theo giờ quay thật (Truyền thống — không đảo thứ tự theo bin)" : "Gom theo bin (PSC)"}</b> (V1 rồi V2 chồng)</div><br>Chỉ tạo <b>MỘT timeline MỚI</b> có 2 track hình V1, V2 (hoặc theo từng máy nếu bật tùy chọn). Không sửa hay xóa timeline đang có, không ghi In/Out lên clip gốc. Slow giữ nguyên In/Out nên clip dài hơn và các clip sau V1 bị đẩy ra sau. Tắt tiếng chỉ tắt clip tiếng của khối, không đụng track khác. Trợ lý ghi nhật ký trước khi tạo và đọc lại vị trí để kiểm.`,
+    `<div>Thứ tự: <b>${v.tl_sort_mode === "chrono" ? "Đan theo giờ quay (tách bin)" : "Gom theo bin (kéo thả tự do)"}</b> (V1 rồi V2 chồng)</div><br>Chỉ tạo <b>MỘT timeline MỚI</b> có 2 track hình V1, V2 (hoặc theo từng máy nếu bật tùy chọn). Không sửa hay xóa timeline đang có, không ghi In/Out lên clip gốc. Slow giữ nguyên In/Out nên clip dài hơn và các clip sau V1 bị đẩy ra sau. Tắt tiếng chỉ tắt clip tiếng của khối, không đụng track khác. Trợ lý ghi nhật ký trước khi tạo và đọc lại vị trí để kiểm.`,
     "Tạo timeline mới", () => { const el = $("d5TlName"); return { name: el ? el.value.trim() : defName }; });
   if (!resName) return status("Đã hủy, chưa tạo gì trong DaVinci.", "info");
   const chosenName = resName.name;

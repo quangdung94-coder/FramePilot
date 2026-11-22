@@ -21,12 +21,13 @@ SORT_MODES = ("bin", "chrono")
 
 
 def sort_mode_of(plan):
-    """Chế độ xếp clip trên V1 ở Bước 5: 'chrono' (theo giờ quay thật, mặc định cho Truyền thống) hoặc 'bin' (gom theo bin, PSC)."""
+    """Chế độ xếp clip trên V1 ở Bước 5: mặc định 'bin' (gom gọn từng bin con, kéo thả tự do cả bin mẹ lẫn bin con;
+    bên trong mỗi bin con vẫn giữ đúng giờ quay thật). Chỉ dùng 'chrono' (đan xen tách bin) khi anh chủ động chọn."""
     tl = td.tl_cfg(plan)
     m = tl.get("sort_mode")
     if m in SORT_MODES:
         return m
-    return "chrono" if (plan.get("shoot_style") or "") == "traditional" else "bin"
+    return "bin"
 
 
 def set_sort_mode(plan, mode):
@@ -325,6 +326,8 @@ def move_block(plan, r, key, to_cluster, to_index):
     blk.pop("at", None)
     blk["manual"] = True
     t["manual"] = True
+    if sort_mode_of(plan) == "chrono":
+        t["sort_mode"] = "bin"
     return None
 
 

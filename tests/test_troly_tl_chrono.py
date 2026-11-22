@@ -43,25 +43,28 @@ class TestPage5ChronoMode(unittest.TestCase):
             tc.set_label(plan, c, "Nghi lễ mừng thọ", bn)
         return plan, clips, assign, stages
 
-    def test_traditional_defaults_to_chrono_and_preserves_exact_time_order(self):
-        plan, clips, assign, stages = self._sample(style="traditional")
-        self.assertEqual(ttl.sort_mode_of(plan), "chrono")
-        r = td.build(plan, clips, assign, stages, tl_fps=25.0)
-        pl = ttl.placements(r, plan)
-        self.assertEqual([x["uid"] for x in pl], ["u1", "u2", "u3", "u4", "u5"])
-        # V1 start times strictly monotonic & contiguous
-        for a, b in zip(pl, pl[1:]):
-            self.assertAlmostEqual(a["start_s"] + a["dur_s"], b["start_s"], places=2)
+    def test_both_styles_default_to_bin_grouping_so_subbins_stay_solid(self):
+        for style in ("traditional", "psc"):
+            plan, clips, assign, stages = self._sample(style=style)
+            self.assertEqual(ttl.sort_mode_of(plan), "bin")
+            r = td.build(plan, clips, assign, stages, tl_fps=25.0)
+            pl = ttl.placements(r, plan)
+            # Grouped by bin (each bin con = 1 solid block; clips inside bin stay in chronological order)
+            self.assertEqual([x["uid"] for x in pl], ["u1", "u4", "u5", "u2", "u3"])
 
-    def test_psc_defaults_to_bin_grouping(self):
-        plan, clips, assign, stages = self._sample(style="psc")
+    def test_move_block_reorders_subbin_and_switches_from_chrono_to_bin(self):
+        plan, clips, assign, stages = self._sample(style="traditional")
+        self.assertIsNone(ttl.set_sort_mode(plan, "chrono"))
+        self.assertEqual(ttl.sort_mode_of(plan), "chrono")
+        r0 = td.build(plan, clips, assign, stages, tl_fps=25.0)
+        # Drag "Trao quà" to position 0 -> auto-switches to 'bin' so sub-bin order takes effect immediately
+        self.assertIsNone(ttl.move_block(plan, r0, "Nghi lễ mừng thọ|Trao quà", "Nghi lễ mừng thọ", 0))
         self.assertEqual(ttl.sort_mode_of(plan), "bin")
         r = td.build(plan, clips, assign, stages, tl_fps=25.0)
         pl = ttl.placements(r, plan)
-        # Grouped by bin: u1, u4, u5 (Cụ ông cụ bà) -> u2 (Phát biểu) -> u3 (Trao quà)
-        self.assertEqual([x["uid"] for x in pl], ["u1", "u4", "u5", "u2", "u3"])
+        self.assertEqual([x["uid"] for x in pl], ["u3", "u1", "u4", "u5", "u2"])
 
-    def test_manual_toggle_overrides_auto_and_keeps_v2_overlay(self):
+    def test_explicit_chrono_mode_preserves_exact_time_order_and_v2_overlay(self):
         plan, clips, assign, stages = self._sample(style="psc")
         self.assertIsNone(ttl.set_sort_mode(plan, "chrono"))
         self.assertEqual(ttl.sort_mode_of(plan), "chrono")
@@ -74,9 +77,12 @@ class TestPage5ChronoMode(unittest.TestCase):
         v2 = [x["uid"] for x in pl if x["track"] == "V2"]
         self.assertEqual(v1, ["u1", "u2", "u4", "u5"])
         self.assertEqual(v2, ["u3"])
+        for a, b in zip([x for x in pl if x["track"] == "V1"], [x for x in pl if x["track"] == "V1"][1:]):
+            self.assertAlmostEqual(a["start_s"] + a["dur_s"], b["start_s"], places=2)
 
     def test_chrono_runs_merges_only_adjacent_same_bin_clips(self):
         plan, clips, assign, stages = self._sample(style="traditional")
+        ttl.set_sort_mode(plan, "chrono")
         r = td.build(plan, clips, assign, stages, tl_fps=25.0)
         lay = ttl.layout(r, plan)
         runs = lay["chrono_runs"]["Nghi lễ mừng thọ"]

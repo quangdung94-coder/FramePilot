@@ -1,5 +1,11 @@
 # Nhật ký thay đổi
 
+## 2026-11-22 – Bước 5 mặc định gom gọn từng bin con + kéo thả tự do bin con & đồng bộ A1, CHỜ ANH THỬ
+- **Bước 5 (`troly_tl.py`, `index.html`, `step5.js`):**
+  - Chuyển mặc định `#d5SortMode` sang **`Gom theo bin (kéo thả tự do)`** cho cả Truyền thống lẫn Phóng sự để mỗi bin con (`Decor`, `Gia đình`, `Khách`...) luôn là 1 khối liền mạch (không bị xé vụn chen vào nhau), trong khi clip bên trong mỗi bin con vẫn giữ đúng thứ tự giờ quay thật.
+  - Khi kéo thả bin con (`move_block`) trong lúc đang chọn `Đan theo giờ quay (tách bin)`, hệ thống tự chuyển về `Gom theo bin` để thứ tự kéo thả có tác dụng ngay lập tức.
+  - Đồng bộ lại thanh âm thanh `A1` bên dưới cho khớp với từng mảnh màu trên `V1` ở cả 2 chế độ.
+
 ## 2026-11-22 – Bước 5 xếp theo giờ quay (Truyền thống) & Bước 4 tắt tiếng A1 từng clip (phím M), CHỜ ANH THỬ
 - **Bước 5 · Không đảo thứ tự khi dựng Truyền thống (`troly_dur.py`, `troly_tl.py`, `troly_api.py`, `index.html`, `step5.js`):**
   - Thêm công tắc `#d5SortMode`: **`Theo giờ quay (TT)`** ↔ **`Gom theo bin (PSC)`** (tự động bật `Theo giờ quay` khi Kiểu quay = `Truyền thống`). Ở chế độ `Theo giờ quay`, mọi clip V1 trong từng giai đoạn giữ nguyên đúng trình tự thời gian thực, không bị gom dính theo bin (vẫn giữ linh hoạt đẩy khối B-roll lên `V2`).
