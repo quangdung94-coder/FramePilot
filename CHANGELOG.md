@@ -1,26 +1,26 @@
 # Nhật ký thay đổi
 
-## 2026-11-22 – Sửa triệt để lỗi cụm cuối bị đứng 1 tấm hình (DaVinci `CreateTimelineFromClips` lệch offset âm khi 1 clip cắt 2 khúc `Shift+I/O`), CHỜ ANH THỬ
+## 2026-11-22 – Sửa triệt để lỗi cụm cuối bị đứng 1 tấm hình (DaVinci `CreateTimelineFromClips` lệch offset âm khi 1 clip cắt 2 khúc `Shift+I/O`), XONG (anh đã thử OK)
 - `troly_resolve.py`: tách danh sách đoạn `V1` thành từng lô không trùng `mediaPoolItem` trong cùng 1 lời gọi `CreateTimelineFromClips` / `AppendToTimeline` (tránh lỗi C++ trong DaVinci Resolve 21.1.1 làm lệch toàn bộ clip sau khúc lặp `Shift+I/O` với `LeftOffset` âm hàng nghìn frame khiến mọi clip phía sau bị đứng thành 1 tấm hình).
 - `troly_resolve.py`: bổ sung bước kiểm tra `GetLeftOffset() < 0` ngay sau khi tạo timeline trong `_finish_layout` để cảnh báo ngay nếu DaVinci sinh offset âm.
 
-## 2026-11-22 – Sửa lỗi DaVinci bỏ rơi đoạn sau khi 1 clip có 2 khúc `Shift+I/O` (`do_create_cut_timeline`), CHỜ ANH THỬ
+## 2026-11-22 – Sửa lỗi DaVinci bỏ rơi đoạn sau khi 1 clip có 2 khúc `Shift+I/O` (`do_create_cut_timeline`), XONG (anh đã thử OK)
 - `troly_resolve.py`: sau `CreateTimelineFromClips`, kiểm tra ngay số clip thực tế trên `V1`; nếu DaVinci dừng giữa chừng (ví dụ 1 clip cắt 2 khúc `Shift+I/O` liên tiếp hoặc `endFrame` sát mép cuối file 59.94fps) thì tự động chèn bù từng đoạn còn thiếu bằng `AppendToTimeline` (có thử lùi 2 frame nếu sát mép cuối) thay vì im lặng rớt cả cụm cuối.
 - `troly_tl.py`: bật kiểm đếm đủ số clip `V1` trong `verify_readback` để không bao giờ bỏ sót clip rớt.
 
-## 2026-11-22 – Bước 5 mặc định gom gọn từng bin con + kéo thả tự do bin con & đồng bộ A1, CHỜ ANH THỬ
+## 2026-11-22 – Bước 5 mặc định gom gọn từng bin con + kéo thả tự do bin con & đồng bộ A1, XONG (anh đã thử OK)
 - **Bước 5 (`troly_tl.py`, `index.html`, `step5.js`):**
   - Chuyển mặc định `#d5SortMode` sang **`Gom theo bin (kéo thả tự do)`** cho cả Truyền thống lẫn Phóng sự để mỗi bin con (`Decor`, `Gia đình`, `Khách`...) luôn là 1 khối liền mạch (không bị xé vụn chen vào nhau), trong khi clip bên trong mỗi bin con vẫn giữ đúng thứ tự giờ quay thật.
   - Khi kéo thả bin con (`move_block`) trong lúc đang chọn `Đan theo giờ quay (tách bin)`, hệ thống tự chuyển về `Gom theo bin` để thứ tự kéo thả có tác dụng ngay lập tức.
   - Đồng bộ lại thanh âm thanh `A1` bên dưới cho khớp với từng mảnh màu trên `V1` ở cả 2 chế độ.
 
-## 2026-11-22 – Bước 5 xếp theo giờ quay (Truyền thống) & Bước 4 tắt tiếng A1 từng clip (phím M), CHỜ ANH THỬ
+## 2026-11-22 – Bước 5 xếp theo giờ quay (Truyền thống) & Bước 4 tắt tiếng A1 từng clip (phím M), XONG (anh đã thử OK)
 - **Bước 5 · Không đảo thứ tự khi dựng Truyền thống (`troly_dur.py`, `troly_tl.py`, `troly_api.py`, `index.html`, `step5.js`):**
   - Thêm công tắc `#d5SortMode`: **`Theo giờ quay (TT)`** ↔ **`Gom theo bin (PSC)`** (tự động bật `Theo giờ quay` khi Kiểu quay = `Truyền thống`). Ở chế độ `Theo giờ quay`, mọi clip V1 trong từng giai đoạn giữ nguyên đúng trình tự thời gian thực, không bị gom dính theo bin (vẫn giữ linh hoạt đẩy khối B-roll lên `V2`).
 - **Bước 4 · Bật/tắt tiếng A1 cho từng clip (`troly_core.py`, `troly_dur.py`, `troly_tl.py`, `troly_api.py`, `index.html`, `speech.js`, `step5.js`):**
   - Thêm nút **`🔊 Giữ A1 (M)` / `🔇 Đã tắt A1 (M)`** và phím tắt **`M`** (`event.code === "KeyM"`, hỗ trợ chọn 1 hoặc nhiều clip), hiện nhãn **`🔇 A1`** ngay trên danh sách clip Bước 4 để nhìn tổng quan lúc lướt text. Khi đưa lên timeline DaVinci ở Bước 5, các clip đánh dấu tắt A1 tự động tắt track tiếng `A1` (`SetClipEnabled(False)`) và vẫn giữ nguyên hình `V1`.
 
-## 2026-11-22 – Thêm mẫu sự kiện Lễ mừng thọ (Cụ ông / Cụ bà thay Cô dâu / Chú rể), CHỜ ANH THỬ
+## 2026-11-22 – Thêm mẫu sự kiện Lễ mừng thọ (Cụ ông / Cụ bà thay Cô dâu / Chú rể), XONG (anh đã thử OK)
 - `troly_core.py`: thêm 2 mẫu `Lễ mừng thọ (đầy đủ)` và `Lễ mừng thọ (chỉ tiệc)` trong `BUILTIN_TEMPLATES` & `TEMPLATE_EVENTS` (Chuẩn bị, Đón khách, Nghi lễ mừng thọ, Văn nghệ · Tiệc; dùng bin `Cụ ông`, `Cụ bà`, `Cụ ông cụ bà`, `Chúc thọ · Phát biểu`, `Trao quà · Mừng thọ`, `Văn nghệ`, `Chụp hình`), cùng quy tắc gợi ý In/Out Bước 3 tương ứng trong `BUILTIN_RULES`.
 - `troly_ai.py`: bổ sung 4 thẻ cảnh chuẩn nhóm **Mừng thọ** (`cu_ong_cu_ba`, `cu_ong`, `cu_ba`, `chuc_tho`) kèm prompt SigLIP/CLIP nhận diện cụ ông/cụ bà và trao quà mừng thọ.
 - `wedding_phrases.json`: bổ sung nhóm từ khóa `mung_tho` (mừng thọ, thượng thọ, cụ ông, cụ bà, sống lâu trăm tuổi, tứ đại đồng đường, khánh vàng...) để Bước 4 tự bôi sáng câu đắt giá.
