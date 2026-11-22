@@ -67,6 +67,7 @@ window.onEvent = function (kind, data) {
   if (kind === "bins") {
     const s = $("binSel");
     s.innerHTML = data.bins.map((b) => `<option value="${esc(b.path)}"${b.path === data.pick ? " selected" : ""}>${esc(b.path)}  (${b.n})</option>`).join("");
+    if ($("loadBtn")) $("loadBtn").disabled = !data.bins.length;
     BINS = data.bins; if (page === 1) renderTree();
   } else if (kind === "timelines") {
     $("tlSel").innerHTML = `<option value="">Timeline: giờ trong file</option>` + data.names.map((n) => `<option value="${esc(n)}"${n === data.pick ? " selected" : ""}>${esc(n)}</option>`).join("");
@@ -609,7 +610,7 @@ document.addEventListener("click", async (e) => {
     if (r && r.dir && inp) inp.value = r.dir + "\\templates.json";
   }
 });
-$("loadBtn").onclick = () => { const b = $("binSel").value; if (b) { fitted = false; api().load(b, $("tlSel").value); } };
+$("loadBtn").onclick = () => { const b = $("binSel").value, a = api(); if (b && a && typeof a.load === "function") { fitted = false; a.load(b, $("tlSel").value); } };
 $("tlSel").addEventListener("change", () => { if (S && S.n) $("loadBtn").click(); });          // đổi timeline nguồn: đọc lại ngay (chỉ đọc)
 
 /* ------------------------------------------------------------------ áp dụng / hoàn tác (hỏi trước, ADR-0009) */

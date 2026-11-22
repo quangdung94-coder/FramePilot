@@ -2200,11 +2200,11 @@ class TrolyApi(object):
             c = self._by_uid.get(uid)
             if c is None:
                 return {"error": "Không tìm thấy clip."}
-            src = self._media_src(c)
+            src, _is_p, _merr = self._media_src(c)
             croot = self._cache_base()
             droot = self._root or r"D:\VideoAI\data"
         if not src or not os.path.isfile(src):
-            return {"error": "Không tìm thấy file nguồn hoặc proxy của clip."}
+            return {"error": _merr or "Không tìm thấy file nguồn hoặc proxy của clip."}
         cdir = os.path.join(croot, "cache", "troly_aev", tc._safe(self._project))
         os.makedirs(cdir, exist_ok=True)
         cfile = os.path.join(cdir, tc._safe(uid) + ".json")
@@ -2255,13 +2255,13 @@ class TrolyApi(object):
             st = self._speech_store()
             if c is None or st is None:
                 return {"error": "Chưa có clip hoặc kho lời nói."}
-            src = self._media_src(c)
+            src, _is_p, _merr = self._media_src(c)
             droot = self._root or r"D:\VideoAI\data"
             lines = st.lines_of(c.rel)
         if not lines:
             return {"error": "Clip này chưa có câu chép lời để tách người nói."}
         if not src or not os.path.isfile(src):
-            return {"error": "Không tìm thấy file nguồn hoặc proxy."}
+            return {"error": _merr or "Không tìm thấy file nguồn hoặc proxy."}
         py = (te.config() or {}).get("ai_python") or r"C:\VideoAI_ai_venv\Scripts\python.exe"
         mdir = os.path.join(droot, "models", "wavlm_sv")
         worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "troly_diarize_worker.py")

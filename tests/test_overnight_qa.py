@@ -175,6 +175,26 @@ class TestOvernightQAReporterAndWatchdog(unittest.TestCase):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    def test_overnight_bugfixes_regression(self):
+        """Regression checks for real bugs caught during the 3-hour overnight run."""
+        repo = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        with open(os.path.join(repo, "app", "troly_api.py"), encoding="utf-8") as f:
+            api_src = f.read()
+        # Neither audio_events nor speech_diarize may assign _media_src() without unpacking the 3-tuple
+        self.assertNotIn("src = self._media_src(c)", api_src)
+        self.assertGreaterEqual(api_src.count("src, _is_p, _merr = self._media_src(c)"), 2)
+
+        with open(os.path.join(repo, "app", "troly_web", "index.html"), encoding="utf-8") as f:
+            html_src = f.read()
+        self.assertIn('<link rel="icon" href="data:,">', html_src)
+        self.assertIn('<option value="">(đang đọc bin...)</option>', html_src)
+        self.assertIn('id="loadBtn" disabled', html_src)
+
+        with open(os.path.join(repo, "app", "troly_web", "app.js"), encoding="utf-8") as f:
+            js_src = f.read()
+        self.assertIn('typeof a.load === "function"', js_src)
+        self.assertIn('$("loadBtn").disabled = !data.bins.length', js_src)
+
 
 if __name__ == "__main__":
     unittest.main()

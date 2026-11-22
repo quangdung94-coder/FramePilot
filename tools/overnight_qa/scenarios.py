@@ -179,19 +179,30 @@ def wait_until_ready_and_load(ctx: SuiteContext, suite: str, timeout: float = 90
     if cur_n > 0:
         return int(cur_n)
 
+    # Wait until #binSel has real bins from DaVinci (not the "(đang đọc bin...)" placeholder)
+    bin_deadline = time.time() + 30.0
+    while time.time() < bin_deadline:
+        has_bins = ctx.cdp.eval_js(
+            "(() => { const s = document.getElementById('binSel'); return !!(s && Array.from(s.options).some(o => o.value && !o.value.includes('đang đọc bin'))); })()",
+            await_promise=False,
+        )
+        if has_bins:
+            break
+        time.sleep(0.4)
+
     # Pick bin: explicit --bin or first non-empty option in #binSel
     picked = ctx.cdp.eval_js(
         f"""(() => {{
             const sel = document.getElementById('binSel');
             if (!sel) return {{ error: 'missing #binSel' }};
             const want = {json.dumps(ctx.bin_path)};
-            const opts = Array.from(sel.options).map(o => ({{ v: o.value, t: o.textContent || '' }}));
+            const opts = Array.from(sel.options).map(o => ({{ v: o.value, t: o.textContent || '' }})).filter(o => o.v && !o.v.includes('đang đọc bin'));
             let chosen = '';
             if (want && opts.some(o => o.v === want)) {{
                 chosen = want;
             }} else {{
                 const nonEmpty = opts.filter(o => o.v && !o.t.includes('(0)'));
-                chosen = (nonEmpty[0] || opts.find(o => o.v) || {{}}).v || '';
+                chosen = (nonEmpty[0] || opts[0] || {{}}).v || '';
             }}
             if (!chosen) return {{ error: 'Không có bin nào trong #binSel', opts }};
             sel.value = chosen;
@@ -439,7 +450,18 @@ def run_ai_gpu(ctx: SuiteContext):
         except Exception:
             pass
 
-    # 3. Trigger Vision In/Out suggestion (troly_vision_io + MediaPipe) then stop cleanly after brief progress
+    # 3. Ensure at least 2 clips are starred so inout_suggest_start actually runs Vision+VAD In/Out
+    ctx.cdp.eval_js(
+        """(async () => {
+            const cs = (S && S.clips) || [];
+            const starred = cs.filter(c => c.star);
+            if (!starred.length && cs.length) {
+                await window.pywebview.api.toggle_star(cs.slice(0, 2).map(c => c.uid));
+            }
+        })()""",
+        await_promise=True,
+        timeout=15.0,
+    )
     ctx.cdp.eval_js("goPage(3)", await_promise=False)
     time.sleep(0.6)
     ctx.cdp.eval_js("window.pywebview.api.inout_suggest_start()", await_promise=True, timeout=15.0)
@@ -475,9 +497,12 @@ def run_ai_gpu(ctx: SuiteContext):
     ctx.cdp.eval_js("window.pywebview.api.ai_stop()", await_promise=True, timeout=15.0)
     time.sleep(3.0)
 
-    # 6. Trigger Speech ASR (speech_start) for 5 seconds then speech_stop -> verify clean cancellation
+    # 6. Configure sandbox speech directory, then trigger Speech ASR (speech_start) for 5s -> speech_stop
     ctx.cdp.eval_js("goPage(4)", await_promise=False)
     time.sleep(0.4)
+    speech_dir = os.path.join(ctx.run_dir, "sandbox", "srt")
+    os.makedirs(speech_dir, exist_ok=True)
+    ctx.cdp.eval_js(f"window.pywebview.api.speech_set_dir({json.dumps(speech_dir)})", await_promise=True, timeout=15.0)
     ctx.cdp.eval_js("window.pywebview.api.speech_start()", await_promise=True, timeout=15.0)
     time.sleep(5.0)
     ctx.cdp.eval_js("window.pywebview.api.speech_stop()", await_promise=True, timeout=15.0)

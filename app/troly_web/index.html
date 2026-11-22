@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FramePilot</title>
+<link rel="icon" href="data:,">
 <!-- Giao diện thống nhất theo DaVinci Resolve Studio 21 (Mục 5). Chức năng ở app/troly_api.py. -->
 <link rel="stylesheet" href="style.css">
 </head>
@@ -28,8 +29,8 @@
   </nav>
   <div class="top-right" id="right1">
     <select id="tlSel" class="sel" title="Timeline nguồn: lấy vị trí các clip từ timeline đã sync trong DaVinci (chỉ đọc)"><option value="">Timeline: giờ trong file</option></select>
-    <select id="binSel" class="sel" title="Bin nguồn trong Media Pool"><option>(đang đọc bin...)</option></select>
-    <button class="btn" id="loadBtn">Đọc clip</button>
+    <select id="binSel" class="sel" title="Bin nguồn trong Media Pool"><option value="">(đang đọc bin...)</option></select>
+    <button class="btn" id="loadBtn" disabled>Đọc clip</button>
   </div>
   <div class="top-right hidden" id="right2">
     <select id="styleSel" class="sel" title="Kiểu quay của project này. Chỉ đổi gợi ý màu xanh ở thanh In/Out; In/Out bạn đặt tay luôn thắng. Chưa chọn thì không đổi gì.">
