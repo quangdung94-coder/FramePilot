@@ -1,0 +1,92 @@
+======================================================================
+      FRAMEPILOT v0.4.0 (22h01) - HƯỚNG DẪN CÀI ĐẶT & SỬ DỤNG
+======================================================================
+
+1. YÊU CẦU TRƯỚC KHI CÀI
+------------------------
+- Máy tính chạy Windows 10 hoặc Windows 11 (64-bit).
+- Đã cài sẵn DaVinci Resolve STUDIO (khuyên dùng bản 19 / 20 / 21).
+  * Lưu ý quan trọng: Phải là bản STUDIO. Bản DaVinci Free bị hãng
+    Blackmagic khóa tính năng kết nối plugin ngoài (External Scripting).
+- Ổ cứng còn trống (nếu máy chưa có sẵn các model AI và môi trường AI).
+
+
+2. CÁCH CÀI ĐẶT LÊN MÁY MỚI (TỰ BỎ QUA MỤC ĐÃ CÓ)
+-------------------------------------------------
+Bước 1: Chép toàn bộ thư mục chứa gói FramePilot sang máy mới
+        (ví dụ chép vào: D:\FramePilot\ hoặc C:\FramePilot\).
+
+Bước 2: Mở thư mục đó ra, bấm đúp vào file:
+        >>>  CaiDat_MayMoi.bat  <<<
+
+Bước 3: Màn hình đen hiện lên sẽ tự động quét kiểm tra toàn bộ máy:
+        - Plugin xử lý hình/tiếng (ffmpeg, ffprobe, Const-me Whisper)
+        - Môi trường chạy AI (PyTorch, Whisper, Silero-VAD, MediaPipe)
+        - 9 bộ Model AI cục bộ (Whisper, PhoWhisper, SigLIP, DINOv2, CLAP, WavLM...)
+        - Mục menu mở FramePilot trong DaVinci Resolve
+
+        * Mục nào máy đã có sẵn sẽ hiện: [ĐÃ CÓ -> BỎ QUA] (không chép đè).
+        * Mục nào máy chưa có sẽ hiện:   [CHƯA CÓ -> CÀI].
+
+Bước 4: Chương trình sẽ hỏi xác nhận trước khi cài:
+        - Gõ Y rồi bấm Enter để cài các mục chưa có.
+        - Đợi báo "HOÀN TẤT!" rồi đóng cửa sổ.
+
+        * Nếu Windows SmartScreen hiện bảng xanh "Windows protected your PC":
+          Bấm "More info" (Thêm thông tin) -> bấm "Run anyway" (Vẫn chạy).
+
+
+3. HƯỚNG DẪN BẬT QUYỀN & MỞ PLUGIN TRONG DAVINCI RESOLVE STUDIO
+---------------------------------------------------------------
+(Chỉ cần bật 1 lần duy nhất trên mỗi máy tính)
+
+Bước 1: Mở phần mềm DaVinci Resolve Studio.
+
+Bước 2: Trên thanh menu góc trên bên trái, bấm:
+        DaVinci Resolve  -->  Preferences...   (hoặc bấm phím Ctrl + ,)
+
+Bước 3: Trong cửa sổ Preferences:
+        - Chọn tab "System" ở hàng trên cùng.
+        - Chọn mục "General" ở cột bên trái.
+
+Bước 4: Tìm dòng:
+        External scripting using:  [ None ]
+        --> Đổi thành:             [ Local ]
+
+Bước 5: Bấm nút "Save" ở góc dưới bên phải.
+        Sau đó TẮT HẲN DaVinci Resolve rồi MỞ LẠI để lưu cài đặt.
+
+Bước 6: Mở một Project bất kỳ trong DaVinci Resolve Studio.
+        Trên thanh menu trên cùng, bấm:
+
+        Workspace  -->  Scripts  -->  Utility  -->  FramePilot
+
+        Cửa sổ FramePilot sẽ tự động mở lên và kết nối với Project đang mở!
+
+
+4. MẸO DÙNG MƯỢT NGAY LẦN ĐẦU
+-----------------------------
+- Chuyển bộ gõ tiếng Việt (Unikey / EVKey) sang chế độ tiếng Anh (chữ E)
+  để dùng mượt toàn bộ phím tắt (P gắn sao, X bỏ, I/O đặt điểm cắt,
+  Shift+I/O cắt nhiều khúc, M tắt tiếng A1, J-K-L tua, Ctrl+Z/Y hoàn tác 50 bước).
+- Bấm nút bánh răng (⚙) góc trên bên phải FramePilot để tùy chọn thêm:
+  + Thư mục lưu Cache / file SRT
+  + Động cơ chép lời Whisper (Tự động / Whisper large-v3-turbo / PhoWhisper)
+  + LUT xem trước theo tiền tố tên file máy quay (khi clip chưa gắn LUT trong DaVinci)
+- Bấm nút dấu hỏi (?) sát nút bánh răng để xem nhanh toàn bộ bảng phím tắt.
+
+
+5. XỬ LÝ NHANH NẾU GẶP SỰ CỐ
+----------------------------
+- Không thấy mục "FramePilot" trong Workspace > Scripts > Utility:
+  -> Chạy lại file CaiDat_MayMoi.bat (chọn Y), sau đó tắt DaVinci và mở lại.
+
+- Mở lên báo "Không kết nối được DaVinci":
+  -> Kiểm tra lại Bước 3 ở trên xem "External scripting using" đã đổi sang
+     "Local" chưa, đã tắt mở lại DaVinci chưa, và có đang dùng bản Studio không.
+
+- Khi đóng DaVinci hoặc đổi sang Project khác:
+  -> FramePilot sẽ tự lưu kế hoạch và tự đóng gọn sau ~5 giây (nếu không đang
+     chạy dở việc chép lời/phân tích nền).
+
+======================================================================

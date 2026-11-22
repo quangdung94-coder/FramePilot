@@ -100,6 +100,11 @@ def stage_portable_bundle(dist_dir):
     with open(os.path.join(dist_dir, "config.example.json"), "w", encoding="utf-8") as f:
         json.dump(clean_cfg, f, ensure_ascii=False, indent=2)
 
+    # Chép file hướng dẫn cài đặt & bật plugin DaVinci vào bản đóng gói
+    guide_src = os.path.join(ROOT, "HUONG_DAN_CAI_DAT.txt")
+    if os.path.isfile(guide_src):
+        shutil.copy2(guide_src, os.path.join(dist_dir, "HUONG_DAN_CAI_DAT.txt"))
+
     # 2. Đóng gói kèm plugin ffmpeg.exe & ffprobe.exe
     ff_dir = os.path.join(dist_dir, "tools", "ffmpeg")
     os.makedirs(ff_dir, exist_ok=True)
