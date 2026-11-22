@@ -69,6 +69,26 @@ CONCEPTS = (
      "prompts": ["a bride and groom together, a wedding couple",
                  "the newlyweds holding hands and smiling at each other",
                  "a couple in wedding clothes posing together"]},
+    {"id": "cu_ong_cu_ba", "label": "Cụ ông cụ bà", "group": "Mừng thọ", "default": "Cụ ông cụ bà",
+     "keys": ("cu ong cu ba", "cu ong va cu ba", "cu ong & cu ba", "ong ba", "hai cu", "thuong tho", "dai tho"),
+     "prompts": ["an elderly Vietnamese couple in red or gold traditional ao dai smiling together at a longevity celebration",
+                 "a happy senior grandfather and grandmother sitting or posing together at a family celebration",
+                 "elderly parents wearing formal traditional Vietnamese clothes celebrating longevity"]},
+    {"id": "cu_ong", "label": "Cụ ông", "group": "Mừng thọ", "default": "Cụ ông",
+     "keys": ("cu ong", "ong cu", "ong noi", "ong ngoai", "chan dung cu ong"),
+     "prompts": ["an elderly Vietnamese grandfather smiling in traditional ao dai or formal suit portrait",
+                 "a happy old man wearing red or gold traditional silk tunic at a family longevity party",
+                 "close-up portrait of a smiling senior grandfather"]},
+    {"id": "cu_ba", "label": "Cụ bà", "group": "Mừng thọ", "default": "Cụ bà",
+     "keys": ("cu ba", "ba cu", "ba noi", "ba ngoai", "chan dung cu ba"),
+     "prompts": ["an elderly Vietnamese grandmother smiling in traditional ao dai portrait",
+                 "a happy old woman wearing red or gold traditional Vietnamese ao dai at a longevity celebration",
+                 "close-up portrait of a smiling senior grandmother"]},
+    {"id": "chuc_tho", "label": "Chúc thọ · Trao quà", "group": "Mừng thọ", "default": "Trao quà · Mừng thọ",
+     "keys": ("trao qua mung tho", "chuc tho", "mung tho", "dang hoa", "tang hoa", "bang mung tho", "khanh vang", "cat banh tho"),
+     "prompts": ["children and grandchildren presenting flowers, gifts or longevity plaque to elderly grandparents on stage",
+                 "a Vietnamese longevity celebration ceremony with red and gold backdrop, cake and family congratulating elders",
+                 "relatives bowing and offering longevity gifts to an elderly grandfather and grandmother"]},
     {"id": "phong_van", "label": "Phỏng vấn", "group": "Chung", "default": "Phỏng vấn",
      "keys": ("phong van", "interview", "chia se", "tam su", "cam nghi", "pv"),
      "prompts": ["a person being interviewed, looking at the camera and talking",
@@ -104,7 +124,7 @@ CONCEPTS = (
                  "the groom's family walking in a line carrying wedding gifts",
                  "a wedding procession arriving with decorated wedding cars and people"]},
     {"id": "don_khach", "label": "Đón khách", "group": "Nhà hàng", "default": "Đón khách",
-     "keys": ("don khach", "chup cong", "ky ten", "tiep tan", "check in", "khach"),
+     "keys": ("don khach", "chup cong", "chup hinh", "ky ten", "tiep tan", "check in", "khach"),
      "prompts": ["wedding guests arriving, greeting and taking photos at the entrance arch",
                  "guests signing the guest book at a wedding reception desk",
                  "a crowd of wedding guests sitting and mingling in a hall"]},
@@ -152,7 +172,7 @@ CONCEPTS = (
 )
 
 CONCEPT_BY_ID = {c["id"]: c for c in CONCEPTS}
-_STAGE_HALL_HINTS = ("nha hang", "tiec", "toi", "gala", "san khau", "le duong", "reception", "banquet")
+_STAGE_HALL_HINTS = ("nha hang", "tiec", "toi", "gala", "san khau", "le duong", "reception", "banquet", "mung tho")
 _STAGE_CHURCH_HINTS = ("nha tho", "thanh le", "church")
 _GENERIC_CEREMONY = ("nghi le", "lam le", "le cuoi", "le", "nl")
 

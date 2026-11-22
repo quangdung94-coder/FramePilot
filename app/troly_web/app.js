@@ -1397,7 +1397,7 @@ $("styleSel").onchange = async (e) => {
   const modal = $("settingsModal"), btn = $("btnSettings");
   if (!modal || !btn) return;
   let defDataRoot = "";
-  const shortTplName = (t) => /tiệc/i.test(t) && !/sáng|đầy đủ/i.test(t) ? "Chỉ tiệc" : (/đầy đủ/i.test(t) ? "Lễ sáng + Tiệc tối" : t);
+  const shortTplName = (t) => /mừng thọ/i.test(t) ? t : (/tiệc/i.test(t) && !/sáng|đầy đủ/i.test(t) ? "Chỉ tiệc" : (/đầy đủ/i.test(t) ? "Lễ sáng + Tiệc tối" : t));
   const addLutRow = (pref, path, hint) => {
     const list = $("setLutList");
     if (!list) return;

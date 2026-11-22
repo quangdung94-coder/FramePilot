@@ -1,5 +1,11 @@
 # Nhật ký thay đổi
 
+## 2026-11-22 – Thêm mẫu sự kiện Lễ mừng thọ (Cụ ông / Cụ bà thay Cô dâu / Chú rể), CHỜ ANH THỬ
+- `troly_core.py`: thêm 2 mẫu `Lễ mừng thọ (đầy đủ)` và `Lễ mừng thọ (chỉ tiệc)` trong `BUILTIN_TEMPLATES` & `TEMPLATE_EVENTS` (Chuẩn bị, Đón khách, Nghi lễ mừng thọ, Văn nghệ · Tiệc; dùng bin `Cụ ông`, `Cụ bà`, `Cụ ông cụ bà`, `Chúc thọ · Phát biểu`, `Trao quà · Mừng thọ`, `Văn nghệ`, `Chụp hình`), cùng quy tắc gợi ý In/Out Bước 3 tương ứng trong `BUILTIN_RULES`.
+- `troly_ai.py`: bổ sung 4 thẻ cảnh chuẩn nhóm **Mừng thọ** (`cu_ong_cu_ba`, `cu_ong`, `cu_ba`, `chuc_tho`) kèm prompt SigLIP/CLIP nhận diện cụ ông/cụ bà và trao quà mừng thọ.
+- `wedding_phrases.json`: bổ sung nhóm từ khóa `mung_tho` (mừng thọ, thượng thọ, cụ ông, cụ bà, sống lâu trăm tuổi, tứ đại đồng đường, khánh vàng...) để Bước 4 tự bôi sáng câu đắt giá.
+- `app.js`: cập nhật `shortTplName` trong hộp Cài đặt `⚙` giữ nguyên tên mẫu `Lễ mừng thọ`.
+
 ## 2026-11-22 – Bộ công cụ Kiểm thử Xuyên Đêm (`tools/overnight_qa`) & Vá 6 lỗi thật trên bản `FramePilot.exe`, XONG
 - **Công cụ kiểm thử xuyên đêm 100% local/offline (`tools/overnight_qa/`, `tests/test_overnight_qa.py`):**
   - Kết nối thẳng Edge WebView2 bên trong `FramePilot.exe` qua CDP (`cdp_client.py`, không cần thư viện ngoài), cách ly dữ liệu bằng `TROLY_CONFIG` + `TROLY_NO_SHUTDOWN=1` + junction thư mục `models` (`safety.py`), khóa cứng tên project `FP_TEST_*` khi chạy chế độ ghi (`sandbox_write`).
