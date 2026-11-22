@@ -53,7 +53,13 @@ def main():
         print("[]")
         return
 
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        dev = "cuda"
+    elif getattr(getattr(torch, "backends", None), "mps", None) and torch.backends.mps.is_available():
+        os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+        dev = "mps"
+    else:
+        dev = "cpu"
     proc = ClapProcessor.from_pretrained(a.model, local_files_only=True)
     model = ClapModel.from_pretrained(a.model, local_files_only=True).to(dev).eval()
 

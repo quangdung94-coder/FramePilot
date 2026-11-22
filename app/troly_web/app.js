@@ -1206,7 +1206,7 @@ document.addEventListener("keydown", (e) => {
     if (typeof openHelpModal === "function") openHelpModal();
     return;
   }
-  if (e.ctrlKey && !e.altKey && !e.metaKey && (e.code === "KeyZ" || e.code === "KeyY")) {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.code === "KeyZ" || e.code === "KeyY")) {
     if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
     e.preventDefault();
     const isRedo = e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey);
@@ -1263,7 +1263,7 @@ document.addEventListener("keydown", (e) => {
   if (d !== null && e.shiftKey) { e.preventDefault(); status("Đã đổi phím: giai đoạn chọn bằng F1–F12, rồi bấm số bin con.", "info"); return; }
   const dir = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols(), ArrowDown: cols() }[e.code];
   if (dir) { cancelPending(); e.preventDefault(); moveCur(cur + dir, e.shiftKey); return; }
-  if (e.ctrlKey && e.code === "KeyA") { cancelPending(); e.preventDefault(); sel = new Set(items.map((_, i) => i)); patchGrid(); showCur(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.code === "KeyA") { cancelPending(); e.preventDefault(); sel = new Set(items.map((_, i) => i)); patchGrid(); showCur(); return; }
   if (e.key === "Enter") { e.preventDefault(); reveal(); return; }
   if (d !== null && !e.ctrlKey && !e.altKey) {                    // 1-9: bin con của giai đoạn đang xem, 0: bỏ nhãn
     e.preventDefault();
@@ -1392,7 +1392,7 @@ $("styleSel").onchange = async (e) => {
     };
     z1.addEventListener("input", () => applyZ1(z1.value));
     $("g1").addEventListener("wheel", (e) => {
-      if (e.ctrlKey) { e.preventDefault(); applyZ1(+z1.value + (e.deltaY < 0 ? 18 : -18)); }
+      if (e.ctrlKey || e.metaKey) { e.preventDefault(); applyZ1(+z1.value + (e.deltaY < 0 ? 18 : -18)); }
     }, { passive: false });
   }
   if (z2) {
@@ -1403,7 +1403,7 @@ $("styleSel").onchange = async (e) => {
     };
     z2.addEventListener("input", () => applyZ2(z2.value));
     $("gridScroll").addEventListener("wheel", (e) => {
-      if (e.ctrlKey) { e.preventDefault(); applyZ2(+z2.value + (e.deltaY < 0 ? 20 : -20)); }
+      if (e.ctrlKey || e.metaKey) { e.preventDefault(); applyZ2(+z2.value + (e.deltaY < 0 ? 20 : -20)); }
     }, { passive: false });
   }
   const gs = $("gridScroll"), mq = document.createElement("div");

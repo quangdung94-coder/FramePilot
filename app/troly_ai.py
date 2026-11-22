@@ -480,7 +480,8 @@ def has_dinov2(data_root):
 def load_model(data_root):
     import open_clip
     import torch
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    import troly_env
+    dev = troly_env.torch_device(torch)
     if has_siglip2(data_root):
         sd2 = siglip2_dir(data_root)
         w2 = os.path.join(sd2, MODEL_FILE)
@@ -531,7 +532,8 @@ def run_embed_dino(project, data_root, proxy_root):
     todo = [c for c in todo_all if c["key"] not in done]
     if not todo:
         return {"embedded": len(done), "new": 0}
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    import troly_env
+    dev = troly_env.torch_device(torch)
     ddir = dinov2_dir(data_root)
     proc = AutoImageProcessor.from_pretrained(ddir, local_files_only=True)
     model = AutoModel.from_pretrained(ddir, local_files_only=True).to(dev).eval()
@@ -566,8 +568,7 @@ def run_embed_dino(project, data_root, proxy_root):
         np.savez(tmp, keys=np.array(all_k, dtype=object), vecs=all_v)
         os.replace(tmp, npz)
     del model
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    troly_env.torch_empty_cache(torch)
     return {"embedded": len(done) + len(new_k), "new": len(new_k)}
 
 

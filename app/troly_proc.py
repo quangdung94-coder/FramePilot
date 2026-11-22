@@ -5,6 +5,7 @@ Trên Windows, panel chạy bằng pythonw nên tiến trình con nào không gi
 chay_an (chạy xong mới trả, như subprocess.run) hoặc mo_an (chạy nền, như subprocess.Popen). Có test quét: không còn lời gọi subprocess nào ngoài file này.
 """
 import os
+import signal
 import subprocess
 import threading
 
@@ -13,8 +14,8 @@ _ACT_LOCK = threading.Lock()
 _ACTIVE = {}  # tag -> set[Popen]
 
 
-def _giau(kw):
-    """Thêm cờ CREATE_NO_WINDOW và STARTUPINFO(SW_HIDE) vào kwargs (giữ cờ người gọi đã đặt, ví dụ độ ưu tiên thấp)."""
+def _giau(kw, new_session=False):
+    """Thêm cờ CREATE_NO_WINDOW và STARTUPINFO(SW_HIDE) trên Windows; trên macOS/POSIX bỏ cờ Windows-only."""
     kw = dict(kw)
     if os.name == "nt":
         kw["creationflags"] = int(kw.get("creationflags") or 0) | CREATE_NO_WINDOW
@@ -23,11 +24,16 @@ def _giau(kw):
             si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             si.wShowWindow = 0                          # SW_HIDE
             kw["startupinfo"] = si
+    else:
+        kw.pop("creationflags", None)
+        kw.pop("startupinfo", None)
+        if new_session and "start_new_session" not in kw:
+            kw["start_new_session"] = True
     return kw
 
 
 def kill_tree(pid):
-    """Diệt trọn cây tiến trình con (cả venv launcher lẫn python.exe thật trên Windows) mà không hiện cửa sổ đen."""
+    """Diệt trọn cây tiến trình con (Windows: taskkill /T /F; macOS/POSIX: killpg nhóm tiến trình con)."""
     if not pid:
         return
     if os.name == "nt":
@@ -39,8 +45,16 @@ def kill_tree(pid):
             return
         except Exception:  # noqa: BLE001
             pass
+    else:
+        try:
+            pgid = os.getpgid(int(pid))
+            if pgid and pgid != os.getpgid(0):
+                os.killpg(pgid, signal.SIGKILL)
+                return
+        except OSError:
+            pass
     try:
-        os.kill(int(pid), 9)
+        os.kill(int(pid), getattr(signal, "SIGKILL", 9))
     except OSError:
         pass
 
@@ -56,6 +70,14 @@ def huy_nhom(tag):
                 p.kill()
             except OSError:
                 pass
+
+
+def huy_tat_ca():
+    """Ngắt toàn bộ tiến trình con đang theo dõi (dùng cho atexit trên macOS/POSIX thay Windows Job Object)."""
+    with _ACT_LOCK:
+        tags = list(_ACTIVE.keys())
+    for t in tags:
+        huy_nhom(t)
 
 
 def chay_an(cmd, **kw):
@@ -89,5 +111,5 @@ def chay_an(cmd, **kw):
 
 
 def mo_an(cmd, **kw):
-    """subprocess.Popen không hiện cửa sổ console."""
-    return subprocess.Popen(cmd, **_giau(kw))
+    """subprocess.Popen không hiện cửa sổ console (trên POSIX tách session riêng để kill_tree diệt sạch tiến trình con)."""
+    return subprocess.Popen(cmd, **_giau(kw, new_session=True))

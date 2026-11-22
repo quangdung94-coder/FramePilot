@@ -665,7 +665,7 @@ function lnKey(e) {
   if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleStar(); return; }
   if (e.code === "KeyM" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleMute(); return; }
   if (e.code === "Space") { e.preventDefault(); LN.jklRate = 0; clearInterval(LN.jklTimer); if (LN.vid) { if (LN.vid.paused) LN.vid.play().catch(() => {}); else LN.vid.pause(); } return; }
-  if (e.ctrlKey && e.code === "KeyA") { e.preventDefault(); LN.pick = new Set(LN.rows.filter(inStage).map((r) => r.uid)); renderRows(); renderExportBtns(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.code === "KeyA") { e.preventDefault(); LN.pick = new Set(LN.rows.filter(inStage).map((r) => r.uid)); renderRows(); renderExportBtns(); return; }
   if (!e.ctrlKey && !e.altKey && !e.metaKey) {
     if (e.code === "KeyJ" && LN.vid) { e.preventDefault(); clearInterval(LN.jklTimer); LN.jklRate = (LN.jklRate >= 0 ? -1 : Math.max(-4, LN.jklRate * 2)); if (!LN.vid.paused) LN.vid.pause(); LN.jklTimer = setInterval(() => { if (!LN.vid || LN.jklRate >= 0) { clearInterval(LN.jklTimer); return; } LN.vid.currentTime = Math.max(0, LN.vid.currentTime + LN.jklRate * 0.08); if (LN.vid.currentTime <= 0) { LN.jklRate = 0; clearInterval(LN.jklTimer); } }, 80); return; }
     if (e.code === "KeyK" && LN.vid) { e.preventDefault(); LN.jklRate = 0; clearInterval(LN.jklTimer); if (!LN.vid.paused) LN.vid.pause(); return; }

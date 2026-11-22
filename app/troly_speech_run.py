@@ -29,8 +29,25 @@ EN_RATIO = 0.30                            # tỉ lệ từ tiếng Anh thông d
 EN_MIN_WORDS = 8
 
 
+_CAFFEINATE_PROC = None
+
+
 def keep_awake(on):
-    """Chặn máy tự ngủ khi đang chạy (không tắt máy, không đụng cài đặt hệ thống)."""
+    """Chặn máy tự ngủ khi đang chạy (Windows: SetThreadExecutionState; macOS: caffeinate -i -w <pid>)."""
+    global _CAFFEINATE_PROC
+    if sys.platform == "darwin":
+        try:
+            import troly_proc
+            if on:
+                if _CAFFEINATE_PROC is None or _CAFFEINATE_PROC.poll() is not None:
+                    _CAFFEINATE_PROC = troly_proc.mo_an(["caffeinate", "-i", "-w", str(os.getpid())])
+            else:
+                if _CAFFEINATE_PROC is not None and _CAFFEINATE_PROC.poll() is None:
+                    _CAFFEINATE_PROC.terminate()
+                _CAFFEINATE_PROC = None
+        except Exception:                   # noqa: BLE001
+            pass
+        return
     try:
         import ctypes
         ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001 if on else 0x80000000)
@@ -39,6 +56,12 @@ def keep_awake(on):
 
 
 def low_priority():
+    if os.name != "nt":
+        try:
+            os.nice(5)
+        except Exception:                   # noqa: BLE001
+            pass
+        return
     try:
         import ctypes
         ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00004000)  # BELOW_NORMAL
@@ -136,11 +159,20 @@ class SpeechRun(object):
                    "total": c["total"], "speech": c["speech"], "done": c["done"], "silent": c["silent"],
                    "errors": c["err"], "suspect": c["suspect"], "took_s": round(time.time() - t_all, 1)}
         self.log("XONG: " + ", ".join("%s=%s" % kv for kv in summary.items() if kv[0] != "message"))
-        try:
-            import ctypes
-            ctypes.windll.user32.MessageBeep(0x40)                  # kêu một tiếng báo xong
-        except Exception:                                           # noqa: BLE001
-            pass
+        if sys.platform == "darwin":
+            try:
+                import troly_proc
+                snd = "/System/Library/Sounds/Glass.aiff"
+                if os.path.isfile(snd):
+                    troly_proc.mo_an(["afplay", snd])
+            except Exception:                                       # noqa: BLE001
+                pass
+        else:
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBeep(0x40)              # kêu một tiếng báo xong
+            except Exception:                                       # noqa: BLE001
+                pass
         return summary
 
     # ------------------------------------------------------------------

@@ -1,0 +1,99 @@
+name: Build & Test FramePilot (macOS Apple Silicon)
+
+on:
+  push:
+    branches:
+      - main
+      - feat/macos-arm64
+      - claude/project-thread-kuv58x
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac-arm64:
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11 (arm64)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "arm64"
+
+      - name: Verify Apple Silicon (arm64)
+        run: |
+          uname -m
+          python3 -c "import platform, sys; print(sys.platform, platform.machine())"
+          test "$(uname -m)" = "arm64"
+
+      - name: Install macOS build & UI dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements_mac.txt
+
+      - name: Run full unit test suite on macOS Apple Silicon
+        env:
+          TROLY_NO_SHUTDOWN: "1"
+        run: |
+          python3 -m unittest discover -s tests -v
+
+      - name: Download static arm64 ffmpeg & ffprobe (zero Homebrew dylib deps)
+        run: |
+          mkdir -p dist/FramePilot_Mac_ARM64/tools/ffmpeg
+          curl -fSL "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip" -o /tmp/ffmpeg.zip
+          curl -fSL "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffprobe.zip" -o /tmp/ffprobe.zip
+          unzip -o /tmp/ffmpeg.zip -d dist/FramePilot_Mac_ARM64/tools/ffmpeg/
+          unzip -o /tmp/ffprobe.zip -d dist/FramePilot_Mac_ARM64/tools/ffmpeg/
+          chmod +x dist/FramePilot_Mac_ARM64/tools/ffmpeg/ffmpeg dist/FramePilot_Mac_ARM64/tools/ffmpeg/ffprobe
+          dist/FramePilot_Mac_ARM64/tools/ffmpeg/ffmpeg -version | head -n 2
+          otool -L dist/FramePilot_Mac_ARM64/tools/ffmpeg/ffmpeg
+
+      - name: Build clean FramePilot.app (arm64) & stage portable bundle
+        run: |
+          python3 build_mac.py --out-dir dist/FramePilot_Mac_ARM64
+
+      - name: Smoke test built FramePilot.app (--setup --check-only) & verify clean bundle
+        run: |
+          APP_BIN="dist/FramePilot_Mac_ARM64/FramePilot.app/Contents/MacOS/FramePilot"
+          test -x "$APP_BIN"
+          file "$APP_BIN" | grep -q "arm64"
+          "$APP_BIN" --setup --check-only --pkg-root "dist/FramePilot_Mac_ARM64"
+          # Xóa config.json nếu bước smoke test không tạo (đảm bảo zip sạch 100%)
+          rm -f dist/FramePilot_Mac_ARM64/config.json
+          python3 -c '
+          import sys; sys.path.insert(0, "app")
+          import troly_setup as ts
+          issues = ts.audit_clean_bundle("dist/FramePilot_Mac_ARM64", is_mac_os=True)
+          assert not issues, f"Bundle not clean: {issues}"
+          print("CLEAN BUNDLE AUDIT: 100% PASS")
+          '
+
+      - name: Package FramePilot_Mac_ARM64_Core.zip
+        run: |
+          cd dist
+          ditto -c -k --sequesterRsrc --keepParent FramePilot_Mac_ARM64 FramePilot_Mac_ARM64_Core.zip
+          ls -lh FramePilot_Mac_ARM64_Core.zip
+
+      - name: Upload macOS Apple Silicon Core artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FramePilot_Mac_ARM64_Core
+          path: dist/FramePilot_Mac_ARM64_Core.zip
+          retention-days: 30
+
+      - name: Attach to GitHub Release (on version tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/FramePilot_Mac_ARM64_Core.zip

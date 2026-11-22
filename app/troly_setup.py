@@ -28,6 +28,18 @@ REQUIRED_MODELS = (
     ("wavlm_sv", "WavLM-SV (Tách người nói MC / Gia đình Bước 4)"),
 )
 
+REQUIRED_MODELS_MAC = (
+    ("whisper_large_v3_turbo_mlx", "Whisper large-v3-turbo MLX (Chép lời GPU chip M)"),
+    ("phowhisper_medium_mlx", "PhoWhisper-medium MLX (Chép lời tiếng Việt GPU chip M)"),
+    ("siglip2_vitb16", "SigLIP 2 ViT-B/16 (Phân loại cảnh AI Bước 2 - chính)"),
+    ("siglip_vitb16", "SigLIP ViT-B/16 (Phân loại cảnh AI Bước 2 - dự phòng)"),
+    ("openclip_vitb32_laion2b", "OpenCLIP ViT-B/32 (Phân loại cảnh AI Bước 2 - cơ bản)"),
+    ("dinov2_small", "DINOv2-small (Tìm góc máy / cảnh tương tự Bước 2)"),
+    ("clap_htsat_unfused", "LAION-CLAP (Nhận diện 6 tiếng động đám cưới Bước 3)"),
+    ("mediapipe", "MediaPipe Face Landmarker (Nụ cười / tránh nhắm mắt Bước 3)"),
+    ("wavlm_sv", "WavLM-SV (Tách người nói MC / Gia đình Bước 4)"),
+)
+
 # Các mẫu đường dẫn/tên project cá nhân tuyệt đối không được xuất hiện trong config.json bản đóng gói
 FORBIDDEN_PATTERNS = (
     r"QuangKhoi",
@@ -39,6 +51,20 @@ FORBIDDEN_PATTERNS = (
     r"2026\.10\.",
     r"2026\.11\.",
 )
+
+
+def _is_mac_flag(is_mac_os=None):
+    return (sys.platform == "darwin") if is_mac_os is None else bool(is_mac_os)
+
+
+def required_models_for_os(is_mac_os=None):
+    return REQUIRED_MODELS_MAC if _is_mac_flag(is_mac_os) else REQUIRED_MODELS
+
+
+def app_executable_path(target_root, is_mac_os=None):
+    if _is_mac_flag(is_mac_os):
+        return os.path.join(target_root, "FramePilot.app", "Contents", "MacOS", "FramePilot")
+    return os.path.join(target_root, "FramePilot.exe")
 
 
 def _dir_has_files(path):
@@ -53,15 +79,71 @@ def _dir_has_files(path):
     return False
 
 
-def is_clean_config_dict(cfg):
-    """True nếu dict config không chứa bất kỳ tên khách hay đường dẫn project cá nhân nào."""
+def is_clean_config_dict(cfg, is_mac_os=None):
+    """True nếu dict config không chứa bất kỳ tên khách hay đường dẫn project cá nhân nào (và không có đường dẫn Windows nếu là bản macOS)."""
     raw = json.dumps(cfg or {}, ensure_ascii=False)
-    return not any(re.search(p, raw, re.IGNORECASE) for p in FORBIDDEN_PATTERNS)
+    if any(re.search(p, raw, re.IGNORECASE) for p in FORBIDDEN_PATTERNS):
+        return False
+    if is_mac_os is True:
+        if re.search(r"[A-Za-z]:\\\\|\.exe\b", raw, re.IGNORECASE):
+            return False
+    return True
 
 
-def build_clean_config(target_root, data_root=None, ai_python=None, proxy_root=""):
+def audit_clean_bundle(bundle_dir, is_mac_os=None):
+    """Kiểm tra thư mục gói đóng gói có SẠCH 100% không. Trả về danh sách lỗi (rỗng = sạch tuyệt đối)."""
+    issues = []
+    if not os.path.isdir(bundle_dir):
+        return ["Không thấy thư mục gói: %s" % bundle_dir]
+    if os.path.isfile(os.path.join(bundle_dir, "config.json")):
+        issues.append("Tồn tại config.json cá nhân trong gói đóng gói")
+    for forbidden_dir in ("data", "saas_video"):
+        if os.path.isdir(os.path.join(bundle_dir, forbidden_dir)):
+            issues.append("Không được đóng gói kèm thư mục: %s" % forbidden_dir)
+    cfg_ex = os.path.join(bundle_dir, "config.example.json")
+    if os.path.isfile(cfg_ex):
+        try:
+            with open(cfg_ex, "r", encoding="utf-8-sig") as f:
+                cfg_obj = json.load(f)
+            if not is_clean_config_dict(cfg_obj, is_mac_os=_is_mac_flag(is_mac_os)):
+                issues.append("config.example.json còn chứa dữ liệu cá nhân hoặc đường dẫn sai hệ điều hành")
+        except (OSError, ValueError) as e:
+            issues.append("config.example.json lỗi đọc JSON: %s" % e)
+    else:
+        issues.append("Thiếu config.example.json trong gói đóng gói")
+    # Quét tên file/thư mục cấp trên xem có lọt dữ liệu project cũ không
+    for root, dirs, files in os.walk(bundle_dir):
+        # Không đi sâu vào thư mục nhị phân lớn / wheels / models
+        dirs[:] = [d for d in dirs if d not in ("models", "wheels", "ai_env", "python", "_internal", "FramePilot.app")]
+        for name in dirs + files:
+            if any(re.search(p, name, re.IGNORECASE) for p in FORBIDDEN_PATTERNS):
+                issues.append("Phát hiện tên nhạy cảm trong gói: %s" % os.path.join(root, name))
+    return issues
+
+
+def build_clean_config(target_root, data_root=None, ai_python=None, proxy_root="", is_mac_os=None):
     """Tạo dict config.json sạch 100% (không chứa dữ liệu khách hay đường dẫn project cũ)."""
+    mac = _is_mac_flag(is_mac_os)
     droot = data_root or os.path.join(target_root, "data")
+    if mac:
+        aipy = ai_python or os.path.join(target_root, "ai_env", "bin", "python3")
+        return {
+            "data_root": droot,
+            "proxy_root": proxy_root or "",
+            "ai_python": aipy,
+            "asr_engine": "auto",
+            "resolve": {
+                "install_path": "/Applications/DaVinci Resolve/DaVinci Resolve.app",
+            },
+            "whisper": {
+                "exe": "",
+                "model": "",
+            },
+            "cache_root": "",
+            "srt_root": "",
+            "templates_path": "",
+            "camera_luts": {},
+        }
     aipy = ai_python or os.path.join(target_root, "ai_env", "Scripts", "python.exe")
     if not os.path.isfile(aipy) and os.path.isfile(r"C:\VideoAI_ai_venv\Scripts\python.exe"):
         aipy = r"C:\VideoAI_ai_venv\Scripts\python.exe"
@@ -87,30 +169,42 @@ def build_clean_config(target_root, data_root=None, ai_python=None, proxy_root="
     }
 
 
-def resolve_scripts_utility_dir():
+def resolve_scripts_utility_dir(is_mac_os=None):
+    if _is_mac_flag(is_mac_os):
+        return os.path.expanduser(
+            "~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility"
+        )
     appdata = os.environ.get("APPDATA") or ""
     if appdata:
         return os.path.join(appdata, "Blackmagic Design", "DaVinci Resolve", "Support", "Fusion", "Scripts", "Utility")
     return ""
 
 
-def scan_system(pkg_root, target_root=None, target_data_root=None, target_ai_dir=None):
+def scan_system(pkg_root, target_root=None, target_data_root=None, target_ai_dir=None, is_mac_os=None):
     """Quét toàn bộ plugin, công cụ, môi trường AI và từng model trên máy đích so với gói cài đặt `pkg_root`.
     Trả về dict kế hoạch cài đặt chi tiết (mục nào đã có -> skip, mục nào chưa có -> install)."""
+    mac = _is_mac_flag(is_mac_os)
     pkg_root = os.path.abspath(pkg_root)
     target_root = os.path.abspath(target_root or pkg_root)
     if not target_data_root:
-        target_data_root = r"D:\VideoAI\data" if os.path.isdir(r"D:\VideoAI\data") else os.path.join(target_root, "data")
+        if not mac and os.path.isdir(r"D:\VideoAI\data"):
+            target_data_root = r"D:\VideoAI\data"
+        else:
+            target_data_root = os.path.join(target_root, "data")
     target_data_root = os.path.abspath(target_data_root)
     if not target_ai_dir:
-        target_ai_dir = r"C:\VideoAI_ai_venv" if os.path.isdir(r"C:\VideoAI_ai_venv") else os.path.join(target_root, "ai_env")
+        if not mac and os.path.isdir(r"C:\VideoAI_ai_venv"):
+            target_ai_dir = r"C:\VideoAI_ai_venv"
+        else:
+            target_ai_dir = os.path.join(target_root, "ai_env")
     target_ai_dir = os.path.abspath(target_ai_dir)
 
     items = []
 
     # 1. Công cụ ffmpeg & ffprobe
     ff_sys = shutil.which("ffmpeg") and shutil.which("ffprobe")
-    ff_dst = os.path.join(target_root, "tools", "ffmpeg", "ffmpeg.exe")
+    ff_bin_name = "ffmpeg" if mac else "ffmpeg.exe"
+    ff_dst = os.path.join(target_root, "tools", "ffmpeg", ff_bin_name)
     ff_src = os.path.join(pkg_root, "tools", "ffmpeg")
     has_ff = bool(ff_sys or os.path.isfile(ff_dst))
     items.append({
@@ -124,32 +218,45 @@ def scan_system(pkg_root, target_root=None, target_data_root=None, target_ai_dir
         "detail": "Đã có trong máy" if has_ff else "Chưa có trên máy đích",
     })
 
-    # 2. Công cụ Const-me Whisper CLI (dự phòng C++)
-    cm_dst = os.path.join(target_root, "tools", "whisper", "constme", "cli", "main.exe")
-    cm_alt = r"D:\VideoAI\tools\whisper\constme\cli\main.exe"
-    cm_src = os.path.join(pkg_root, "tools", "whisper", "constme")
-    has_cm = os.path.isfile(cm_dst) or os.path.isfile(cm_alt)
-    items.append({
-        "id": "tool_constme",
-        "kind": "plugin",
-        "name": "Plugin Const-me Whisper CLI (C++ dự phòng)",
-        "exists": has_cm,
-        "has_source": _dir_has_files(cm_src),
-        "src": cm_src,
-        "dst": os.path.join(target_root, "tools", "whisper", "constme"),
-        "detail": "Đã có sẵn" if has_cm else "Chưa có trên máy đích",
-    })
+    # 2. Công cụ Const-me Whisper CLI (chỉ Windows; macOS dùng MLX-Whisper tận dụng GPU chip M)
+    if not mac:
+        cm_dst = os.path.join(target_root, "tools", "whisper", "constme", "cli", "main.exe")
+        cm_alt = r"D:\VideoAI\tools\whisper\constme\cli\main.exe"
+        cm_src = os.path.join(pkg_root, "tools", "whisper", "constme")
+        has_cm = os.path.isfile(cm_dst) or os.path.isfile(cm_alt)
+        items.append({
+            "id": "tool_constme",
+            "kind": "plugin",
+            "name": "Plugin Const-me Whisper CLI (C++ dự phòng)",
+            "exists": has_cm,
+            "has_source": _dir_has_files(cm_src),
+            "src": cm_src,
+            "dst": os.path.join(target_root, "tools", "whisper", "constme"),
+            "detail": "Đã có sẵn" if has_cm else "Chưa có trên máy đích",
+        })
 
-    # 3. Môi trường Python AI (PyTorch CUDA, Faster-Whisper, Transformers, MediaPipe, Silero-VAD)
-    ai_py_dst = os.path.join(target_ai_dir, "Scripts", "python.exe")
-    if not os.path.isfile(ai_py_dst):
-        ai_py_dst = os.path.join(target_ai_dir, "python.exe")
+    # 3. Môi trường Python AI
+    if mac:
+        ai_py_dst = os.path.join(target_ai_dir, "bin", "python3")
+        if not os.path.isfile(ai_py_dst):
+            ai_py_dst = os.path.join(target_ai_dir, "bin", "python")
+        offline_src = os.path.join(pkg_root, "offline_env")
+        ai_src = offline_src if _dir_has_files(os.path.join(offline_src, "wheels")) else os.path.join(pkg_root, "ai_env")
+        install_mode = "offline_uv" if ai_src == offline_src else "copy"
+        ai_label = "Môi trường chạy AI chip M (PyTorch MPS + MLX-Whisper + Silero-VAD + MediaPipe)"
+    else:
+        ai_py_dst = os.path.join(target_ai_dir, "Scripts", "python.exe")
+        if not os.path.isfile(ai_py_dst):
+            ai_py_dst = os.path.join(target_ai_dir, "python.exe")
+        ai_src = os.path.join(pkg_root, "ai_env")
+        install_mode = "copy"
+        ai_label = "Môi trường chạy AI (PyTorch + Whisper + Silero-VAD + MediaPipe)"
     has_ai_env = os.path.isfile(ai_py_dst)
-    ai_src = os.path.join(pkg_root, "ai_env")
     items.append({
         "id": "ai_runtime",
         "kind": "runtime",
-        "name": "Môi trường chạy AI (PyTorch + Whisper + Silero-VAD + MediaPipe)",
+        "install_mode": install_mode,
+        "name": ai_label,
         "exists": has_ai_env,
         "has_source": _dir_has_files(ai_src),
         "src": ai_src,
@@ -160,7 +267,7 @@ def scan_system(pkg_root, target_root=None, target_data_root=None, target_ai_dir
     # 4. Từng bộ Model AI trong thư mục models/
     pkg_models_dir = os.path.join(pkg_root, "models")
     dst_models_dir = os.path.join(target_data_root, "models")
-    for m_key, m_label in REQUIRED_MODELS:
+    for m_key, m_label in required_models_for_os(mac):
         m_dst = os.path.join(dst_models_dir, m_key)
         m_src = os.path.join(pkg_models_dir, m_key)
         exists = _dir_has_files(m_dst)
@@ -178,9 +285,9 @@ def scan_system(pkg_root, target_root=None, target_data_root=None, target_ai_dir
         })
 
     # 5. Menu DaVinci Resolve Studio (Workspace > Scripts > Utility > FramePilot.py)
-    scripts_dir = resolve_scripts_utility_dir()
+    scripts_dir = resolve_scripts_utility_dir(mac)
     menu_file = os.path.join(scripts_dir, "FramePilot.py") if scripts_dir else ""
-    exe_path = os.path.join(target_root, "FramePilot.exe")
+    exe_path = app_executable_path(target_root, mac)
     menu_exists = False
     if menu_file and os.path.isfile(menu_file):
         try:
@@ -197,10 +304,11 @@ def scan_system(pkg_root, target_root=None, target_data_root=None, target_ai_dir
         "has_source": True,
         "src": exe_path,
         "dst": menu_file,
-        "detail": "Đã trỏ đúng bản EXE này" if menu_exists else "Sẽ gắn menu vào DaVinci Resolve",
+        "detail": "Đã trỏ đúng bản ứng dụng này" if menu_exists else "Sẽ gắn menu vào DaVinci Resolve",
     })
 
     return {
+        "is_mac": mac,
         "pkg_root": pkg_root,
         "target_root": target_root,
         "target_data_root": target_data_root,
@@ -259,13 +367,19 @@ def write_davinci_exe_launcher(exe_path, dst_script_path):
     return True
 
 
-def ensure_clean_config_file(target_root, target_data_root, target_ai_dir):
+def ensure_clean_config_file(target_root, target_data_root, target_ai_dir, is_mac_os=None):
     """Đảm bảo config.json ở target_root tồn tại và SẠCH 100% (không chứa tên khách/project cũ)."""
+    mac = _is_mac_flag(is_mac_os)
     cfg_path = os.path.join(target_root, "config.json")
-    ai_py = os.path.join(target_ai_dir, "Scripts", "python.exe")
-    if not os.path.isfile(ai_py):
-        ai_py = os.path.join(target_ai_dir, "python.exe")
-    clean = build_clean_config(target_root, data_root=target_data_root, ai_python=ai_py)
+    if mac:
+        ai_py = os.path.join(target_ai_dir, "bin", "python3")
+        if not os.path.isfile(ai_py):
+            ai_py = os.path.join(target_ai_dir, "bin", "python")
+    else:
+        ai_py = os.path.join(target_ai_dir, "Scripts", "python.exe")
+        if not os.path.isfile(ai_py):
+            ai_py = os.path.join(target_ai_dir, "python.exe")
+    clean = build_clean_config(target_root, data_root=target_data_root, ai_python=ai_py, is_mac_os=mac)
     if os.path.isfile(cfg_path):
         try:
             with open(cfg_path, "r", encoding="utf-8-sig") as f:
@@ -289,10 +403,54 @@ def ensure_clean_config_file(target_root, target_data_root, target_ai_dir):
     return cfg_path
 
 
+def _install_offline_uv_env(offline_dir, target_ai_dir, out_fn=print):
+    """Dựng môi trường ai_env 100% offline trên macOS Apple Silicon bằng binary `uv` + Python standalone + `wheels/`."""
+    import troly_proc
+    uv_bin = os.path.join(offline_dir, "uv")
+    wheels_dir = os.path.join(offline_dir, "wheels")
+    req_file = os.path.join(offline_dir, "requirements_ai_mac.txt")
+    py_standalone = os.path.join(offline_dir, "python", "bin", "python3")
+    if not os.path.isfile(uv_bin) or not os.path.isdir(wheels_dir):
+        out_fn("  [LỖI] Thiếu uv hoặc thư mục wheels/ trong offline_env.")
+        return False
+    try:
+        os.chmod(uv_bin, 0o755)
+    except OSError:
+        pass
+    py_arg = py_standalone if os.path.isfile(py_standalone) else (shutil.which("python3") or sys.executable)
+    if os.path.isfile(py_standalone):
+        try:
+            os.chmod(py_standalone, 0o755)
+        except OSError:
+            pass
+    out_fn("  -> Tạo venv AI offline tại %s ..." % target_ai_dir)
+    r1 = troly_proc.chay_an([uv_bin, "venv", "--python", py_arg, target_ai_dir], capture_output=True, text=True, timeout=180)
+    if r1.returncode != 0:
+        out_fn("  [LỖI] Không tạo được ai_env: %s" % (r1.stderr or r1.stdout or "")[-300:])
+        return False
+    venv_py = os.path.join(target_ai_dir, "bin", "python3")
+    cmd = [uv_bin, "pip", "install", "--python", venv_py, "--offline", "--no-index", "--find-links", wheels_dir]
+    if os.path.isfile(req_file):
+        cmd += ["-r", req_file]
+    else:
+        whls = sorted(os.path.join(wheels_dir, f) for f in os.listdir(wheels_dir) if f.endswith(".whl"))
+        if not whls:
+            out_fn("  [LỖI] Không thấy file .whl nào trong %s" % wheels_dir)
+            return False
+        cmd += whls
+    out_fn("  -> Cài đặt thư viện AI offline (PyTorch MPS + MLX-Whisper + MediaPipe + Silero-VAD)...")
+    r2 = troly_proc.chay_an(cmd, capture_output=True, text=True, timeout=900)
+    if r2.returncode != 0:
+        out_fn("  [LỖI] Cài thư viện offline thất bại: %s" % (r2.stderr or r2.stdout or "")[-400:])
+        return False
+    return True
+
+
 def run_setup(plan, ask_fn=None, out_fn=print, dry_run=False):
     """Hiển thị danh sách kiểm tra trùng lặp, hỏi người dùng xác nhận trước khi cài, bỏ qua mọi mục đã có."""
+    mac = _is_mac_flag(plan.get("is_mac"))
     out_fn("=" * 68)
-    out_fn("  FRAMEPILOT v0.4.0 (22h01) - KIỂM TRA & CÀI ĐẶT TRÊN MÁY")
+    out_fn("  FRAMEPILOT v0.4.0 (%s) - KIỂM TRA & CÀI ĐẶT TRÊN MÁY" % ("macOS Apple Silicon" if mac else "Windows"))
     out_fn("=" * 68)
     out_fn("Thư mục ứng dụng : %s" % plan["target_root"])
     out_fn("Thư mục dữ liệu  : %s" % plan["target_data_root"])
@@ -327,15 +485,18 @@ def run_setup(plan, ask_fn=None, out_fn=print, dry_run=False):
     for it in to_install:
         out_fn("-> Đang cài: %s ..." % it["name"])
         if it["kind"] == "menu":
-            exe_p = os.path.join(plan["target_root"], "FramePilot.exe")
+            exe_p = app_executable_path(plan["target_root"], mac)
             if write_davinci_exe_launcher(exe_p, it["dst"]):
+                installed.append(it["id"])
+        elif it["kind"] == "runtime" and it.get("install_mode") == "offline_uv":
+            if _install_offline_uv_env(it["src"], it["dst"], out_fn=out_fn):
                 installed.append(it["id"])
         else:
             if _copy_tree_safe(it["src"], it["dst"]):
                 installed.append(it["id"])
 
     os.makedirs(plan["target_data_root"], exist_ok=True)
-    cfg_p = ensure_clean_config_file(plan["target_root"], plan["target_data_root"], plan["target_ai_dir"])
+    cfg_p = ensure_clean_config_file(plan["target_root"], plan["target_data_root"], plan["target_ai_dir"], is_mac_os=mac)
     out_fn("-> Đã chuẩn hóa file cấu hình sạch: %s" % cfg_p)
     out_fn("=" * 68)
     out_fn("HOÀN TẤT! Đã bỏ qua %d mục trùng có sẵn, đã cài mới %d mục." % (len(skipped), len(installed)))
@@ -390,7 +551,15 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     if getattr(sys, "frozen", False):
-        default_pkg = os.path.dirname(os.path.abspath(sys.executable))
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        if sys.platform == "darwin":
+            try:
+                import troly_env
+                default_pkg = troly_env._mac_bundle_parent(exe_dir)
+            except Exception:
+                default_pkg = exe_dir
+        else:
+            default_pkg = exe_dir
     else:
         default_pkg = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     pkg_root = a.pkg_root or default_pkg

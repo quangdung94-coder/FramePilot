@@ -1,0 +1,88 @@
+======================================================================
+    FRAMEPILOT v0.4.0 (macOS Apple Silicon) - HƯỚNG DẪN CÀI ĐẶT
+======================================================================
+
+1. YÊU CẦU TRƯỚC KHI CÀI
+------------------------
+- Máy Mac dùng chip Apple Silicon (M1 / M2 / M3 / M4, macOS 13 trở lên).
+  * Bản này tối ưu riêng cho chip M (GPU Metal/MPS + MLX-Whisper),
+    không hỗ trợ Mac Intel cũ.
+- Đã cài sẵn DaVinci Resolve STUDIO (khuyên dùng bản 19 / 20 / 21).
+  * Lưu ý: Phải là bản STUDIO (bản Free bị Blackmagic khóa External Scripting).
+- KHÔNG CẦN KẾT NỐI MẠNG khi cài (nếu đã chép đủ thư mục offline_env/ và models/).
+
+
+2. CẤU TRÚC THƯ MỤC GÓI CÀI OFFLINE
+-----------------------------------
+Chép toàn bộ thư mục FramePilot_Mac_ARM64 sang máy Mac (ví dụ: ~/Applications/FramePilot_Mac_ARM64/
+hoặc ~/FramePilot_Mac_ARM64/):
+
+  FramePilot_Mac_ARM64/
+  ├── FramePilot.app              (Ứng dụng chính)
+  ├── CaiDat_MayMoi.command       (Bộ cài thông minh - bấm đúp để cài)
+  ├── config.example.json         (Mẫu cấu hình sạch 100%)
+  ├── tools/ffmpeg/               (ffmpeg + ffprobe cho chip M)
+  ├── offline_env/                (Tùy chọn - bộ wheelhouse dựng ai_env 100% offline)
+  └── models/                     (9 bộ Model AI cục bộ: MLX-Whisper, SigLIP, DINOv2...)
+
+
+3. CÁCH CÀI ĐẶT LÊN MÁY MAC MỚI (100% OFFLINE, TỰ BỎ QUA MỤC ĐÃ CÓ)
+--------------------------------------------------------------------
+Bước 1: Mở thư mục FramePilot_Mac_ARM64 trong Finder.
+
+Bước 2: Bấm đúp vào file:
+        >>>  CaiDat_MayMoi.command  <<<
+
+        * Nếu macOS báo "cannot be opened because it is from an unidentified developer":
+          -> Bấm Chuột phải vào CaiDat_MayMoi.command -> chọn "Open" (Mở) -> bấm "Open".
+          -> Hoặc mở Terminal, gõ:  xattr -cr "<kéo thả thư mục FramePilot_Mac_ARM64 vào đây>"
+             rồi bấm Enter, sau đó bấm đúp lại CaiDat_MayMoi.command.
+
+Bước 3: Cửa sổ Terminal hiện lên sẽ tự động:
+        - Gỡ cờ kiểm duyệt Gatekeeper cho thư mục gói
+        - Quét kiểm tra máy đích:
+          + Plugin ffmpeg & ffprobe (arm64)
+          + Môi trường AI chip M (PyTorch MPS + MLX-Whisper + Silero-VAD + MediaPipe)
+          + 9 bộ Model AI cục bộ
+          + Menu mở FramePilot trong DaVinci Resolve
+        - Mục nào đã có sẵn trên máy sẽ hiện: [ĐÃ CÓ -> BỎ QUA]
+        - Mục nào chưa có sẽ hiện:            [CHƯA CÓ -> CÀI]
+
+Bước 4: Gõ Y rồi bấm Enter để cài các mục chưa có.
+        Đợi báo "HOÀN TẤT!" rồi đóng Terminal.
+
+
+4. BẬT QUYỀN & MỞ FRAMEPILOT TRONG DAVINCI RESOLVE STUDIO (CHỈ 1 LẦN)
+---------------------------------------------------------------------
+Bước 1: Mở DaVinci Resolve Studio.
+Bước 2: Bấm thanh menu trên cùng:
+        DaVinci Resolve  -->  Preferences...  (hoặc bấm Cmd + ,)
+Bước 3: Chọn tab "System" -> chọn mục "General" bên trái.
+Bước 4: Tìm dòng:
+        External scripting using:  [ None ]  --> đổi thành:  [ Local ]
+Bước 5: Bấm "Save", sau đó TẮT HẲN DaVinci (Cmd + Q) rồi MỞ LẠI.
+Bước 6: Mở 1 Project bất kỳ trong DaVinci Resolve Studio, vào menu:
+        Workspace  -->  Scripts  -->  Utility  -->  FramePilot
+
+
+5. PHÍM TẮT CHUẨN TRÊN MACOS
+----------------------------
+- Cmd + Z / Cmd + Shift + Z (hoặc Cmd + Y): Hoàn tác / Làm lại 50 bước.
+- Cmd + A: Chọn tất cả clip đang hiển thị.
+- Cmd + Click / Shift + Click: Chọn nhiều clip.
+- Cmd + Lăn chuột: Phóng to / thu nhỏ lưới thumbnail và timeline.
+- P (gắn sao), X (bỏ), I/O (đặt điểm cắt), Shift+I/O (nhiều khúc),
+  M (tắt tiếng A1), J-K-L (tua), Space (phát/dừng).
+- Bấm nút (?) cạnh bánh răng (⚙) để xem toàn bộ bảng phím tắt.
+
+
+6. XỬ LÝ NHANH NẾU GẶP SỰ CỐ
+----------------------------
+- Báo "FramePilot.app is damaged" hoặc không mở được do Gatekeeper:
+  -> Mở Terminal chạy:  xattr -cr "/đường/dẫn/tới/FramePilot_Mac_ARM64"
+- Không thấy mục "FramePilot" trong Workspace > Scripts > Utility:
+  -> Chạy lại CaiDat_MayMoi.command (gõ Y), rồi tắt hẳn DaVinci (Cmd + Q) mở lại.
+- Mở lên báo "Không kết nối được DaVinci":
+  -> Kiểm tra lại External scripting using = Local và đảm bảo đang dùng bản STUDIO.
+
+======================================================================

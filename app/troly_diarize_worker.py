@@ -46,7 +46,13 @@ def main():
     from transformers import AutoFeatureExtractor, WavLMForXVector
 
     x, sr = _read_wav_16k(a.wav)
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        dev = "cuda"
+    elif getattr(getattr(torch, "backends", None), "mps", None) and torch.backends.mps.is_available():
+        os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+        dev = "mps"
+    else:
+        dev = "cpu"
     fe = AutoFeatureExtractor.from_pretrained(a.model, local_files_only=True)
     model = WavLMForXVector.from_pretrained(a.model, local_files_only=True).to(dev).eval()
 

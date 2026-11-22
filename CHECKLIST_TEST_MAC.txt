@@ -1,0 +1,47 @@
+======================================================================
+   CHECKLIST TEST THỰC CHIẾN 10 PHÚT TRÊN MÁY MAC CHIP M (LẦN ĐẦU)
+======================================================================
+
+[ ] 1. Kiểm tra bản sạch & giải nén
+       - Copy thư mục FramePilot_Mac_ARM64 (+ offline_env/ + models/) sang máy Mac.
+       - Xác nhận KHÔNG có file config.json cá nhân hay thư mục data/ cũ bên trong.
+
+[ ] 2. Chạy bộ cài offline (tắt Wi-Fi để kiểm tra 100% offline)
+       - Chuột phải -> Open file CaiDat_MayMoi.command.
+       - Kiểm tra màn hình quét hiển thị rõ [CHƯA CÓ -> CÀI], không báo đường dẫn C:\ hay D:\.
+       - Gõ Y -> đợi dựng ai_env/ và chép models/ xong -> báo "HOÀN TẤT!".
+       - Chạy lại CaiDat_MayMoi.command lần 2 -> kiểm tra mọi mục báo [ĐÃ CÓ -> BỎ QUA].
+
+[ ] 3. Kết nối DaVinci Resolve Studio
+       - Bật External scripting using = Local, tắt mở lại DaVinci (Cmd+Q).
+       - Vào Workspace > Scripts > Utility > FramePilot.
+       - Cửa sổ FramePilot mở lên đúng kích thước, hiện đúng tên project đang mở.
+
+[ ] 4. Kiểm tra giao diện WKWebView & phần cứng
+       - Bấm nút Cài đặt (⚙) -> kiểm tra nhãn phần cứng hiện "macOS · Apple Silicon (Metal/MPS)".
+       - Thử nút chọn thư mục (Cache / SRT) và chọn file LUT (.cube) xem hộp thoại macOS mở mượt.
+
+[ ] 5. Kiểm tra phát video & WebGL LUT (Bước 2 / 3 / 4)
+       - Bấm Space phát/dừng clip (H.264 / ProRes), thử Hover Scrub & J-K-L.
+       - Gắn thử 1 file LUT .cube -> kiểm tra màu hiển thị đúng ở Bước 2, 3, 4 (không bị đen/nháy).
+
+[ ] 6. Kiểm tra phím tắt macOS
+       - Thử Cmd + Z / Cmd + Shift + Z (hoàn tác/làm lại), Cmd + A (chọn tất cả),
+         Shift+Click / Cmd+Click chọn nhiều clip, Cmd+Lăn chuột zoom.
+
+[ ] 7. Kiểm tra AI GPU chip M (Bước 2 — SigLIP / DINOv2 trên MPS)
+       - Bấm "Tự phân loại" trên 10–20 clip -> kiểm tra chạy nhanh trên MPS, không crash,
+         không báo lỗi op MPS chưa hỗ trợ.
+
+[ ] 8. Kiểm tra Whisper GPU chip M (Bước 4 — MLX-Whisper)
+       - Chọn 1–2 clip có tiếng nói tiếng Việt -> bấm "Chép lời".
+       - Kiểm tra tốc độ chép nhanh (dùng MLX GPU), chữ tiếng Việt có dấu đúng, có thể bấm "Dừng"
+         ngắt ngay lập tức (kiểm tra Activity Monitor không còn tiến trình python/ffmpeg mồ côi).
+
+[ ] 9. Kiểm tra xuất Timeline Bước 5 sang DaVinci
+       - Tạo 1 timeline thử nghiệm (tên test) từ Bước 5 -> kiểm tra clip V1/V2/A1/A2 khớp đúng.
+
+[ ] 10. Kiểm tra tự đóng & khóa 1 cửa sổ/project
+        - Mở lại menu FramePilot lần 2 cùng project -> cửa sổ cũ được đưa lên trước (không mở 2 cửa sổ).
+        - Đóng DaVinci hoặc đổi sang project khác -> sau ~5 giây FramePilot tự lưu & tự đóng gọn.
+======================================================================

@@ -213,7 +213,7 @@ function snapSilence(t, dur) {
   if ($("waveZOut")) $("waveZOut").onclick = () => setWz(wz - 100);
   if ($("waveZFit")) $("waveZFit").onclick = () => { setWz(100); sc.scrollLeft = 0; };
   sc.addEventListener("wheel", (e) => {
-    if (!e.ctrlKey) return;
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     setWz(wz + (e.deltaY < 0 ? 100 : -100));
   }, { passive: false });
@@ -644,7 +644,7 @@ plAttachHoverScrub($("plSeek"));
     }
   };
   grid.addEventListener("mousemove", (e) => {
-    if (page !== 2 || e.buttons || e.ctrlKey || e.shiftKey) return;
+    if (page !== 2 || e.buttons || e.ctrlKey || e.metaKey || e.shiftKey) return;
     const th = e.target.closest(".thumb"), card = e.target.closest(".card");
     if (!th || !card) { line.style.display = "none"; return; }
     // Hướng A (chuẩn DaVinci / Explorer): rê chuột trên lưới CHỈ scrub xem hình clip đang chọn,

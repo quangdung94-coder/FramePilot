@@ -500,7 +500,7 @@ document.addEventListener("keydown", (e) => {
   z.addEventListener("input", () => apply(z.value));
   if (fit) fit.addEventListener("click", fitView);
   tl.addEventListener("wheel", (e) => {
-    if (e.ctrlKey) { e.preventDefault(); apply(+z.value + (e.deltaY < 0 ? 75 : -75)); }
+    if (e.ctrlKey || e.metaKey) { e.preventDefault(); apply(+z.value + (e.deltaY < 0 ? 75 : -75)); }
     else if (e.altKey || e.shiftKey) { e.preventDefault(); tl.scrollLeft += e.deltaY; }
   }, { passive: false });
   document.addEventListener("keydown", (e) => {

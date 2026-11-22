@@ -17,6 +17,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+import sys
 import troly_proc
 
 FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -26,8 +27,12 @@ DEFAULT_POS = 0.4          # lấy khung ở 40% độ dài clip (đầu clip ha
 
 
 def lut_dirs(extra=None):
-    """Các thư mục LUT của DaVinci trên Windows (hệ thống + người dùng), cộng thư mục ghi thêm trong config."""
+    """Các thư mục LUT của DaVinci trên Windows & macOS (hệ thống + người dùng), cộng thư mục ghi thêm trong config."""
     out = list(extra or [])
+    if sys.platform == "darwin":
+        out.append("/Library/Application Support/Blackmagic Design/DaVinci Resolve/LUT")
+        out.append(os.path.expanduser("~/Library/Application Support/Blackmagic Design/DaVinci Resolve/LUT"))
+        return out
     pd = os.environ.get("PROGRAMDATA") or r"C:\ProgramData"
     out.append(os.path.join(pd, "Blackmagic Design", "DaVinci Resolve", "Support", "LUT"))
     ad = os.environ.get("APPDATA")

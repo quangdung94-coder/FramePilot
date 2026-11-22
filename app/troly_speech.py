@@ -11,6 +11,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import troly_proc
 import tempfile
 import time
@@ -272,9 +273,16 @@ def whisper_cmd(cfg, wav, lang="vi", prompt=None):
 
 
 def faster_whisper_model_dir(engine, data_root=None):
-    """Thư mục model CTranslate2 cục bộ cho Whisper large-v3-turbo hoặc PhoWhisper-medium."""
+    """Thư mục model cục bộ cho Whisper large-v3-turbo hoặc PhoWhisper-medium.
+    Trên macOS (chip M): ưu tiên bản MLX (GPU Metal), dự phòng bản CTranslate2."""
     import troly_env
     root = data_root or troly_env.default_data_root()
+    if sys.platform == "darwin":
+        mlx_sub = {"whisper_turbo": "whisper_large_v3_turbo_mlx", "phowhisper": "phowhisper_medium_mlx"}.get(engine)
+        if mlx_sub:
+            mlx_dir = os.path.join(root, "models", mlx_sub)
+            if os.path.isdir(mlx_dir):
+                return mlx_dir
     sub = {"whisper_turbo": "whisper_large_v3_turbo", "phowhisper": "phowhisper_medium_ct2"}.get(engine)
     return os.path.join(root, "models", sub) if sub else ""
 
@@ -480,15 +488,17 @@ def load_whisper_cfg():
         def_mod = troly_env.constme_model(data_root)
     except Exception:                                     # noqa: BLE001
         full = {}
-        data_root = r"D:\VideoAI\data"
-        ai_py = r"C:\VideoAI_ai_venv\Scripts\python.exe"
-        def_exe = r"D:\VideoAI\tools\whisper\constme\cli\main.exe"
-        def_mod = os.path.join(data_root, "models", "ggml-medium.bin")
+        data_root = os.path.join(os.path.dirname(HERE), "data") if sys.platform == "darwin" else r"D:\VideoAI\data"
+        ai_py = os.path.join(os.path.dirname(HERE), "ai_env", "bin", "python3") if sys.platform == "darwin" else r"C:\VideoAI_ai_venv\Scripts\python.exe"
+        def_exe = "" if sys.platform == "darwin" else r"D:\VideoAI\tools\whisper\constme\cli\main.exe"
+        def_mod = "" if sys.platform == "darwin" else os.path.join(data_root, "models", "ggml-medium.bin")
     cfg = dict(full.get("whisper") or {})
     cfg.setdefault("exe", def_exe)
     cfg.setdefault("model", def_mod)
     want = str(full.get("asr_engine") or cfg.get("engine") or "auto").strip().lower()
-    chosen, ct2_dir = "constme", ""
+    if sys.platform == "darwin" and want == "constme":
+        want = "auto"
+    chosen, ct2_dir = ("" if sys.platform == "darwin" else "constme"), ""
     if want == "auto":
         for cand in ("whisper_turbo", "phowhisper"):
             d = faster_whisper_model_dir(cand, data_root)

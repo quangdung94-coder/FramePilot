@@ -22,8 +22,9 @@ INDEX = os.path.join(HERE, "troly_web", "index.html")
 
 
 def set_window_icon(win, ico=None):
-    """Gắn icon FramePilot lên cửa sổ pywebview (Windows cần .ico, đặt bằng WM_SETICON) để titlebar và taskbar hiện đúng icon thay vì icon Python.
-    Lỗi gì cũng bỏ qua (chỉ mất icon, không ảnh hưởng chức năng)."""
+    """Gắn icon FramePilot lên cửa sổ pywebview (Windows cần .ico, đặt bằng WM_SETICON; macOS dùng icon từ .app bundle)."""
+    if os.name != "nt":
+        return False
     ico = ico or ICON
     if not os.path.isfile(ico):
         return False
@@ -61,11 +62,12 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:                         # noqa: BLE001
         pass
-    try:                                      # icon/nhóm riêng trên taskbar
-        import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
-    except Exception:                         # noqa: BLE001
-        pass
+    if os.name == "nt":
+        try:                                  # icon/nhóm riêng trên taskbar Windows
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+        except Exception:                     # noqa: BLE001
+            pass
     try:
         import webview
     except ImportError:

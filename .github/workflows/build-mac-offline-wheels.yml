@@ -1,0 +1,78 @@
+name: Build Offline AI Wheels Bundle (macOS Apple Silicon)
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: "Phiên bản Python standalone cho ai_env (khuyên dùng 3.11)"
+        required: false
+        default: "3.11"
+
+jobs:
+  build-offline-env:
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv (arm64)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Prepare offline_env (uv + standalone Python arm64 + wheels/)
+        env:
+          PY_VER: ${{ github.event.inputs.python_version || '3.11' }}
+        run: |
+          mkdir -p dist/offline_env/wheels
+          cp "$(command -v uv)" dist/offline_env/uv
+          chmod +x dist/offline_env/uv
+          cp requirements_ai_mac.txt dist/offline_env/requirements_ai_mac.txt
+
+          # Tải Python standalone arm64 (relocatable 100% giữa các máy Mac chip M)
+          uv python install "$PY_VER"
+          PY_BIN="$(uv python find "$PY_VER")"
+          PY_ROOT="$(cd "$(dirname "$PY_BIN")/.." && pwd)"
+          cp -R "$PY_ROOT" dist/offline_env/python
+
+          # Tải toàn bộ file .whl cho macOS Apple Silicon (không cài mạng trên máy đích)
+          "$PY_BIN" -m pip download \
+            --dest dist/offline_env/wheels \
+            --only-binary=:all: \
+            -r requirements_ai_mac.txt || \
+          "$PY_BIN" -m pip download \
+            --dest dist/offline_env/wheels \
+            -r requirements_ai_mac.txt
+
+          ls -lh dist/offline_env/wheels | head -n 40
+          echo "Tong so file wheel:" $(ls -1 dist/offline_env/wheels | wc -l)
+
+      - name: Verify 100% offline install & AI imports on Apple Silicon
+        run: |
+          python3 -c '
+          import sys; sys.path.insert(0, "app")
+          import troly_setup as ts
+          ok = ts._install_offline_uv_env("dist/offline_env", "/tmp/test_fp_ai_env")
+          assert ok, "Offline uv install failed!"
+          '
+          /tmp/test_fp_ai_env/bin/python3 -c '
+          import torch, torchvision, mlx_whisper, faster_whisper, transformers, open_clip, mediapipe, silero_vad, cv2
+          print("torch:", torch.__version__, "mps_built:", torch.backends.mps.is_built())
+          print("ALL MACOS ARM64 OFFLINE AI IMPORTS: OK")
+          '
+          rm -rf /tmp/test_fp_ai_env
+
+      - name: Package FramePilot_Mac_ARM64_OfflineEnv.zip
+        run: |
+          cd dist
+          ditto -c -k --sequesterRsrc --keepParent offline_env FramePilot_Mac_ARM64_OfflineEnv.zip
+          ls -lh FramePilot_Mac_ARM64_OfflineEnv.zip
+
+      - name: Upload Offline AI Env artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FramePilot_Mac_ARM64_OfflineEnv
+          path: dist/FramePilot_Mac_ARM64_OfflineEnv.zip
+          retention-days: 30
