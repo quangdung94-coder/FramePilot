@@ -1,5 +1,11 @@
 # Nhật ký thay đổi
 
+## 2026-11-22 – Đồng bộ 5 kiểu quay/dựng với Bước 5 & Tự đóng panel khi tắt/đổi project DaVinci, CHỜ ANH THỬ
+- **Đồng bộ Kiểu quay / dựng (`troly_core.py`, `troly_dur.py`, `index.html`, `app.js`, `step5.js`):**
+  - Đồng bộ 2 chiều dropdown `#styleSel` (thanh trên cùng), `#setStyleSel` (Cài đặt `⚙`) và 5 nút mục tiêu ở Bước 5: `Teaser 1:00`, `Highlight 4:00`, `Event 5:00`, `Phóng sự 10:00`, `Truyền thống 18:00`, kèm khoảng cảnh báo gợi ý riêng từng kiểu.
+- **Tự đóng panel khi tắt DaVinci hoặc đổi project khác (`troly_resolve.py`, `troly_api.py`, `panel_troly_web.py`):**
+  - Thêm bộ theo dõi nhẹ mỗi 2,5 giây trên luồng DaVinci (`_check_project_alive`): nếu DaVinci đã đóng hoặc chuyển sang project khác 2 nhịp liên tiếp (~5 giây) và không đang chạy dở tác vụ nền (Chép lời/Phân tích/Ghi), panel tự lưu kế hoạch rồi tự đóng gọn.
+
 ## 2026-11-22 – Thêm 2 mẫu Event (Hội nghị/Khai trương/Khai trường + Gala/YEP), nút Event 5:00 & Tự động Sync tiếng Recorder rời (Media Pool → Bước 4 → A2), CHỜ ANH THỬ
 - **Mẫu sự kiện Event (`troly_core.py`, `troly_ai.py`, `wedding_phrases.json`, `app.js`, `index.html`):**
   - Thêm 2 mẫu gọn (mỗi giai đoạn ≤ 6 bin con): **`Event · Hội nghị / Khai trương / Khai trường`** và **`Event · Gala Dinner / Year End Party`**, kèm quy tắc In/Out Bước 3, **8 thẻ cảnh AI nhóm Event** (có đầy đủ từ đồng nghĩa như đánh trống, cắt băng, múa lân, lucky draw, keynote, booth...), bộ từ khóa lời nói `"event"`, và nút preset **`Event 5:00`** ở Bước 5.

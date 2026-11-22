@@ -140,6 +140,14 @@ class TrolyApi(object):
                 self._audio_by_uid = {a["uid"]: a for a in self._audio_clips if a.get("uid")}
                 self._audio_by_rel = {a["rel"]: a for a in self._audio_clips if a.get("rel")}
                 self._emit("audio_clips", self.recorder_list())
+            elif kind == "project_closed":
+                if self._busy or self._speech_run is not None or self._analyze is not None:
+                    self._emit("status", {"text": "DaVinci đã đổi/đóng project, nhưng đang chạy dở tác vụ nền nên chưa tự đóng panel.", "kind": "warn"})
+                else:
+                    self._save_now()
+                    cb = getattr(self, "on_auto_close", None)
+                    if callable(cb):
+                        cb(data)
             elif kind == "clips":
                 self._on_clips(*data)
             elif kind == "applied":

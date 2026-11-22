@@ -98,6 +98,7 @@ def main():
     api.debug = a.debug                           # --debug: bật nút "Đo lướt" ở trình phát
     api.pick_dir_fn = lambda: (lambda r: r[0] if r else None)(win.create_file_dialog(webview.FOLDER_DIALOG))
     api.pick_file_fn = lambda ft=("LUT files (*.cube;*.3dl)", "All files (*.*)"): (lambda r: r[0] if r else None)(win.create_file_dialog(webview.OPEN_DIALOG, file_types=ft))
+    api.on_auto_close = lambda _new: (holder.get("win") and holder["win"].destroy())
     win.events.closed += lambda: api.close()
     win.events.shown += lambda: set_window_icon(win)
     webview.start(debug=a.debug, gui="edgechromium" if os.name == "nt" else None)

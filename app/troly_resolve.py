@@ -97,6 +97,9 @@ class TrolyWorker(threading.Thread):
         self.items = {}                   # uid -> (đường bin, MediaPoolItem) của lần đọc gần nhất
         self.audio_items = {}             # uid -> (đường bin, MediaPoolItem) các file audio rời (Tascam/Zoom/Mixer) trong Media Pool
         self._factory = resolve_factory
+        self._connected_once = False
+        self._miss = 0
+        self._watch_stopped = False
 
     def post(self, kind, data=None):
         self.out_q.put((kind, data))
@@ -115,6 +118,8 @@ class TrolyWorker(threading.Thread):
             raise RuntimeError("DaVinci đang mở project khác. Hãy mở project %s." % self.project_name)
         self.pm = pm
         self.project = p
+        self._connected_once = True
+        self._miss = 0
         try:                                          # id bền của project (không đổi khi đổi tên project)
             self.project_uid = str(p.GetUniqueId() or "")
         except Exception:                             # noqa: BLE001  bản DaVinci/giả lập không có hàm này
@@ -886,9 +891,36 @@ class TrolyWorker(threading.Thread):
                 bad.append((uid, "không khôi phục khớp"))
         self.post("inout_restored", {"backup": arg, "ok": ok, "bad": bad, "skipped": skipped})
 
+    def _check_project_alive(self):
+        """Kiểm tra nhẹ xem DaVinci còn mở đúng project hiện tại không. Nếu đã tắt DaVinci hoặc đổi sang project khác
+        2 lần liên tiếp (~5 giây) thì phát sự kiện 'project_closed' để panel tự lưu và tự đóng gọn (Hướng 2)."""
+        if not self._connected_once or self._watch_stopped or self._factory is not None or os.environ.get("TROLY_NO_WATCHDOG"):
+            return
+        cur_name = None
+        alive = False
+        try:
+            cur = self.pm.GetCurrentProject() if self.pm is not None else None
+            if cur is not None:
+                cur_name = cur.GetName()
+                if cur_name == self.project_name:
+                    alive = True
+        except Exception:                                     # noqa: BLE001
+            alive = False
+        if alive:
+            self._miss = 0
+            return
+        self._miss += 1
+        if self._miss >= 2:
+            self._watch_stopped = True
+            self.post("project_closed", cur_name)
+
     def run(self):
         while True:
-            job, arg = self.jobs.get()
+            try:
+                job, arg = self.jobs.get(timeout=2.5)
+            except queue.Empty:
+                self._check_project_alive()
+                continue
             if job == "quit":
                 return
             try:

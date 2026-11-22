@@ -217,6 +217,50 @@ class TestEventAndRecorderSync(unittest.TestCase):
         self.assertTrue(tl.a1[2].enabled)
         self.assertEqual(events[-1][1]["n_rec_a2"], 2)
 
+    def test_auto_close_watchdog_on_project_switch_or_close(self):
+        import troly_api as ta
+
+        events = []
+        w = tr.TrolyWorker.__new__(tr.TrolyWorker)
+        w.project_name = "ProjA"
+        w._factory = None
+        w._connected_once = True
+        w._miss = 0
+        w._watch_stopped = False
+        w.post = lambda k, d=None: events.append((k, d))
+
+        cur_proj = ["ProjA"]
+        w.pm = type("PM", (), {"GetCurrentProject": lambda self_: type("P", (), {"GetName": lambda s: cur_proj[0]})() if cur_proj[0] else None})()
+
+        # Still ProjA -> no event
+        w._check_project_alive()
+        self.assertEqual(events, [])
+        # Transient 1st miss -> no event yet
+        cur_proj[0] = "ProjB"
+        w._check_project_alive()
+        self.assertEqual(events, [])
+        # Recovers -> resets _miss
+        cur_proj[0] = "ProjA"
+        w._check_project_alive()
+        self.assertEqual(w._miss, 0)
+        # 2 consecutive misses (switched to ProjB) -> emits project_closed
+        cur_proj[0] = "ProjB"
+        w._check_project_alive()
+        w._check_project_alive()
+        self.assertEqual(events, [("project_closed", "ProjB")])
+
+        # Api._handle("project_closed") calls on_auto_close only when idle
+        with tempfile.TemporaryDirectory() as td:
+            api = ta.TrolyApi("ProjA", td, start_worker=False)
+            closed = []
+            api.on_auto_close = lambda p: closed.append(p)
+            api._busy = True
+            api._handle("project_closed", "ProjB")
+            self.assertEqual(closed, [])
+            api._busy = False
+            api._handle("project_closed", "ProjB")
+            self.assertEqual(closed, ["ProjB"])
+
 
 if __name__ == "__main__":
     unittest.main()
