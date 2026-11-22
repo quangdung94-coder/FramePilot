@@ -468,12 +468,30 @@ class TrolyWorker(threading.Thread):
             return {"mediaPoolItem": self.items[x["uid"]][1], "startFrame": int(x["a"]), "endFrame": int(x["b"])}
 
         infos = [] if v1_gapped else [info(x) for x in v1]
+        # Chia danh sách V1 thành các lô KHÔNG lặp mediaPoolItem trong cùng một lời gọi:
+        # DaVinci Resolve 21 có lỗi C++ trong CreateTimelineFromClips khi cùng một mediaPoolItem xuất hiện 2 lần
+        # (ví dụ clip cắt 2 khúc Shift+I/O): nó làm lệch toàn bộ các clip phía sau sang phải 1 vị trí với LeftOffset âm
+        # khiến cả cụm cuối bị đứng 1 tấm hình! Tách lô theo uid duy nhất + AppendToTimeline tránh triệt để lỗi này.
+        v1_chunks = []
+        if infos:
+            cur_ch, seen_u = [], set()
+            for x_seg, ci_seg in zip(v1, infos):
+                u_seg = x_seg["uid"]
+                if u_seg in seen_u and cur_ch:
+                    v1_chunks.append(cur_ch)
+                    cur_ch, seen_u = [], set()
+                cur_ch.append(ci_seg)
+                seen_u.add(u_seg)
+            if cur_ch:
+                v1_chunks.append(cur_ch)
+        first_chunk = v1_chunks[0] if v1_chunks else []
+        rest_chunks = v1_chunks[1:] if len(v1_chunks) > 1 else []
         before = self._timeline_names()
         pool = self.pool
         tl, why, created_empty = None, [], False
-        if infos:
+        if first_chunk:
             try:
-                tl = pool.CreateTimelineFromClips(name, infos)
+                tl = pool.CreateTimelineFromClips(name, first_chunk)
             except Exception as e:                            # noqa: BLE001
                 why.append("CreateTimelineFromClips lỗi: %s" % e)
             if not tl:
@@ -482,10 +500,10 @@ class TrolyWorker(threading.Thread):
             try:
                 tl = pool.CreateEmptyTimeline(name)
                 created_empty = bool(tl)
-                if tl and (infos or v_more or v1_gapped) and not self._make_current(tl):
+                if tl and (first_chunk or rest_chunks or v_more or v1_gapped) and not self._make_current(tl):
                     why.append("không chuyển được sang timeline mới, KHÔNG thêm đoạn để khỏi chèn nhầm vào timeline đang mở")
                     tl = None
-                elif tl and infos and not pool.AppendToTimeline(infos):
+                elif tl and first_chunk and not pool.AppendToTimeline(first_chunk):
                     why.append("AppendToTimeline không thêm được đoạn nào")
                     tl = None
                 elif not tl:
@@ -496,10 +514,56 @@ class TrolyWorker(threading.Thread):
         if not tl:
             extra = " Một timeline rỗng có thể đã được tạo, bạn xóa tay nếu thấy (Trợ lý không xóa timeline)." if created_empty else ""
             raise RuntimeError("DaVinci không tạo được timeline mới (%d đoạn). Chi tiết: %s.%s" % (len(segs), "; ".join(why), extra))
-        # Kiểm tra xem CreateTimelineFromClips / AppendToTimeline có bị DaVinci dừng giữa chừng (ví dụ 1 clip cắt nhiều khúc Shift+I/O
-        # hoặc endFrame sát mép cuối file 59.94fps) làm rớt các đoạn phía sau không -> bù từng đoạn còn thiếu!
+        # Chèn nối tiếp các lô còn lại (khi có clip cắt nhiều khúc Shift+I/O) và chèn bù nếu DaVinci rớt đoạn nào
         rescue_msgs = []
         if infos and not v1_gapped:
+            def _append_one(ci_item, pos_1based):
+                ci = dict(ci_item)
+                ok_one = False
+                try:
+                    ok_one = bool(pool.AppendToTimeline([ci]))
+                except Exception:                             # noqa: BLE001
+                    ok_one = False
+                if not ok_one and ci["endFrame"] > ci["startFrame"] + 2:
+                    ci2 = dict(ci)
+                    ci2["endFrame"] = ci["endFrame"] - 2
+                    try:
+                        ok_one = bool(pool.AppendToTimeline([ci2]))
+                    except Exception:                         # noqa: BLE001
+                        ok_one = False
+                if not ok_one:
+                    rescue_msgs.append("Không chèn được đoạn V1 số %d (frame %d–%d)." % (pos_1based, ci["startFrame"], ci["endFrame"]))
+                return ok_one
+
+            if rest_chunks:
+                if self._make_current(tl):
+                    offset = len(first_chunk)
+                    for ch in rest_chunks:
+                        # Đoạn đầu mỗi lô sau chính là khúc lặp Shift+I/O -> chèn riêng 1 đoạn rồi mới chèn phần còn lại (tất cả uid duy nhất)
+                        _append_one(ch[0], offset + 1)
+                        tail = ch[1:]
+                        if tail:
+                            try:
+                                before_n = len(tl.GetItemListInTrack("video", 1) or [])
+                            except Exception:                 # noqa: BLE001
+                                before_n = None
+                            ok_tail = False
+                            try:
+                                ok_tail = bool(pool.AppendToTimeline(tail))
+                            except Exception:                 # noqa: BLE001
+                                ok_tail = False
+                            added_n = len(tail) if ok_tail else 0
+                            if before_n is not None:
+                                try:
+                                    after_n = len(tl.GetItemListInTrack("video", 1) or [])
+                                    added_n = max(0, after_n - before_n)
+                                except Exception:             # noqa: BLE001
+                                    pass
+                            for k_rem in range(added_n, len(tail)):
+                                _append_one(tail[k_rem], offset + 1 + k_rem + 1)
+                        offset += len(ch)
+                else:
+                    rescue_msgs.append("Không chuyển được sang timeline mới để chèn %d đoạn V1 còn lại." % (len(infos) - len(first_chunk)))
             try:
                 got_v1 = len(tl.GetItemListInTrack("video", 1) or [])
             except Exception:                                 # noqa: BLE001
@@ -507,21 +571,7 @@ class TrolyWorker(threading.Thread):
             if got_v1 < len(infos):
                 if self._make_current(tl):
                     for idx_rem in range(got_v1, len(infos)):
-                        ci = dict(infos[idx_rem])
-                        ok_one = False
-                        try:
-                            ok_one = bool(pool.AppendToTimeline([ci]))
-                        except Exception:                     # noqa: BLE001
-                            ok_one = False
-                        if not ok_one and ci["endFrame"] > ci["startFrame"] + 2:
-                            ci2 = dict(ci)
-                            ci2["endFrame"] = ci["endFrame"] - 2
-                            try:
-                                ok_one = bool(pool.AppendToTimeline([ci2]))
-                            except Exception:                 # noqa: BLE001
-                                ok_one = False
-                        if not ok_one:
-                            rescue_msgs.append("Không chèn được đoạn V1 số %d (frame %d–%d)." % (idx_rem + 1, ci["startFrame"], ci["endFrame"]))
+                        _append_one(infos[idx_rem], idx_rem + 1)
                 else:
                     rescue_msgs.append("DaVinci chỉ thêm %d/%d đoạn V1 và không chuyển được sang timeline mới để chèn bù." % (got_v1, len(infos)))
         if v1_gapped:
@@ -640,7 +690,8 @@ class TrolyWorker(threading.Thread):
         # 4) đọc lại vị trí
         try:
             import troly_tl
-            got = [("V1", int(it.GetStart()), int(it.GetEnd())) for it in (tl.GetItemListInTrack("video", 1) or [])]
+            v1_rb = tl.GetItemListInTrack("video", 1) or []
+            got = [("V1", int(it.GetStart()), int(it.GetEnd())) for it in v1_rb]
             if v2:
                 for ti in sorted({_t_idx(x) for x in v2 if _t_idx(x) >= 2}):
                     got += [("V%d" % ti, int(it.GetStart()), int(it.GetEnd())) for it in (tl.GetItemListInTrack("video", ti) or [])]
@@ -649,6 +700,18 @@ class TrolyWorker(threading.Thread):
                 pl = [{"track": "V%d" % _t_idx(x), "gapped": True} for x in v2]
             notes["layout_ok"], more = troly_tl.verify_readback(pl, got)
             notes["msgs"] += more
+            neg = []
+            for idx_it, it in enumerate(v1_rb):
+                if hasattr(it, "GetLeftOffset"):
+                    try:
+                        lo = int(it.GetLeftOffset())
+                        if lo < 0:
+                            neg.append("#%d %s (offset=%d)" % (idx_it + 1, it.GetName() if hasattr(it, "GetName") else "", lo))
+                    except Exception:                         # noqa: BLE001
+                        pass
+            if neg:
+                notes["layout_ok"] = False
+                notes["msgs"].append("CẢNH BÁO: %d clip V1 có LeftOffset âm (có thể đứng hình): %s." % (len(neg), ", ".join(neg[:5])))
         except Exception as e:                                # noqa: BLE001
             notes["msgs"].append("Không đọc lại được vị trí: %s" % e)
         return notes

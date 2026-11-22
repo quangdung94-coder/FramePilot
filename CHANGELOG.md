@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 2026-11-22 – Sửa triệt để lỗi cụm cuối bị đứng 1 tấm hình (DaVinci `CreateTimelineFromClips` lệch offset âm khi 1 clip cắt 2 khúc `Shift+I/O`), CHỜ ANH THỬ
+- `troly_resolve.py`: tách danh sách đoạn `V1` thành từng lô không trùng `mediaPoolItem` trong cùng 1 lời gọi `CreateTimelineFromClips` / `AppendToTimeline` (tránh lỗi C++ trong DaVinci Resolve 21.1.1 làm lệch toàn bộ clip sau khúc lặp `Shift+I/O` với `LeftOffset` âm hàng nghìn frame khiến mọi clip phía sau bị đứng thành 1 tấm hình).
+- `troly_resolve.py`: bổ sung bước kiểm tra `GetLeftOffset() < 0` ngay sau khi tạo timeline trong `_finish_layout` để cảnh báo ngay nếu DaVinci sinh offset âm.
+
 ## 2026-11-22 – Sửa lỗi DaVinci bỏ rơi đoạn sau khi 1 clip có 2 khúc `Shift+I/O` (`do_create_cut_timeline`), CHỜ ANH THỬ
 - `troly_resolve.py`: sau `CreateTimelineFromClips`, kiểm tra ngay số clip thực tế trên `V1`; nếu DaVinci dừng giữa chừng (ví dụ 1 clip cắt 2 khúc `Shift+I/O` liên tiếp hoặc `endFrame` sát mép cuối file 59.94fps) thì tự động chèn bù từng đoạn còn thiếu bằng `AppendToTimeline` (có thử lùi 2 frame nếu sát mép cuối) thay vì im lặng rớt cả cụm cuối.
 - `troly_tl.py`: bật kiểm đếm đủ số clip `V1` trong `verify_readback` để không bao giờ bỏ sót clip rớt.

@@ -122,6 +122,98 @@ class TestPage5ChronoMode(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("V1: có 2 clip, cần 3." in m for m in msgs))
 
+    def test_create_cut_timeline_splits_duplicate_mediapoolitem_across_calls(self):
+        import troly_resolve as tr
+
+        class _FakeItem:
+            def __init__(self, name, start, dur, left=0):
+                self._name, self._s, self._d, self._l = name, start, dur, left
+            def GetName(self): return self._name
+            def GetStart(self): return self._s
+            def GetEnd(self): return self._s + self._d
+            def GetLeftOffset(self): return self._l
+            def SetClipEnabled(self, v): return True
+
+        class _FakeTL:
+            def __init__(self, name):
+                self._name = name
+                self.v1 = []
+                self._cur = 0
+            def GetName(self): return self._name
+            def GetStartFrame(self): return 0
+            def GetItemListInTrack(self, kind, idx):
+                return list(self.v1) if (kind == "video" and idx == 1) else []
+            def add(self, infos):
+                for ci in infos:
+                    dur = ci["endFrame"] - ci["startFrame"]
+                    self.v1.append(_FakeItem(ci["mediaPoolItem"], self._cur, dur, ci["startFrame"]))
+                    self._cur += dur
+
+        class _FakePool:
+            def __init__(self):
+                self.calls = []
+                self.cur_tl = None
+            def CreateTimelineFromClips(self, name, infos):
+                # Enforce DaVinci 21 constraint: NO duplicate mediaPoolItem in a single call!
+                mpis = [ci["mediaPoolItem"] for ci in infos]
+                assert len(mpis) == len(set(mpis)), f"Duplicate mediaPoolItem in CreateTimelineFromClips: {mpis}"
+                self.calls.append(("create", list(mpis)))
+                tl = _FakeTL(name)
+                tl.add(infos)
+                self.cur_tl = tl
+                return tl
+            def AppendToTimeline(self, infos):
+                mpis = [ci["mediaPoolItem"] for ci in infos]
+                assert len(mpis) == len(set(mpis)), f"Duplicate mediaPoolItem in AppendToTimeline: {mpis}"
+                self.calls.append(("append", list(mpis)))
+                self.cur_tl.add(infos)
+                return True
+
+        class _FakeProj:
+            def __init__(self, pool):
+                self._pool = pool
+                self._cur = None
+            def GetName(self): return "FP_TEST"
+            def GetTimelineCount(self): return 1 if self._pool.cur_tl else 0
+            def GetTimelineByIndex(self, i): return self._pool.cur_tl
+            def SetCurrentTimeline(self, tl):
+                self._cur = tl
+                return True
+            def GetCurrentTimeline(self): return self._cur
+            def GetMediaPool(self): return self._pool
+
+        events = []
+        fake_pool = _FakePool()
+        w = tr.TrolyWorker.__new__(tr.TrolyWorker)
+        w.project = _FakeProj(fake_pool)
+        w.project_name = "FP_TEST"
+        w.pm = type("PM", (), {"GetCurrentProject": lambda self_: w.project})()
+        w.items = {f"u{i}": ("Master", f"C{i}.MP4") for i in range(1, 6)}
+        w.post = lambda ev, data: events.append((ev, data))
+        w._require_current = lambda: None
+        w._make_current = lambda tl: w.project.SetCurrentTimeline(tl)
+
+        # u2 appears TWICE in a row (Shift+I/O multi-segment), followed by u3, u4, u5
+        segs = [
+            {"uid": "u1", "a": 50, "b": 150, "pct": 100.0, "track": "V1", "start_f": 0, "mute": False},
+            {"uid": "u2", "a": 0, "b": 250, "pct": 100.0, "track": "V1", "start_f": 100, "mute": False},
+            {"uid": "u2", "a": 300, "b": 450, "pct": 100.0, "track": "V1", "start_f": 350, "mute": False},
+            {"uid": "u3", "a": 50, "b": 150, "pct": 100.0, "track": "V1", "start_f": 500, "mute": False},
+            {"uid": "u4", "a": 50, "b": 150, "pct": 100.0, "track": "V1", "start_f": 600, "mute": True},
+        ]
+        w.do_create_cut_timeline(("TestMultiSeg", segs))
+        # Chunk 1: [C1, C2] via CreateTimelineFromClips; Chunk 2: [C2] alone + [C3, C4] via AppendToTimeline
+        self.assertEqual(w.pool.calls, [
+            ("create", ["C1.MP4", "C2.MP4"]),
+            ("append", ["C2.MP4"]),
+            ("append", ["C3.MP4", "C4.MP4"]),
+        ])
+        self.assertEqual(len(w.pool.cur_tl.v1), 5)
+        self.assertEqual([it.GetName() for it in w.pool.cur_tl.v1], ["C1.MP4", "C2.MP4", "C2.MP4", "C3.MP4", "C4.MP4"])
+        self.assertTrue(all(it.GetLeftOffset() >= 0 for it in w.pool.cur_tl.v1))
+        self.assertEqual(events[-1][0], "cut_timeline_created")
+        self.assertTrue(events[-1][1]["layout_ok"])
+
     def test_page4_mute_ui_and_keym_wiring(self):
         with open(os.path.join(APP, "troly_web", "index.html"), encoding="utf-8") as f:
             html_src = f.read()
