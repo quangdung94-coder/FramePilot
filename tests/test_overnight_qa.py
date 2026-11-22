@@ -198,6 +198,7 @@ class TestOvernightQAReporterAndWatchdog(unittest.TestCase):
         with open(os.path.join(repo, "build_exe.py"), encoding="utf-8") as f:
             be_src = f.read()
         self.assertIn("troly_vad_worker.py", be_src)
+        self.assertIn("wedding_phrases.json", be_src)
         self.assertTrue(os.path.isfile(os.path.join(repo, "app", "troly_vad_worker.py")))
 
 
