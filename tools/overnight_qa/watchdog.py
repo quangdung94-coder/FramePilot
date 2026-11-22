@@ -161,12 +161,15 @@ class ResourceWatchdog:
         self._stop = threading.Event()
         self._thread = None
         self._target_pid = 0
+        self._target_project = ""
         self.samples = []
         self.popup_dialogs = []
 
-    def set_target_pid(self, pid: int):
+    def set_target_pid(self, pid: int, project: str = ""):
         with self._lock:
             self._target_pid = int(pid or 0)
+            if project or not pid:
+                self._target_project = project if pid else ""
 
     def start(self, pid: int = 0):
         self.set_target_pid(pid)
@@ -183,9 +186,11 @@ class ResourceWatchdog:
     def sample_once(self):
         with self._lock:
             pid = self._target_pid
+            proj = self._target_project
         rec = {
             "ts": round(time.time(), 1),
             "pid": pid,
+            "project": proj,
             "alive": False,
             "fp_rss_mb": 0.0,
             "fp_handles": 0,
@@ -244,51 +249,60 @@ class ResourceWatchdog:
             self._stop.wait(self.interval_sec)
 
     def analyze_leaks(self, ram_drift_mb: float = 450.0, handle_drift: int = 800, vram_drift_mb: float = 900.0):
-        """Compare early baseline window vs late window to detect sustained RAM/handle/VRAM leaks."""
+        """Compare early baseline window vs late window PER PROJECT to detect sustained RAM/handle/VRAM leaks
+        (prevents false positives when rotating between a 400-clip project and a 1,000-clip project)."""
         findings = []
         with self._lock:
             alive_samples = [s for s in self.samples if s.get("alive")]
         if len(alive_samples) < 6:
             return findings
 
-        k = max(2, len(alive_samples) // 5)
-        early = alive_samples[:k]
-        late = alive_samples[-k:]
+        by_proj = {}
+        for s in alive_samples:
+            by_proj.setdefault(s.get("project") or "default", []).append(s)
 
         avg = lambda arr, key: sum(x[key] for x in arr) / len(arr)
 
-        early_ram = avg(early, "total_app_mb")
-        late_ram = avg(late, "total_app_mb")
-        if late_ram - early_ram >= ram_drift_mb:
-            findings.append({
-                "category": "MEMORY_LEAK",
-                "severity": "HIGH",
-                "title": f"Nghi rò rỉ RAM: tăng +{late_ram - early_ram:.0f} MB ({early_ram:.0f} -> {late_ram:.0f} MB)",
-                "detail": f"Tổng RAM (FramePilot + WebView2 + workers) tăng liên tục qua {len(alive_samples)} mẫu đo.",
-            })
+        for proj_name, samples in by_proj.items():
+            if len(samples) < 6:
+                continue
+            tag = f" [{proj_name}]" if proj_name != "default" else ""
+            k = max(2, len(samples) // 5)
+            early = samples[:k]
+            late = samples[-k:]
 
-        early_h = avg(early, "fp_handles")
-        late_h = avg(late, "fp_handles")
-        if late_h - early_h >= handle_drift:
-            findings.append({
-                "category": "HANDLE_LEAK",
-                "severity": "HIGH",
-                "title": f"Nghi rò rỉ Handle Windows: tăng +{late_h - early_h:.0f} ({early_h:.0f} -> {late_h:.0f})",
-                "detail": "File/socket/process handle trong FramePilot.exe tăng bất thường (hay gặp khi cv2/ffmpeg chưa đóng file).",
-            })
-
-        early_v = [s["vram_used_mb"] for s in early if s["vram_used_mb"] is not None]
-        late_v = [s["vram_used_mb"] for s in late if s["vram_used_mb"] is not None]
-        if early_v and late_v:
-            ev = sum(early_v) / len(early_v)
-            lv = sum(late_v) / len(late_v)
-            if lv - ev >= vram_drift_mb:
+            early_ram = avg(early, "total_app_mb")
+            late_ram = avg(late, "total_app_mb")
+            if late_ram - early_ram >= ram_drift_mb:
                 findings.append({
-                    "category": "VRAM_LEAK",
+                    "category": "MEMORY_LEAK",
                     "severity": "HIGH",
-                    "title": f"Nghi rò rỉ VRAM GPU: tăng +{lv - ev:.0f} MB ({ev:.0f} -> {lv:.0f} MB)",
-                    "detail": "VRAM GPU không giải phóng hết sau các chu kỳ chạy AI.",
+                    "title": f"Nghi rò rỉ RAM{tag}: tăng +{late_ram - early_ram:.0f} MB ({early_ram:.0f} -> {late_ram:.0f} MB)",
+                    "detail": f"Tổng RAM (FramePilot + WebView2 + workers) trên cùng project tăng liên tục qua {len(samples)} mẫu đo.",
                 })
+
+            early_h = avg(early, "fp_handles")
+            late_h = avg(late, "fp_handles")
+            if late_h - early_h >= handle_drift:
+                findings.append({
+                    "category": "HANDLE_LEAK",
+                    "severity": "HIGH",
+                    "title": f"Nghi rò rỉ Handle Windows{tag}: tăng +{late_h - early_h:.0f} ({early_h:.0f} -> {late_h:.0f})",
+                    "detail": "File/socket/process handle trong FramePilot.exe tăng bất thường (hay gặp khi cv2/ffmpeg chưa đóng file).",
+                })
+
+            early_v = [s["vram_used_mb"] for s in early if s["vram_used_mb"] is not None]
+            late_v = [s["vram_used_mb"] for s in late if s["vram_used_mb"] is not None]
+            if early_v and late_v:
+                ev = sum(early_v) / len(early_v)
+                lv = sum(late_v) / len(late_v)
+                if lv - ev >= vram_drift_mb:
+                    findings.append({
+                        "category": "VRAM_LEAK",
+                        "severity": "HIGH",
+                        "title": f"Nghi rò rỉ VRAM GPU{tag}: tăng +{lv - ev:.0f} MB ({ev:.0f} -> {lv:.0f} MB)",
+                        "detail": "VRAM GPU không giải phóng hết sau các chu kỳ chạy AI.",
+                    })
         return findings
 
     def peak_stats(self):

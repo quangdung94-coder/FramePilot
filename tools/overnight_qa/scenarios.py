@@ -597,7 +597,7 @@ def run_chaos_race(ctx: SuiteContext, steps: int = 35):
             ctx.cdp.eval_js("window.pywebview.api.ai_stop()", await_promise=True, timeout=15.0)
 
         elif action == "speech_start_stop_race":
-            ctx.cdp.eval_js("window.pywebview.api.speech_start()", await_promise=False)
+            ctx.cdp.eval_js("window.pywebview.api.speech_start()", await_promise=True, timeout=15.0)
             time.sleep(rng.uniform(0.2, 0.9))
             ctx.cdp.eval_js("window.pywebview.api.speech_stop()", await_promise=True, timeout=15.0)
 

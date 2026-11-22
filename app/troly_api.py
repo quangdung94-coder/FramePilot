@@ -2766,7 +2766,7 @@ class TrolyApi(object):
                 self._speech_run.stop = True
         troly_proc.huy_nhom("speech")
         t0 = time.time()
-        while time.time() - t0 < 1.5:
+        while time.time() - t0 < 2.5:
             with self._lock:
                 if self._speech_run is None:
                     break

@@ -130,6 +130,27 @@ class TestOvernightQAReporterAndWatchdog(unittest.TestCase):
         self.assertIn("HANDLE_LEAK", cats)
         self.assertIn("VRAM_LEAK", cats)
 
+    def test_watchdog_per_project_no_false_positive_on_size_jump(self):
+        wd = ResourceWatchdog(interval_sec=1.0)
+        # 6 samples on small project (1100 MB) + 6 samples on large project (1800 MB) = NO leak!
+        for i in range(6):
+            wd.samples.append({
+                "ts": float(i), "pid": 1, "project": "FP_TEST_01", "alive": True,
+                "fp_rss_mb": 300.0, "fp_handles": 400, "fp_threads": 20,
+                "wv2_count": 5, "wv2_rss_mb": 800.0, "total_app_mb": 1100.0,
+                "worker_count": 0, "worker_rss_mb": 0.0,
+                "vram_used_mb": 2000.0, "vram_total_mb": 12288.0, "gpu_util_pct": 10.0,
+            })
+        for i in range(6, 12):
+            wd.samples.append({
+                "ts": float(i), "pid": 2, "project": "FP_TEST_3CAM", "alive": True,
+                "fp_rss_mb": 600.0, "fp_handles": 600, "fp_threads": 20,
+                "wv2_count": 5, "wv2_rss_mb": 1200.0, "total_app_mb": 1800.0,
+                "worker_count": 0, "worker_rss_mb": 0.0,
+                "vram_used_mb": 3500.0, "vram_total_mb": 12288.0, "gpu_util_pct": 10.0,
+            })
+        self.assertEqual(wd.analyze_leaks(), [])
+
     def test_heavy_source_suppresses_decode_slow_api_only(self):
         from tools.overnight_qa.scenarios import SuiteContext
 

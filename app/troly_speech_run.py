@@ -68,8 +68,16 @@ class SpeechRun(object):
         keep_awake(True)
         tmp = tempfile.mkdtemp(prefix="troly_run_")
         keys = [it["key"] for it in items]
-        sigs = {it["key"]: st.file_sig(it["path"]) for it in items}
-        todo = [it for it in items if self.store.needs_run(it["key"], sigs[it["key"]])]
+        sigs = {}
+        todo = []
+        for it in items:
+            if self.stop:
+                break
+            k = it["key"]
+            sig = st.file_sig(it["path"])
+            sigs[k] = sig
+            if self.store.needs_run(k, sig):
+                todo.append(it)
         skipped = len(items) - len(todo)
         self.log("BẮT ĐẦU: %d clip, bỏ qua %d (đã chép, file không đổi), chép %d, ngôn ngữ mặc định %s"
                  % (len(items), skipped, len(todo), lang))
@@ -116,7 +124,7 @@ class SpeechRun(object):
         c = self.store.counts(keys)
         remain = 0
         if self.stop:
-            remain = sum(1 for it in items if self.store.needs_run(it["key"], sigs[it["key"]]))
+            remain = sum(1 for it in items if it["key"] not in sigs or self.store.needs_run(it["key"], sigs[it["key"]]))
             ok, msg = (remain == 0 and ok), "DỪNG GIỮA CHỪNG (còn %d clip chưa chép). %s" % (remain, msg)
         self.log(msg)
         summary = {"ok": ok, "message": msg, "stopped": self.stop, "remaining": remain, "skipped": skipped,

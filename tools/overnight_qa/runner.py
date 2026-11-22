@@ -216,7 +216,7 @@ def main():
             # Fresh launch each cycle so we also verify cold-start, persistence & zombie cleanup
             try:
                 proc, cdp = launch_exe_with_cdp(a.exe, cur_proj, proc_env, a.cdp_port)
-                watchdog.set_target_pid(proc.pid)
+                watchdog.set_target_pid(proc.pid, project=cur_proj)
             except Exception as e:
                 bugs.record_bug(
                     category="LAUNCH_CRASH",
