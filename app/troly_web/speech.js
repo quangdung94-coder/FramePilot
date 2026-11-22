@@ -146,8 +146,9 @@ function renderRows() {
     const hl = r.silent ? '<span class="ln-text none">Không có tiếng nói</span>'
       : `${r.suspect ? '<span class="ln-flag">có thể sai</span>' : ""}${r.dup_count ? `<span class="ln-dup">+${r.dup_count} máy</span>` : ""}<span class="ln-text${r.headline ? (r.n_keys ? "" : " dim") : " none"}">${esc(r.headline || "Có tiếng nhưng chưa ra chữ")}</span>`;
     const mChip = r.mk ? `<span class="cam-chip sm">${esc(r.mk)}</span>` : "";
+    const muteTag = r.muted ? '<span class="ln-flag" style="margin-left:4px" title="Đã tắt tiếng A1 (giữ hình V1 khi lên timeline)">🔇 A1</span>' : "";
     return `<button class="ln-row${r.uid === LN.sel ? " on" : ""}${LN.pick.has(r.uid) ? " pk" : ""}" data-uid="${esc(r.uid)}">
-      <span class="ln-id"><b${r.star ? ' class="star"' : ""}>${mChip}${esc(r.name)}</b><span>${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · nói ${Math.round(r.spoken_s)}s</span></span>
+      <span class="ln-id"><b${r.star ? ' class="star"' : ""}>${mChip}${esc(r.name)}${muteTag}</b><span>${esc(r.time || "--:--:--")} · ${mmss(r.dur)} · nói ${Math.round(r.spoken_s)}s</span></span>
       <span class="ln-bar">${barHtml(r, false)}</span>
       <span class="ln-hl">${hl}</span>
       <span class="ln-k${r.n_keys ? "" : " zero"}">${r.n_keys || "·"}</span>
@@ -296,6 +297,11 @@ function renderRight() {
     }).join("")
     : `<span class="dim13" style="padding:8px">${r.silent ? "Clip này không có tiếng nói, chỉ có tiếng nền." : (lines.length ? "Các câu đều nghi sai (đang bật Ẩn câu sai)." : "Có tiếng nói nhưng Whisper không ra chữ.")}</span>`;
   $("lnStar").textContent = ((d ? d.star : r.star) ? "Bỏ sao (P)" : "Gắn sao (P)");
+  if ($("lnMute")) {
+    const isM = !!(d ? d.muted : r.muted);
+    $("lnMute").textContent = isM ? "🔇 Đã tắt A1 (M)" : "🔊 Giữ A1 (M)";
+    $("lnMute").classList.toggle("on", isM);
+  }
   renderExportBtns();
 }
 
@@ -456,6 +462,19 @@ async function lnToggleStar() {
   status(was ? "Đã bỏ sao của clip." : "Đã gắn sao ★ cho clip.", "ok");
 }
 $("lnStar").onclick = lnToggleStar;
+
+async function lnToggleMute() {
+  const r = curRow();
+  const uids = LN.pick.size > 1 ? [...LN.pick] : (r ? [r.uid] : []);
+  if (!uids.length) return;
+  const was = uids.length === 1 ? !!(LN.detail ? LN.detail.muted : (r && r.muted)) : uids.every((u) => { const x = LN.rows.find((z) => z.uid === u); return x && x.muted; });
+  setState(await api().toggle_mute(uids));
+  await lnRefresh();
+  status(was
+    ? `Đã bật lại tiếng A1 cho ${uids.length > 1 ? uids.length + " clip" : "clip này"}.`
+    : `Đã tắt tiếng A1 (giữ hình V1) cho ${uids.length > 1 ? uids.length + " clip" : "clip này"} khi lên timeline.`, "ok");
+}
+if ($("lnMute")) $("lnMute").onclick = lnToggleMute;
 if ($("lnDiarizeBtn")) $("lnDiarizeBtn").onclick = async () => {
   const r0 = curRow(); if (!r0) return status("Chưa chọn clip.", "warn");
   const btn = $("lnDiarizeBtn");
@@ -585,6 +604,7 @@ function lnKey(e) {
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
   if (!$("modal").classList.contains("hidden") || ($("settingsModal") && !$("settingsModal").classList.contains("hidden"))) return;
   if (e.code === "KeyP" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleStar(); return; }
+  if (e.code === "KeyM" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { e.preventDefault(); lnToggleMute(); return; }
   if (e.code === "Space") { e.preventDefault(); LN.jklRate = 0; clearInterval(LN.jklTimer); if (LN.vid) { if (LN.vid.paused) LN.vid.play().catch(() => {}); else LN.vid.pause(); } return; }
   if (e.ctrlKey && e.code === "KeyA") { e.preventDefault(); LN.pick = new Set(LN.rows.filter(inStage).map((r) => r.uid)); renderRows(); renderExportBtns(); return; }
   if (!e.ctrlKey && !e.altKey && !e.metaKey) {

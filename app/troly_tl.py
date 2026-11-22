@@ -17,6 +17,29 @@ import copy
 import troly_dur as td
 
 SPEED_LIMITS = (5.0, 400.0)
+SORT_MODES = ("bin", "chrono")
+
+
+def sort_mode_of(plan):
+    """Chế độ xếp clip trên V1 ở Bước 5: 'chrono' (theo giờ quay thật, mặc định cho Truyền thống) hoặc 'bin' (gom theo bin, PSC)."""
+    tl = td.tl_cfg(plan)
+    m = tl.get("sort_mode")
+    if m in SORT_MODES:
+        return m
+    return "chrono" if (plan.get("shoot_style") or "") == "traditional" else "bin"
+
+
+def set_sort_mode(plan, mode):
+    """Đặt chế độ xếp Bước 5 ('chrono' | 'bin' | None = tự động theo Kiểu quay)."""
+    if mode is not None and mode not in SORT_MODES:
+        return "Chế độ xếp không hợp lệ (chỉ nhận 'chrono' hoặc 'bin')."
+    t = _tl(plan)
+    if mode is None:
+        t.pop("sort_mode", None)
+    else:
+        t["sort_mode"] = mode
+    _clean(plan)
+    return None
 
 
 # ------------------------------------------------------------------ bố cục
@@ -116,27 +139,88 @@ def layout(r, plan):
         bk.pop("_default_at", None)
     for bk in blocks.values():
         bk.pop("_default_at", None)
+    smode = sort_mode_of(plan)
+    chrono_runs = {}
+    if smode == "chrono":
+        for cl_obj in clusters:
+            v1_items = []
+            for k in cl_obj["v1"]:
+                bk = blocks[k]
+                for it in by_key.get(k, []):
+                    v1_items.append((it, bk))
+            v1_items.sort(key=lambda pair: (
+                pair[0].get("t_ts") is None,
+                pair[0].get("t_ts") if pair[0].get("t_ts") is not None else 0.0,
+                pair[0].get("t_ord", 0),
+                pair[0].get("in_s", 0.0),
+            ))
+            runs = []
+            t_cur = cl_obj["start"]
+            for it, bk in v1_items:
+                d_it = float(it["dur"])
+                if runs and runs[-1]["key"] == bk["key"]:
+                    runs[-1]["dur"] = round(runs[-1]["dur"] + d_it, 3)
+                    runs[-1]["n_clips"] += 1
+                else:
+                    runs.append({
+                        "key": bk["key"], "bin": bk["bin"], "stage": bk["stage"],
+                        "start": round(t_cur, 3), "dur": round(d_it, 3), "n_clips": 1,
+                        "speed": bk["speed"], "mute": bk["mute"],
+                    })
+                t_cur += d_it
+            chrono_runs[cl_obj["stage"]] = runs
     return {"order": order, "clusters": clusters, "blocks": blocks, "v1_end": round(v1_end, 3), "v2_end": round(t2, 3), "manual": bool(tl.get("manual")),
-            "by_key": by_key}
+            "sort_mode": smode, "sort_auto": tl.get("sort_mode") is None, "chrono_runs": chrono_runs, "by_key": by_key}
 
 
 def placements(r, plan):
     """Danh sách đoạn để đưa lên DaVinci, theo bố cục: [{uid, in_s, out_s (GỐC), p, track 'V1'|'V2', start_s, dur_s (RA), key, stage, bin, mute}].
-    V1 theo thứ tự cụm rồi khối; V2 theo vị trí. Trong khối: theo giờ quay."""
+    Chế độ 'bin' (PSC): V1 gom theo cụm rồi từng bin. Chế độ 'chrono' (Truyền thống): V1 xếp thẳng theo giờ quay thật trong từng cụm, không đảo thứ tự theo bin. V2 giữ nguyên vị trí chồng."""
     lay = layout(r, plan)
+    smode = lay.get("sort_mode") or "bin"
     out = []
-    for k, bk in sorted(lay["blocks"].items(), key=lambda kv: (kv[1]["track"] != "V1", kv[1]["start"])):
-        t = bk["start"]
-        for it in lay["by_key"].get(k, []):
-            out.append({"uid": it["uid"], "in_s": it["in_s"], "out_s": it["out_s"], "p": it["p"], "track": bk["track"], "start_s": round(t, 3),
-                        "dur_s": it["dur"], "key": k, "stage": bk["stage"], "bin": bk["bin"], "mute": bk["mute"], "pct": round(it["p"] * 100, 1)})
-            t += it["dur"]
+    if smode == "chrono":
+        for cl_obj in lay["clusters"]:
+            v1_items = []
+            for k in cl_obj["v1"]:
+                bk = lay["blocks"][k]
+                for it in lay["by_key"].get(k, []):
+                    v1_items.append((it, bk))
+            v1_items.sort(key=lambda pair: (
+                pair[0].get("t_ts") is None,
+                pair[0].get("t_ts") if pair[0].get("t_ts") is not None else 0.0,
+                pair[0].get("t_ord", 0),
+                pair[0].get("in_s", 0.0),
+            ))
+            t = cl_obj["start"]
+            for it, bk in v1_items:
+                out.append({"uid": it["uid"], "in_s": it["in_s"], "out_s": it["out_s"], "p": it["p"], "track": "V1", "start_s": round(t, 3),
+                            "dur_s": it["dur"], "key": bk["key"], "stage": bk["stage"], "bin": bk["bin"],
+                            "mute": bool(bk["mute"] or it.get("clip_mute")), "pct": round(it["p"] * 100, 1)})
+                t += it["dur"]
+        for k, bk in sorted(lay["blocks"].items(), key=lambda kv: kv[1]["start"]):
+            if bk["track"] != "V2":
+                continue
+            t = bk["start"]
+            for it in lay["by_key"].get(k, []):
+                out.append({"uid": it["uid"], "in_s": it["in_s"], "out_s": it["out_s"], "p": it["p"], "track": "V2", "start_s": round(t, 3),
+                            "dur_s": it["dur"], "key": k, "stage": bk["stage"], "bin": bk["bin"],
+                            "mute": bool(bk["mute"] or it.get("clip_mute")), "pct": round(it["p"] * 100, 1)})
+                t += it["dur"]
+    else:
+        for k, bk in sorted(lay["blocks"].items(), key=lambda kv: (kv[1]["track"] != "V1", kv[1]["start"])):
+            t = bk["start"]
+            for it in lay["by_key"].get(k, []):
+                out.append({"uid": it["uid"], "in_s": it["in_s"], "out_s": it["out_s"], "p": it["p"], "track": bk["track"], "start_s": round(t, 3),
+                            "dur_s": it["dur"], "key": k, "stage": bk["stage"], "bin": bk["bin"],
+                            "mute": bool(bk["mute"] or it.get("clip_mute")), "pct": round(it["p"] * 100, 1)})
+                t += it["dur"]
     out.sort(key=lambda x: (x["track"] != "V1", x["start_s"]))
     return out
 
 
 def summary(r, plan):
-    """Cho hộp xác nhận: khối nào Slow, khối nào tắt tiếng, bao nhiêu clip ở V2."""
+    """Cho hộp xác nhận: khối nào Slow, khối nào tắt tiếng, bao nhiêu clip ở V2, bao nhiêu clip tắt A1 riêng."""
     lay = layout(r, plan)
     slow, muted, v2 = [], [], []
     for k in [k for c in lay["clusters"] for k in c["kids"]]:
@@ -147,8 +231,10 @@ def summary(r, plan):
             muted.append(b["bin"])
         if b["track"] == "V2":
             v2.append(b["bin"])
-    return {"slow": slow, "muted": muted, "v2": v2, "n_v1": sum(1 for x in placements(r, plan) if x["track"] == "V1"),
-            "n_v2": sum(1 for x in placements(r, plan) if x["track"] == "V2")}
+    pls = placements(r, plan)
+    n_clip_muted = sum(1 for it in (r.get("items") or []) if it.get("clip_mute"))
+    return {"slow": slow, "muted": muted, "v2": v2, "n_v1": sum(1 for x in pls if x["track"] == "V1"),
+            "n_v2": sum(1 for x in pls if x["track"] == "V2"), "n_clip_muted": n_clip_muted}
 
 
 def verify_readback(pl, got):

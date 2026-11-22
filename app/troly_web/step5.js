@@ -64,11 +64,18 @@ function d5Frames(v) {
     if (!c.v1.length) continue;
     const sel = c.stage === D5.sel;
     const v2 = c.v2.reduce((a, k) => a + L.blocks[k].dur, 0);
-    const kids = c.v1.map((k) => {
-      const b = L.blocks[k];
-      const sp = b.speed.mode === "100" ? "" : ` · ${b.speed.mode === "mixed" ? "nhiều mức" : d5Pct(b.speed.pct)}`;
-      return `<div class="tl-cb${b.key === D5.hl ? " hl" : ""}" data-blk="${esc(k)}" style="left:${((b.start - c.start) / c.dur * 100).toFixed(3)}%;width:${(b.dur / c.dur * 100).toFixed(3)}%;background:${b.color}" title="${esc(b.bin)} · ${d5mm(b.dur)}${sp}"><b>${esc(b.bin)}</b><span>${d5mm(b.dur)}${sp}</span><i class="tl-re" data-resize="b:${esc(k)}" title="Kéo mép phải để đổi thời lượng"></i></div>`;
-    }).join("");
+    const isChrono = L.sort_mode === "chrono" && L.chrono_runs && Array.isArray(L.chrono_runs[c.stage]);
+    const kids = isChrono
+      ? L.chrono_runs[c.stage].map((rn) => {
+          const sp = rn.speed && rn.speed.mode !== "100" ? ` · ${rn.speed.mode === "mixed" ? "nhiều mức" : d5Pct(rn.speed.pct)}` : "";
+          const tip = `${rn.bin} (${rn.n_clips} clip theo giờ quay) · ${d5mm(rn.dur)}${sp}`;
+          return `<div class="tl-cb${rn.key === D5.hl ? " hl" : ""}" data-blk="${esc(rn.key)}" style="left:${((rn.start - c.start) / c.dur * 100).toFixed(3)}%;width:${(rn.dur / c.dur * 100).toFixed(3)}%;background:${rn.color || "#888"}" title="${esc(tip)}"><b>${esc(rn.bin)}</b><span>${d5mm(rn.dur)}${sp}</span></div>`;
+        }).join("")
+      : c.v1.map((k) => {
+          const b = L.blocks[k];
+          const sp = b.speed.mode === "100" ? "" : ` · ${b.speed.mode === "mixed" ? "nhiều mức" : d5Pct(b.speed.pct)}`;
+          return `<div class="tl-cb${b.key === D5.hl ? " hl" : ""}" data-blk="${esc(k)}" style="left:${((b.start - c.start) / c.dur * 100).toFixed(3)}%;width:${(b.dur / c.dur * 100).toFixed(3)}%;background:${b.color}" title="${esc(b.bin)} · ${d5mm(b.dur)}${sp}"><b>${esc(b.bin)}</b><span>${d5mm(b.dur)}${sp}</span><i class="tl-re" data-resize="b:${esc(k)}" title="Kéo mép phải để đổi thời lượng"></i></div>`;
+        }).join("");
     const stI = v.stages[c.i];
     h += `<div class="tl-fr${sel ? " cur" : ""}" data-cl="${esc(c.stage)}" style="left:${pc(c.start)}%;width:${pc(c.dur)}%;border-color:${c.color || "#888"}">
       <div class="tl-fh" data-grab="${esc(c.stage)}">${SVG_GRIP}<span class="tl-nm">${String(c.i + 1).padStart(2, "0")}_${esc(c.stage)}</span><span class="tl-sub">${d5mm(c.dur)}${v2 > 0 ? ` + ${d5mm(v2)} V2` : ""}</span>${stI && stI.locked ? '<span class="tl-lk">🔒</span>' : ""}
@@ -102,6 +109,7 @@ function d5Paint() {
   const tag = st === "ok" ? '<span class="tl-tag ok">đạt</span>' : st === "short" ? `<span class="tl-tag">thiếu ${d5mm(short)}</span>`
     : st === "over" ? `<span class="tl-tag">dư ${d5mm(over)}</span>` : '<span class="tl-tag">chưa có clip sao</span>';
   $("d5Res").innerHTML = `<span>Hiện Tại</span><b>${d5mm(v.total_s)}</b>${tag}`;
+  if ($("d5SortMode")) $("d5SortMode").value = v.tl_sort_mode || "bin";
   $("d5Reset").classList.toggle("on", !!v.tl_manual);
   // thước + vạch lưới
   const T = D5.T, ticks = d5Ticks(T);
@@ -498,6 +506,12 @@ document.addEventListener("keydown", (e) => {
 })();
 
 /* ---- nút trên cùng, cột phải ---- */
+if ($("d5SortMode")) {
+  $("d5SortMode").addEventListener("change", (e) => {
+    const m = e.target.value;
+    d5Run(() => api().dur_tl_set_sort(m), m === "chrono" ? "Đã chuyển sang xếp theo giờ quay thật (Truyền thống — không đảo thứ tự theo bin)." : "Đã chuyển sang gom theo bin (Phóng sự).");
+  });
+}
 $("d5Reset").addEventListener("click", async () => {
   if (!D5.v) return;
   if (D5.v.tl_manual) {
@@ -532,8 +546,8 @@ $("d5Create").addEventListener("click", async () => {
     `<div><label class="lbl" for="d5TlName">Tên timeline mới:</label><input id="d5TlName" class="inp" style="width:100%;margin:4px 0 8px" value="${esc(defName)}" maxlength="120"></div>` +
     `<div>Độ dài V1: <b>${d5mm(v.total_s)}</b> · mục tiêu ${d5mm(v.target_s)}</div>` +
     `<div>Số clip: <b>${sm.n_v1 + sm.n_v2}</b> (V1 ${sm.n_v1}${sm.n_v2 ? `, V2 chồng ${sm.n_v2}` : ""}) / ${v.n_starred} clip sao</div>` + gap +
-    `<div>Khối Slow: <b>${sm.slow.length ? esc(sm.slow.join(", ")) : "không có"}</b></div><div>Khối tắt tiếng: <b>${sm.muted.length ? esc(sm.muted.join(", ")) : "không có"}</b></div>` +
-    `<div>Thứ tự: theo cách bạn xếp trên màn hình (V1 rồi V2 chồng)</div><br>Chỉ tạo <b>MỘT timeline MỚI</b> có 2 track hình V1, V2 (hoặc theo từng máy nếu bật tùy chọn). Không sửa hay xóa timeline đang có, không ghi In/Out lên clip gốc. Slow giữ nguyên In/Out nên clip dài hơn và các clip sau V1 bị đẩy ra sau. Tắt tiếng chỉ tắt clip tiếng của khối, không đụng track khác. Trợ lý ghi nhật ký trước khi tạo và đọc lại vị trí để kiểm.`,
+    `<div>Khối Slow: <b>${sm.slow.length ? esc(sm.slow.join(", ")) : "không có"}</b></div><div>Khối tắt tiếng: <b>${sm.muted.length ? esc(sm.muted.join(", ")) : "không có"}${sm.n_clip_muted ? ` (+ ${sm.n_clip_muted} clip tắt A1 riêng ở Bước 4)` : ""}</b></div>` +
+    `<div>Thứ tự: <b>${v.tl_sort_mode === "chrono" ? "Theo giờ quay thật (Truyền thống — không đảo thứ tự theo bin)" : "Gom theo bin (PSC)"}</b> (V1 rồi V2 chồng)</div><br>Chỉ tạo <b>MỘT timeline MỚI</b> có 2 track hình V1, V2 (hoặc theo từng máy nếu bật tùy chọn). Không sửa hay xóa timeline đang có, không ghi In/Out lên clip gốc. Slow giữ nguyên In/Out nên clip dài hơn và các clip sau V1 bị đẩy ra sau. Tắt tiếng chỉ tắt clip tiếng của khối, không đụng track khác. Trợ lý ghi nhật ký trước khi tạo và đọc lại vị trí để kiểm.`,
     "Tạo timeline mới", () => { const el = $("d5TlName"); return { name: el ? el.value.trim() : defName }; });
   if (!resName) return status("Đã hủy, chưa tạo gì trong DaVinci.", "info");
   const chosenName = resName.name;

@@ -853,6 +853,22 @@ def toggle_star(plan, clip):
     return True
 
 
+def is_muted(plan, clip):
+    """Clip bị người dựng đánh dấu tắt tiếng A1 (giữ hình V1) ở Bước 4."""
+    return bool((plan.get("clip_mute") or {}).get(clip.rel))
+
+
+def toggle_mute(plan, clip, val=None):
+    """Bật/tắt cờ tắt tiếng A1 cho một clip trong kế hoạch (val=True/False ép trạng thái, None = đảo)."""
+    m = plan.setdefault("clip_mute", {})
+    want = (not bool(m.get(clip.rel))) if val is None else bool(val)
+    if want:
+        m[clip.rel] = True
+        return True
+    m.pop(clip.rel, None)
+    return False
+
+
 def is_rejected(plan, clip):
     return bool((plan.get("rejected") or {}).get(clip.rel))
 

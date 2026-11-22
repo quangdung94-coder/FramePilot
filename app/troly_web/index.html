@@ -366,6 +366,7 @@
     </div>
     <div class="inline8">
       <button class="btn btn-44 flex1" id="lnStar">Gắn sao (P)</button>
+      <button class="btn btn-44 flex1" id="lnMute" type="button" title="Bật/tắt tiếng A1 của clip đang chọn khi lên timeline DaVinci (phím M). Vẫn giữ hình V1.">🔊 Giữ A1 (M)</button>
       <button class="btn-accent btn-44 flex1" id="lnSet">Đặt In / Out</button>
     </div>
     <div class="inline8">
@@ -394,6 +395,10 @@
         <div class="tl-res" id="d5Res"></div>
         <div class="zoom-ctl" title="Zoom In/Out Timeline (hoặc Ctrl + Lăn chuột)"><span>Zoom</span><input type="range" id="d5Zoom" min="100" max="2000" step="25" value="100" aria-label="Phóng to thu nhỏ timeline"></div>
         <button class="tl-bn" id="d5Fit" title="Phóng vừa khít theo các clip đang có (Shift+Z)">Vừa khung</button>
+        <select id="d5SortMode" class="sel" style="height:28px;font-size:12px" title="Cách xếp clip trên V1: Theo giờ quay thật (Truyền thống, không đảo thứ tự theo bin) hoặc Gom theo bin (Phóng sự)">
+          <option value="chrono">Theo giờ quay (TT)</option>
+          <option value="bin">Gom theo bin (PSC)</option>
+        </select>
         <button class="tl-bn" id="d5Reset" title="Đưa thứ tự cụm/khối và V1/V2 về mặc định theo giờ quay thật (tốc độ, tiếng giữ nguyên)">Xếp lại theo giờ quay</button>
       </div>
       <div class="tl-card tl" id="d5Tl">
@@ -584,6 +589,7 @@
         <div class="hk-row"><span class="hk-keys"><kbd class="kb">Shift</kbd> + <kbd class="kb">I</kbd> / <kbd class="kb">O</kbd></span><span class="hk-desc">Thêm khúc In/Out mới cho clip lời nói</span></div>
         <div class="hk-row"><span class="hk-keys"><kbd class="kb">Del</kbd></span><span class="hk-desc">Xóa khúc In/Out đang chọn</span></div>
         <div class="hk-row"><span class="hk-keys"><kbd class="kb">P</kbd></span><span class="hk-desc">Gắn / bỏ sao ★ clip đang nghe</span></div>
+        <div class="hk-row"><span class="hk-keys"><kbd class="kb">M</kbd></span><span class="hk-desc">Tắt / bật tiếng A1 (giữ hình V1) khi lên timeline</span></div>
         <div class="hk-row"><span class="hk-keys"><kbd class="kb">↑</kbd> / <kbd class="kb">↓</kbd></span><span class="hk-desc">Chuyển lên / xuống clip trong bảng lời nói</span></div>
       </div>
       <div class="help-sec" data-hp="5">

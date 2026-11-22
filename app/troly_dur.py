@@ -370,7 +370,8 @@ def build(plan, clips, assign, stages, tl_fps=None):
                     out = min(out, float(c.dur))
                 items.append({"uid": c.uid, "name": c.name, "stage": si, "stage_name": r["name"], "bin": b["name"], "key": b["key"], "track": b["track"], "in_s": round(cut["in_s"], 2),
                               "out_s": round(out, 2), "p": round(pp, 4), "src_dur": round(out - cut["in_s"], 2),
-                              "dur": round((out - cut["in_s"]) / pp, 2), "t": c.t_start, "fixed": cut["fixed"]})
+                              "dur": round((out - cut["in_s"]) / pp, 2), "t": c.t_start, "fixed": cut["fixed"],
+                              "clip_mute": tc.is_muted(plan, c)})
             if b["edited"] and b["n_starred"] and b["natural_s"] > b["max"] + 1e-9:
                 warnings.append({"kind": "bin_over", "stage": r["name"], "bin": b["name"],
                                  "text": "Bin “%s” (%s): clip sao dài %d giây, vượt Max %d giây bạn đặt; đã cắt gọt%s." % (
@@ -400,8 +401,10 @@ def build(plan, clips, assign, stages, tl_fps=None):
         r["pinned"] = si in pinned
         r["locked"] = si in pinned and r["name"] in locked_names
         total += stage_total
-    items.sort(key=lambda it: (it["stage"], it["t"] is None, it["t"]))
-    for it in items:
+    items.sort(key=lambda it: (it["stage"], it["t"] is None, it["t"], it["in_s"]))
+    for idx_t, it in enumerate(items):
+        it["t_ts"] = it["t"].timestamp() if it["t"] is not None else None
+        it["t_ord"] = idx_t
         it.pop("t", None)
     if not starred:
         warnings.append({"kind": "no_star", "text": "Chưa có clip nào gắn sao ★. Gắn sao (phím P) ở Bước 2 trước."})

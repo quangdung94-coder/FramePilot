@@ -261,7 +261,8 @@ class TrolyApi(object):
                               "manual": bool(tc.manual_of(self._plan, c)), "camera": c.camera, "src": c.t_src, "lut": self._effective_lut(c) or "", "bin_path": c.bin_path,
                               "thumb": c.uid in self._thumb_done and bool(self._thumb_done[c.uid][0]),
                               "in_s": in_s, "out_s": out_s, "inouts": [[a, b] for a, b in tc.manual_inouts(self._plan, c)], "io_src": io_src, "dv": dv, "fps": fps, "tc": c.tc or "", "sug": sug,
-                              "star": tc.is_starred(self._plan, c), "rejected": tc.is_rejected(self._plan, c)})
+                              "star": tc.is_starred(self._plan, c), "rejected": tc.is_rejected(self._plan, c),
+                              "muted": tc.is_muted(self._plan, c)})
             gap = None
             if self._day0 and self._clips:
                 gs = tc.gaps(self._clips, self._day0, self._plan["offsets"])
@@ -2007,6 +2008,18 @@ class TrolyApi(object):
             self._save_soon()
         return self.state()
 
+    def toggle_mute(self, uids, val=None):
+        """Bật / tắt cờ tắt tiếng A1 (giữ hình V1 khi lên timeline Bước 5) cho danh sách clip uid (phím M ở Bước 4)."""
+        with self._lock:
+            clips = [self._by_uid.get(uid) for uid in (uids or []) if self._by_uid.get(uid)]
+            if clips:
+                # Nếu chọn nhiều clip: có ít nhất 1 clip đang bật tiếng -> tắt A1 tất cả; nếu tất cả đã tắt -> bật lại tất cả
+                want = (not all(tc.is_muted(self._plan, c) for c in clips)) if val is None else bool(val)
+                for c in clips:
+                    tc.toggle_mute(self._plan, c, want)
+                self._save_soon()
+        return self.state()
+
     def toggle_reject(self, uids, val=None):
         """Gắn / bỏ cờ Bỏ (phím X) trong kế hoạch JSON. Không bao giờ đụng file thật hay Media Pool."""
         with self._lock:
@@ -2345,6 +2358,10 @@ class TrolyApi(object):
             si = next((j for j, s in enumerate(r["stages"]) if s["name"] == b["stage"]), 0)
             b["color"] = next((x["color"] for x in r["stages"][si]["bins"] if x["name"] == b["bin"]), "#888")
             b["si"] = si
+        for runs in (lay.get("chrono_runs") or {}).values():
+            for rn in runs:
+                bk = lay["blocks"].get(rn["key"])
+                rn["color"] = bk["color"] if bk else "#888"
         r["tl"] = lay
         # Gắn thông tin máy & cảnh báo trùng giờ cho từng khúc clip ở Bước 5
         m_by_uid = {}
@@ -2368,6 +2385,8 @@ class TrolyApi(object):
         r["n_machines"] = len(self._machines)
         r["tl_summary"] = ttl.summary(r, self._plan)
         r["tl_manual"] = ttl.is_manual(self._plan)
+        r["tl_sort_mode"] = lay.get("sort_mode", "bin")
+        r["tl_sort_auto"] = bool(lay.get("sort_auto", True))
         r["tl_fps_known"] = self._tl_fps
         r["edited"]["tl"] = bool(td.tl_cfg(self._plan))
         return r
@@ -2472,6 +2491,10 @@ class TrolyApi(object):
         if kind not in ("stage", "block"):
             return {"error": "Chỉ đặt tiếng cho cụm mẹ hoặc khối con."}
         return self._tl_op(lambda r: ttl.set_mute(self._plan, kind, name, mute))
+
+    def dur_tl_set_sort(self, mode):
+        """Đổi chế độ xếp V1 ở Bước 5: 'chrono' (theo giờ quay thật - Truyền thống) hoặc 'bin' (gom theo bin - PSC)."""
+        return self._tl_op(lambda r: ttl.set_sort_mode(self._plan, mode))
 
     def dur_tl_unslow(self):
         """Gợi ý "Đưa khối Slow về 100%": khối Slow bớt được nhiều nhất trên timeline."""
@@ -2855,7 +2878,8 @@ class TrolyApi(object):
                              "golden": is_golden, "dup_of": None, "dup_count": 0,
                              "headline": r["headline"] or "", "suspect": bool(r["suspect"]), "silent": r["status"] == "silent",
                              "segs": self._seg_colors(r["speech"], fl, (r["gain_db"] or 0) > 18.0),
-                             "span": self._span(r["key"], r, fl, c), "star": tc.is_starred(self._plan, c)})
+                             "span": self._span(r["key"], r, fl, c), "star": tc.is_starred(self._plan, c),
+                             "muted": tc.is_muted(self._plan, c)})
             rows.sort(key=lambda x: (x["t_sort"], x["key"]))
             # Phát hiện clip trùng lời nói giữa các máy quay cùng lúc (chồng giờ chung & không phải câm)
             for i in range(len(rows)):
@@ -2892,7 +2916,8 @@ class TrolyApi(object):
             lines = st.lines_of(c.rel)
             fl = [(l["t0"], l["t1"], len(l["keys"]), ",".join(l["why"])) for l in lines]
             return {"lines": lines, "span": self._span(c.rel, row, fl, c), "has_row": True, "lang": row["lang"], "dur": row["dur"], "fps": c.fps or 25.0,
-                    "tc": row["tc"], "suspect": bool(row["suspect"]), "star": tc.is_starred(self._plan, c)}
+                    "tc": row["tc"], "suspect": bool(row["suspect"]), "star": tc.is_starred(self._plan, c),
+                    "muted": tc.is_muted(self._plan, c)}
 
     def speech_set_inout(self, uid, in_s, out_s):
         """Lưu In/Out người dựng đặt tay VÀO KẾ HOẠCH CỦA PANEL (không ghi vào DaVinci). in_s/out_s = None thì xóa."""
