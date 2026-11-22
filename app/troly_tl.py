@@ -249,8 +249,6 @@ def verify_readback(pl, got):
             if b[1] != a[2]:
                 msgs.append("V1: clip kết thúc ở %d nhưng clip kế bắt đầu ở %d (%s)." % (a[2], b[1], "chồng" if b[1] < a[2] else "hở"))
     for tr in ("V1", "V2", "V3", "V4"):
-        if tr == "V1" and not gapped:
-            continue
         gtr = [g for g in got if g[0] == tr]
         ptr = [x for x in pl if x["track"] == tr]
         if len(gtr) != len(ptr):

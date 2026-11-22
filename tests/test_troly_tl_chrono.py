@@ -115,6 +115,13 @@ class TestPage5ChronoMode(unittest.TestCase):
         self.assertFalse(tc.toggle_mute(plan, clips[0]))
         self.assertFalse(tc.is_muted(plan, clips[0]))
 
+    def test_verify_readback_catches_truncated_v1(self):
+        pl = [{"track": "V1"}, {"track": "V1"}, {"track": "V1"}]
+        got = [("V1", 0, 100), ("V1", 100, 200)]  # missing 3rd clip!
+        ok, msgs = ttl.verify_readback(pl, got)
+        self.assertFalse(ok)
+        self.assertTrue(any("V1: có 2 clip, cần 3." in m for m in msgs))
+
     def test_page4_mute_ui_and_keym_wiring(self):
         with open(os.path.join(APP, "troly_web", "index.html"), encoding="utf-8") as f:
             html_src = f.read()

@@ -496,11 +496,42 @@ class TrolyWorker(threading.Thread):
         if not tl:
             extra = " Một timeline rỗng có thể đã được tạo, bạn xóa tay nếu thấy (Trợ lý không xóa timeline)." if created_empty else ""
             raise RuntimeError("DaVinci không tạo được timeline mới (%d đoạn). Chi tiết: %s.%s" % (len(segs), "; ".join(why), extra))
+        # Kiểm tra xem CreateTimelineFromClips / AppendToTimeline có bị DaVinci dừng giữa chừng (ví dụ 1 clip cắt nhiều khúc Shift+I/O
+        # hoặc endFrame sát mép cuối file 59.94fps) làm rớt các đoạn phía sau không -> bù từng đoạn còn thiếu!
+        rescue_msgs = []
+        if infos and not v1_gapped:
+            try:
+                got_v1 = len(tl.GetItemListInTrack("video", 1) or [])
+            except Exception:                                 # noqa: BLE001
+                got_v1 = len(infos)
+            if got_v1 < len(infos):
+                if self._make_current(tl):
+                    for idx_rem in range(got_v1, len(infos)):
+                        ci = dict(infos[idx_rem])
+                        ok_one = False
+                        try:
+                            ok_one = bool(pool.AppendToTimeline([ci]))
+                        except Exception:                     # noqa: BLE001
+                            ok_one = False
+                        if not ok_one and ci["endFrame"] > ci["startFrame"] + 2:
+                            ci2 = dict(ci)
+                            ci2["endFrame"] = ci["endFrame"] - 2
+                            try:
+                                ok_one = bool(pool.AppendToTimeline([ci2]))
+                            except Exception:                 # noqa: BLE001
+                                ok_one = False
+                        if not ok_one:
+                            rescue_msgs.append("Không chèn được đoạn V1 số %d (frame %d–%d)." % (idx_rem + 1, ci["startFrame"], ci["endFrame"]))
+                else:
+                    rescue_msgs.append("DaVinci chỉ thêm %d/%d đoạn V1 và không chuyển được sang timeline mới để chèn bù." % (got_v1, len(infos)))
         if v1_gapped:
             v1_arg, v_more_arg = [], sorted(segs, key=lambda x: (_t_idx(x), x.get("start_f", 0)))
         else:
             v1_arg, v_more_arg = v1, v_more
         notes = self._finish_layout(tl, v1_arg, v_more_arg, info, _t_idx, _v1_gapped=v1_gapped)
+        if rescue_msgs:
+            notes["msgs"] = rescue_msgs + notes["msgs"]
+            notes["layout_ok"] = False
         after = self._timeline_names()
         res = {"name": name, "n": len(segs), "before": None if before is None else len(before), "after": None if after is None else len(after),
                "old_intact": None, "verified": False, "layout_ok": notes["layout_ok"], "layout_msgs": notes["msgs"], "n_slow": notes["n_slow"],

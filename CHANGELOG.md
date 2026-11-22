@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 2026-11-22 – Sửa lỗi DaVinci bỏ rơi đoạn sau khi 1 clip có 2 khúc `Shift+I/O` (`do_create_cut_timeline`), CHỜ ANH THỬ
+- `troly_resolve.py`: sau `CreateTimelineFromClips`, kiểm tra ngay số clip thực tế trên `V1`; nếu DaVinci dừng giữa chừng (ví dụ 1 clip cắt 2 khúc `Shift+I/O` liên tiếp hoặc `endFrame` sát mép cuối file 59.94fps) thì tự động chèn bù từng đoạn còn thiếu bằng `AppendToTimeline` (có thử lùi 2 frame nếu sát mép cuối) thay vì im lặng rớt cả cụm cuối.
+- `troly_tl.py`: bật kiểm đếm đủ số clip `V1` trong `verify_readback` để không bao giờ bỏ sót clip rớt.
+
 ## 2026-11-22 – Bước 5 mặc định gom gọn từng bin con + kéo thả tự do bin con & đồng bộ A1, CHỜ ANH THỬ
 - **Bước 5 (`troly_tl.py`, `index.html`, `step5.js`):**
   - Chuyển mặc định `#d5SortMode` sang **`Gom theo bin (kéo thả tự do)`** cho cả Truyền thống lẫn Phóng sự để mỗi bin con (`Decor`, `Gia đình`, `Khách`...) luôn là 1 khối liền mạch (không bị xé vụn chen vào nhau), trong khi clip bên trong mỗi bin con vẫn giữ đúng thứ tự giờ quay thật.
