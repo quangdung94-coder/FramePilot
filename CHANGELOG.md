@@ -1,5 +1,15 @@
 # Nhật ký thay đổi
 
+## 2026-11-22 – Bộ công cụ Kiểm thử Xuyên Đêm (`tools/overnight_qa`) & Vá 6 lỗi thật trên bản `FramePilot.exe`, XONG
+- **Công cụ kiểm thử xuyên đêm 100% local/offline (`tools/overnight_qa/`, `tests/test_overnight_qa.py`):**
+  - Kết nối thẳng Edge WebView2 bên trong `FramePilot.exe` qua CDP (`cdp_client.py`, không cần thư viện ngoài), cách ly dữ liệu bằng `TROLY_CONFIG` + `TROLY_NO_SHUTDOWN=1` + junction thư mục `models` (`safety.py`), khóa cứng tên project `FP_TEST_*` khi chạy chế độ ghi (`sandbox_write`).
+  - Hỗ trợ xoay vòng nhiều project (`--projects`), tự nhận diện nguồn 4K 10-bit chưa proxy (`--heavy-source`), watchdog đo RAM/Handles/VRAM riêng từng project + bắt tiến trình xác sống (`watchdog.py`), 4 bộ kịch bản `smoke_e2e`, `ai_gpu`, `chaos_race`, `sandbox_write` (`scenarios.py`), báo cáo `report.md`/`report.html` (`reporter.py`) và file bấm đúp `run_overnight.bat`.
+- **Sửa 6 lỗi thật phát hiện qua phiên chạy xuyên đêm 3 tiếng (160 vòng trên 2 project 400 clip & 1.062 clip 3 cam):**
+  - `troly_api.py`: tách đúng tuple 3 phần tử từ `_media_src(c)` trong `audio_events()` (CLAP Bước 3) và `speech_diarize()` (WavLM Bước 4).
+  - `troly_vad_worker.py`, `troly_speech.py`, `troly_vision_io.py`, `build_exe.py`: bổ sung worker chạy `silero-vad` qua Python venv cho bản `.exe` (loại `torch`), đóng gói đủ `wedding_phrases.json`, `troly_ai.py` và 5 module phụ thuộc (`troly_thumbs/core/env/proc/src`), ghi log `stderr` của `AiJob` thay vì `DEVNULL`.
+  - `troly_proc.py`, `troly_speech_run.py`, `troly_api.py`: thêm `kill_tree` + `huy_nhom("speech")` và kiểm tra `self.stop` ngay trong vòng quét `file_sig` & vòng 6 clip để bấm Dừng ngắt ngay worker (0 xác sống).
+  - `index.html`, `app.js`: khóa nút `#loadBtn` khi bin đang đọc `(đang đọc bin...)` + kiểm tra `api().load`, thêm `<link rel="icon" href="data:,">` bỏ lỗi 404 `/favicon.ico`, đặt trần 40 ảnh cho cache `bigs`.
+
 ## 2026-11-21 – Tổng kiểm tra & Sửa lỗi Nhóm A/B/C + Nâng cấp giao diện Mục 5, CHỜ ANH THỬ
 - **Sửa lỗi chức năng (Nhóm A):**
   - `player.js`: sửa lỗi bấm `Space` không dừng được video đang phát (do `plJkl("k")` tạm dừng trước khi `plToggle()` chạy); sửa `plNudge` và kéo mép `ioBar` trên nhiều khúc `Shift+I/O` lấy đúng khúc đang chọn (`plCurRange()`) thay vì ghi đè khúc đầu.
