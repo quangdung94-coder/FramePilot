@@ -1368,13 +1368,17 @@ $("pool").addEventListener("dblclick", (e) => {
   else if (row && +row.dataset.stage >= 0) { const i = +row.dataset.stage; inlineRename(t, S.stages[i].name, (v) => doRename("stage", i, S.stages[i].name, v)); }
 });
 
-/* Kiểu quay (ADR-0018): chỉ đổi gợi ý màu xanh; In/Out đặt tay luôn thắng */
+/* Kiểu quay / dựng: đồng bộ gợi ý màu xanh Bước 3 + mục tiêu & khoảng gợi ý Bước 5; In/Out đặt tay luôn thắng */
 $("styleSel").onchange = async (e) => {
-  const st = await api().set_shoot_style(e.target.value);
+  const val = e.target.value;
+  const st = await api().set_shoot_style(val);
   if (st && st.error) return status(st.error, "warn");
+  const defMins = { teaser: 1, highlight: 4, event: 5, psc: 10, traditional: 18 };
+  const names = { teaser: "Teaser 1:00", highlight: "Highlight 4:00", event: "Event 5:00", psc: "Phóng sự 10:00", traditional: "Truyền thống 18:00" };
+  if (defMins[val]) await api().dur_set_target(defMins[val]);
   setState(st);
   if (page === 5) renderPage5();
-  status(e.target.value ? "Đã chọn kiểu quay " + (e.target.value === "psc" ? "PSC" : "Truyền thống") + ": chỉ đổi gợi ý màu xanh, In/Out bạn đặt tay vẫn thắng." : "Đã bỏ chọn kiểu quay: gợi ý như mặc định.", "ok");
+  status(val ? "Đã chọn " + (names[val] || val) + " (đồng bộ gợi ý In/Out Bước 3 & mục tiêu Bước 5)." : "Đã bỏ chọn kiểu quay: gợi ý như mặc định.", "ok");
 };
 
 /* ---- Zoom Thumbnail Page 1 & Page 2 + Quét chuột chọn nhiều clip ---- */

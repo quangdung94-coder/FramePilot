@@ -67,7 +67,10 @@ class TestEventAndRecorderSync(unittest.TestCase):
         self.assertIn("khai trương", phr["groups"]["event"])
         with open(os.path.join(APP, "troly_web", "index.html"), encoding="utf-8") as f:
             html = f.read()
-        self.assertIn('data-min="5">Event 5:00</button>', html)
+        self.assertIn('data-min="5" data-style="event">Event 5:00</button>', html)
+        for st_val in ("teaser", "highlight", "event", "psc", "traditional"):
+            self.assertIn(st_val, tc.SHOOT_STYLES)
+            self.assertIn(f'value="{st_val}"', html)
         self.assertIn('id="lnRecBtn"', html)
         self.assertIn('id="lnRecBox"', html)
 

@@ -23,8 +23,15 @@ import math
 import troly_core as tc
 
 TARGET_DEFAULT_MIN = 12.0
-TARGET_LIMITS_MIN = (1.0, 120.0)          # giới hạn nhập (phút)
-SUGGEST_RANGE_MIN = (10.0, 15.0)          # khoảng gợi ý (chỉ để nhắc)
+TARGET_LIMITS_MIN = (0.5, 120.0)          # giới hạn nhập (phút)
+SUGGEST_RANGE_MIN = (10.0, 15.0)          # khoảng gợi ý mặc định khi chưa chọn kiểu quay
+STYLE_TARGET_MIN = {
+    "teaser": (1.0, (0.5, 2.0)),
+    "highlight": (4.0, (2.5, 5.5)),
+    "event": (5.0, (3.0, 6.5)),
+    "psc": (10.0, (8.0, 15.0)),
+    "traditional": (18.0, (14.0, 25.0)),
+}
 BIN_SCALE_S = 90.0                        # thang của thanh trong demo, cũng là Max tối đa của bin tự suy ra
 DERIVE_MIN_RATIO = 0.6
 UNSORTED = "(chưa xếp bin)"
@@ -194,8 +201,10 @@ def build(plan, clips, assign, stages, tl_fps=None):
       pinned, locked, n_starred, n_bins, n_used, dropped_n, dropped_s, dropped_clips, bins[{name, min, max, edited, natural_s, avail_s, pin,
       total_s, shots, dropped}]}], items[{uid, stage, bin, in_s, out_s, dur}] theo thứ tự giai đoạn rồi giờ quay, warnings[], n_starred, n_used."""
     d = plan.get("durations") or {}
-    ok, tmin = check_target(d.get("target_min", TARGET_DEFAULT_MIN))
-    tmin = tmin if ok else TARGET_DEFAULT_MIN
+    style_now = plan.get("shoot_style") or ""
+    def_min, sug_rng = STYLE_TARGET_MIN.get(style_now, (TARGET_DEFAULT_MIN, SUGGEST_RANGE_MIN))
+    ok, tmin = check_target(d.get("target_min", def_min))
+    tmin = tmin if ok else def_min
     target = tmin * 60.0
     warnings = []
     groups = {}                                            # (si, bin) -> [entry]
@@ -410,7 +419,7 @@ def build(plan, clips, assign, stages, tl_fps=None):
         warnings.append({"kind": "no_star", "text": "Chưa có clip nào gắn sao ★. Gắn sao (phím P) ở Bước 2 trước."})
     if excluded:
         warnings.append({"kind": "excluded", "text": "%d clip có sao nằm ngoài mọi giai đoạn nên không đưa lên timeline." % excluded})
-    lo, hi = SUGGEST_RANGE_MIN
+    lo, hi = sug_rng
     if not (lo <= tmin <= hi):
         warnings.append({"kind": "target_range", "text": "Mục tiêu %g phút nằm ngoài khoảng gợi ý %g–%g phút." % (tmin, lo, hi)})
     if starred and total + 1e-9 < target * 0.95:

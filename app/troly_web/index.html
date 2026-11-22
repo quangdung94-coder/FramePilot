@@ -33,10 +33,13 @@
     <button class="btn" id="loadBtn" disabled>Đọc clip</button>
   </div>
   <div class="top-right hidden" id="right2">
-    <select id="styleSel" class="sel" title="Kiểu quay của project này. Chỉ đổi gợi ý màu xanh ở thanh In/Out; In/Out bạn đặt tay luôn thắng. Chưa chọn thì không đổi gì.">
+    <select id="styleSel" class="sel" title="Kiểu quay / dựng của project (đồng bộ với các nút mục tiêu ở Bước 5 và gợi ý In/Out Bước 3)">
       <option value="">Kiểu quay: chưa chọn</option>
-      <option value="traditional" title="Giữ source dài, chỉ gợi ý cắt khoảng một đến hai giây đầu và đuôi">Truyền thống</option>
-      <option value="psc" title="Clip ngắn khoảng 3-7 giây theo loại bin">PSC</option>
+      <option value="teaser" title="Cắt siêu gọn 1.5–2.5s nhịp nhanh · mục tiêu 1:00">Teaser 1:00</option>
+      <option value="highlight" title="Cắt gọn cảm xúc · mục tiêu 4:00">Highlight 4:00</option>
+      <option value="event" title="B-roll gọn + trích câu phát biểu/phỏng vấn · mục tiêu 5:00">Event 5:00</option>
+      <option value="psc" title="Phóng sự cưới: clip ngắn 3–7s theo loại bin · mục tiêu 10:00">Phóng sự 10:00</option>
+      <option value="traditional" title="Truyền thống: giữ source dài, cắt 1.5s đầu/đuôi · mục tiêu 18:00">Truyền thống 18:00</option>
     </select>
   </div>
   <div class="top-right hidden" id="right4">
@@ -392,11 +395,11 @@
         <span class="tl-caps"><label for="durTarget">VIDEO MỤC TIÊU</label></span>
         <input id="durTarget" class="tl-inp big" type="text" inputmode="numeric" value="12:00" autocomplete="off" aria-label="Video mục tiêu, phút:giây" title="Gõ phút:giây, ví dụ 12:00. Mục tiêu chỉ là con số nhắm tới, không phải giới hạn cứng. Gõ số không có dấu hai chấm = phút.">
         <div class="d5-presets" id="d5Presets">
-          <button class="tl-bn" type="button" data-min="1">Teaser 1:00</button>
-          <button class="tl-bn" type="button" data-min="4">Highlight 4:00</button>
-          <button class="tl-bn" type="button" data-min="5">Event 5:00</button>
-          <button class="tl-bn" type="button" data-min="10">Phóng sự 10:00</button>
-          <button class="tl-bn" type="button" data-min="18">Truyền thống 18:00</button>
+          <button class="tl-bn" type="button" data-min="1" data-style="teaser">Teaser 1:00</button>
+          <button class="tl-bn" type="button" data-min="4" data-style="highlight">Highlight 4:00</button>
+          <button class="tl-bn" type="button" data-min="5" data-style="event">Event 5:00</button>
+          <button class="tl-bn" type="button" data-min="10" data-style="psc">Phóng sự 10:00</button>
+          <button class="tl-bn" type="button" data-min="18" data-style="traditional">Truyền thống 18:00</button>
         </div>
         <div class="tl-res" id="d5Res"></div>
         <div class="zoom-ctl" title="Zoom In/Out Timeline (hoặc Ctrl + Lăn chuột)"><span>Zoom</span><input type="range" id="d5Zoom" min="100" max="2000" step="25" value="100" aria-label="Phóng to thu nhỏ timeline"></div>
@@ -473,10 +476,13 @@
         <label class="lbl" for="setTplSel">Cài đặt project (1 dòng): Kiểu sự kiện &amp; Kiểu quay</label>
         <div class="inline8">
           <select id="setTplSel" class="sel flex1" title="Chọn nhanh Lễ sáng + Tiệc tối hoặc Chỉ tiệc"></select>
-          <select id="setStyleSel" class="sel" title="Kiểu quay của project">
+          <select id="setStyleSel" class="sel" title="Kiểu quay / dựng của project">
             <option value="">Kiểu quay: chưa chọn</option>
-            <option value="traditional">Truyền thống</option>
-            <option value="psc">PSC</option>
+            <option value="teaser">Teaser 1:00</option>
+            <option value="highlight">Highlight 4:00</option>
+            <option value="event">Event 5:00</option>
+            <option value="psc">Phóng sự 10:00</option>
+            <option value="traditional">Truyền thống 18:00</option>
           </select>
         </div>
       </div>

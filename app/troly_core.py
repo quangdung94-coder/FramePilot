@@ -178,7 +178,7 @@ class Clip(object):
                    mark_in=mark_in, mark_out=mark_out, tc=props.get("Start TC") or "")
 
 
-SHOOT_STYLES = ("", "traditional", "psc")          # "" = chưa chọn (không đổi gì)
+SHOOT_STYLES = ("", "teaser", "highlight", "event", "psc", "traditional")  # "" = chưa chọn (không đổi gì)
 TRAD_HEAD_S, TRAD_TAIL_S = 1.5, 1.5               # Truyền thống: chỉ gợi ý cắt khoảng 1-2 giây đầu và đuôi mỗi clip
 
 
@@ -339,6 +339,12 @@ def suggest_inout(dur, label=None, style="", rules=None, trad_trim=None, trad_bi
         head, tail = h, t
         return {"in_s": round(head, 2), "out_s": round(dur - tail, 2), "dur": round(dur - head - tail, 2),
                 "rule": "Truyền thống: giữ dài, cắt %.1fs đầu và %.1fs đuôi" % (head, tail)}
+    if style == "teaser":
+        a = min(0.8, max(0.0, dur - 1.5))
+        keep = min(2.0, max(1.0, dur - a - 0.3))
+        b = min(dur, a + keep)
+        return {"in_s": round(a, 2), "out_s": round(b, 2), "dur": round(b - a, 2),
+                "rule": "Teaser: cắt siêu gọn %.1fs nhịp nhanh" % (b - a)}
     rule, mn, mx, whole, _ed = rule_for(label, rules)
     if whole:
         trim = max(mn, dur - 1.0)

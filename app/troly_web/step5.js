@@ -110,6 +110,10 @@ function d5Paint() {
     : st === "over" ? `<span class="tl-tag">dư ${d5mm(over)}</span>` : '<span class="tl-tag">chưa có clip sao</span>';
   $("d5Res").innerHTML = `<span>Hiện Tại</span><b>${d5mm(v.total_s)}</b>${tag}`;
   if ($("d5SortMode")) $("d5SortMode").value = v.tl_sort_mode || "bin";
+  if ($("d5Presets")) {
+    const curSty = (S && S.shoot_style) || "";
+    $("d5Presets").querySelectorAll("[data-style]").forEach((b) => b.classList.toggle("on", !!curSty && b.dataset.style === curSty));
+  }
   $("d5Reset").classList.toggle("on", !!v.tl_manual);
   // thước + vạch lưới
   const T = D5.T, ticks = d5Ticks(T);
@@ -563,10 +567,15 @@ $("d5Create").addEventListener("click", async () => {
 if ($("d5Presets")) {
   $("d5Presets").querySelectorAll("[data-min]").forEach((b) => {
     b.onclick = async () => {
+      const sty = b.dataset.style || "";
+      if (sty && S && (S.shoot_style || "") !== sty) {
+        const st = await api().set_shoot_style(sty);
+        if (st && !st.error) setState(st);
+      }
       const r = await api().dur_set_target(+b.dataset.min);
       if (r && r.error) return status(r.error, "warn");
       D5.v = r; d5Paint();
-      status(`Đã đặt mục tiêu ${b.textContent}.`, "ok");
+      status(`Đã chọn ${b.textContent} (đồng bộ Kiểu quay ở trên & mục tiêu Bước 5).`, "ok");
     };
   });
 }
