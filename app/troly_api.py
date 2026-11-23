@@ -2927,45 +2927,72 @@ class TrolyApi(object):
             rel_set = {a["rel"] for a in recs}
             sync_map = dict(self._plan.get("audio_sync") or {})
             by_rel = {c.rel: c for c in self._clips}
-        # Tính đường bao năng lượng 100Hz 1 lần duy nhất cho mỗi file Recorder (tốn ~4MB/file 3 tiếng)
-        envs = {}
+        # Tính đường bao năng lượng 100Hz + tiền tính FFT 1 lần duy nhất cho mỗi file Recorder (chạy song song)
         todo_sync = [it for it in items if not (isinstance(sync_map.get(it["key"]), dict) and sync_map[it["key"]].get("rec_rel") in rel_set)]
         if todo_sync:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
             self._emit("speech_progress", {"n": 0, "total": len(todo_sync), "phase": "sync", "text": "Đang đọc file Recorder (%d file)..." % len(recs)})
-            for a in recs:
-                if stop_fn and stop_fn():
-                    break
-                env, rdur = tsy.extract_envelope(a["path"], ffmpeg=self._thumbs.ffmpeg)
-                if env is not None:
-                    envs[a["rel"]] = (a, env, rdur or a.get("dur") or 0.0)
-            if envs:
-                changed = False
-                for idx_s, it in enumerate(todo_sync):
+            rec_indexes = []
+            max_w_rec = max(1, min(4, len(recs)))
+            with ThreadPoolExecutor(max_workers=max_w_rec) as ex:
+                futs = {ex.submit(tsy.extract_envelope, a["path"], ffmpeg=self._thumbs.ffmpeg): a for a in recs}
+                for fut in as_completed(futs):
                     if stop_fn and stop_fn():
                         break
+                    a = futs[fut]
+                    try:
+                        env, rdur = fut.result()
+                    except Exception:  # noqa: BLE001
+                        env, rdur = None, 0.0
+                    if env is not None:
+                        rec_indexes.append(tsy.prepare_recorder(a["path"], env, rdur or a.get("dur") or 0.0, meta=a))
+            if rec_indexes and not (stop_fn and stop_fn()):
+                changed = False
+                done_n = 0
+                sync_lock = threading.Lock()
+                max_w_clip = max(2, min(6, (os.cpu_count() or 4) // 2 or 2))
+
+                def _sync_one(it):
+                    if stop_fn and stop_fn():
+                        return it["key"], None
                     c = by_rel.get(it["key"])
                     clip_src = (c.proxy if (c and c.proxy and os.path.isfile(c.proxy)) else None) or it["path"]
-                    best = None
-                    for rec_rel, (a, env, rdur) in envs.items():
-                        if stop_fn and stop_fn():
-                            break
-                        off, conf = tsy.sync_clip_to_recorder(
-                            clip_src, a["path"], rec_env=env, rec_dur=rdur,
-                            clip_dur=(c.dur if c else None), ffmpeg=self._thumbs.ffmpeg,
-                        )
-                        if off is not None and (best is None or conf > best[0]):
-                            best = (conf, off, a)
-                    if best is not None:
-                        conf, off, a = best
-                        sync_map[it["key"]] = {
-                            "rec_rel": a["rel"], "rec_uid": a["uid"], "rec_name": a["name"],
-                            "rec_path": a["path"], "offset_s": off, "conf": conf,
+                    a_meta, off, conf = tsy.sync_clip_to_recorders(
+                        clip_src, rec_indexes, clip_dur=(c.dur if c else None),
+                        ffmpeg=self._thumbs.ffmpeg, stop_fn=stop_fn,
+                    )
+                    if a_meta is not None and off is not None:
+                        return it["key"], {
+                            "rec_rel": a_meta["rel"], "rec_uid": a_meta["uid"], "rec_name": a_meta["name"],
+                            "rec_path": a_meta["path"], "offset_s": off, "conf": conf,
                         }
-                        changed = True
-                    self._emit("speech_progress", {
-                        "n": idx_s + 1, "total": len(todo_sync), "phase": "sync",
-                        "text": "Đang sync tiếng Recorder %d/%d..." % (idx_s + 1, len(todo_sync)),
-                    })
+                    return it["key"], None
+
+                with ThreadPoolExecutor(max_workers=max_w_clip) as ex:
+                    futs = [ex.submit(_sync_one, it) for it in todo_sync]
+                    for fut in as_completed(futs):
+                        if stop_fn and stop_fn():
+                            for pending in futs:
+                                pending.cancel()
+                            break
+                        try:
+                            key_s, rec_hit = fut.result()
+                        except Exception:  # noqa: BLE001
+                            key_s, rec_hit = None, None
+                        with sync_lock:
+                            done_n += 1
+                            cur_done = done_n
+                            if key_s and rec_hit is not None:
+                                sync_map[key_s] = rec_hit
+                                changed = True
+                        if cur_done % 25 == 0 and changed:
+                            with self._lock:
+                                self._plan["audio_sync"] = dict(sync_map)
+                                self._save_soon()
+                        self._emit("speech_progress", {
+                            "n": cur_done, "total": len(todo_sync), "phase": "sync",
+                            "text": "Đang sync tiếng Recorder %d/%d..." % (cur_done, len(todo_sync)),
+                        })
                 if changed:
                     with self._lock:
                         self._plan["audio_sync"] = sync_map

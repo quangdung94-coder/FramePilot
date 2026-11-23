@@ -109,6 +109,24 @@ class TestEventAndRecorderSync(unittest.TestCase):
             off_bad, _ = tsy.sync_clip_to_recorder(p_bad, p_rec, rec_env=rec_env, rec_dur=rdur, clip_dur=6.0)
             self.assertIsNone(off_bad)
 
+            # Kiểm thử hàm sync nhiều file Recorder dùng lại FFT (prepare_recorder + sync_clip_to_recorders)
+            p_decoy = os.path.join(td, "ZOOM0002.WAV")
+            _write_wav_f32(p_decoy, rng.normal(0.0, 0.04, len(rec)).astype(np.float32), sr=sr)
+            decoy_env, ddur = tsy.extract_envelope(p_decoy)
+            idxs = [
+                tsy.prepare_recorder(p_decoy, decoy_env, ddur, meta={"name": "ZOOM0002.WAV"}),
+                tsy.prepare_recorder(p_rec, rec_env, rdur, meta={"name": "ZOOM0001.WAV"}),
+            ]
+            meta_hit, off_m, conf_m = tsy.sync_clip_to_recorders(p_cam, idxs, clip_dur=10.0)
+            self.assertIsNotNone(meta_hit)
+            self.assertEqual(meta_hit["name"], "ZOOM0001.WAV")
+            self.assertAlmostEqual(off_m, true_off, delta=0.05)
+            self.assertGreaterEqual(conf_m, 0.35)
+
+            meta_bad, off_mb, _ = tsy.sync_clip_to_recorders(p_bad, idxs, clip_dur=6.0)
+            self.assertIsNone(meta_bad)
+            self.assertIsNone(off_mb)
+
     def test_davinci_export_places_recorder_a2_on_and_disables_a1_by_default(self):
         self.assertTrue(tr.is_audio_only({"Type": "Audio"}))
         self.assertFalse(tr.is_audio_only({"Type": "Video + Audio"}))

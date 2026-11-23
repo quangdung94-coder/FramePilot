@@ -149,6 +149,149 @@ def find_coarse_candidates(rec_env, clip_env, hop_sr=100, top_k=3, min_sep_s=8.0
     return [round(i / float(hop_sr), 3) for i in picked]
 
 
+def envelope_from_pcm(pcm, sr=8000, hop_sr=100):
+    """Tính đường bao RMS ở `hop_sr` Hz ngay trên RAM từ mảng PCM float32 đã đọc (0 lần gọi thêm ffmpeg)."""
+    if pcm is None or len(pcm) == 0:
+        return None, 0.0
+    hop = max(1, int(sr // hop_sr))
+    n_frames = len(pcm) // hop
+    if n_frames < hop_sr:
+        return None, 0.0
+    blocks = pcm[: n_frames * hop].reshape(n_frames, hop)
+    env = np.sqrt(np.mean(blocks * blocks, axis=1, dtype=np.float64)).astype(np.float32)
+    return env, round(len(pcm) / float(sr), 3)
+
+
+def prepare_recorder(rec_path, rec_env, rec_dur=None, meta=None, hop_sr=100):
+    """Tiền tính tổng bình phương tích lũy & bộ đệm FFT cho 1 file Recorder (dùng lại cho hàng trăm clip)."""
+    a = rec_env.astype(np.float64) - float(np.mean(rec_env))
+    cs = np.concatenate(([0.0], np.cumsum(a * a)))
+    return {
+        "path": rec_path,
+        "env": rec_env,
+        "dur": float(rec_dur or (len(rec_env) / float(hop_sr))),
+        "meta": meta,
+        "a": a,
+        "cs": cs,
+        "fft_cache": {},
+        "lock": __import__("threading").Lock(),
+    }
+
+
+def find_coarse_candidates_scored(rec_idx, clip_env, hop_sr=100, top_k=3, min_sep_s=8.0):
+    """Tìm top_k ứng viên [(score, time_s), ...] trên `rec_idx` dùng lại FFT đã tiền tính."""
+    if rec_idx is None or clip_env is None:
+        return []
+    rec_env = rec_idx["env"]
+    lr, lc = len(rec_env), len(clip_env)
+    if lr < hop_sr or lc < hop_sr or lc > lr + hop_sr:
+        return []
+    b = clip_env.astype(np.float64) - float(np.mean(clip_env))
+    b_norm = float(np.linalg.norm(b))
+    if b_norm < 1e-8:
+        return []
+    n = 1 << int(np.ceil(np.log2(lr + lc)))
+    fa = rec_idx["fft_cache"].get(n)
+    if fa is None:
+        with rec_idx["lock"]:
+            fa = rec_idx["fft_cache"].get(n)
+            if fa is None:
+                fa = np.fft.rfft(rec_idx["a"], n=n)
+                rec_idx["fft_cache"][n] = fa
+    cc = np.fft.irfft(fa * np.conj(np.fft.rfft(b, n=n)), n=n)
+    valid = max(1, lr - lc + 1)
+    scores = cc[:valid]
+    cs = rec_idx["cs"]
+    win_e = np.sqrt(np.maximum(1e-12, cs[lc:lc + valid] - cs[:valid]))
+    norm_s = scores / (win_e * b_norm)
+    # Lấy nhanh ứng viên cao nhất bằng argpartition thay vì sort toàn bộ mảng 200.000 phần tử
+    pool_k = min(valid, max(top_k * 25, 64))
+    if valid > pool_k:
+        top_idx = np.argpartition(norm_s, -pool_k)[-pool_k:]
+        order = top_idx[np.argsort(norm_s[top_idx])[::-1]]
+    else:
+        order = np.argsort(norm_s)[::-1]
+    min_sep = int(min_sep_s * hop_sr)
+    picked = []
+    for idx in order:
+        i = int(idx)
+        if all(abs(i - p[1]) >= min_sep for p in picked):
+            picked.append((float(norm_s[i]), i))
+            if len(picked) >= top_k:
+                break
+    return [(sc, round(i / float(hop_sr), 3)) for sc, i in picked]
+
+
+def sync_clip_to_recorders(clip_path, rec_indexes, clip_dur=None, sr=8000, hop_sr=100,
+                           min_conf=0.32, early_conf=0.65, top_global=4, ffmpeg=None, stop_fn=None):
+    """Sync 2 tầng 1 clip video vào NHIỀU file Recorder cùng lúc (đọc clip đúng 1 lần ffmpeg, dùng lại FFT Recorder,
+    lọc Top ứng viên toàn cục & dừng sớm khi khớp chắc). Trả (meta, offset_s, conf) hoặc (None, None, best_conf)."""
+    if not rec_indexes or not clip_path or not os.path.isfile(clip_path):
+        return None, None, 0.0
+    if stop_fn and stop_fn():
+        return None, None, 0.0
+    # Đọc PCM 8000Hz của clip ĐÚNG 1 LẦN (tối đa 45s) -> dùng chung cho cả Tầng 1 (100Hz) và Tầng 2 (8000Hz)
+    clip_pcm_all = extract_slice_pcm(clip_path, 0.0, 45.0, sr=sr, ffmpeg=ffmpeg)
+    if clip_pcm_all is None:
+        return None, None, 0.0
+    clip_env, env_dur = envelope_from_pcm(clip_pcm_all, sr=sr, hop_sr=hop_sr)
+    if clip_env is None:
+        return None, None, 0.0
+    fine_dur = min(25.0, float(clip_dur or env_dur or 25.0))
+    clip_pcm = clip_pcm_all[: max(int(sr * 0.5), int(round(fine_dur * sr)))]
+
+    # Tầng 1 (RAM): tìm ứng viên trên tất cả file Recorder rồi gộp lấy Top ứng viên sáng giá nhất toàn cục
+    all_cands = []
+    for ridx in rec_indexes:
+        if stop_fn and stop_fn():
+            return None, None, 0.0
+        for sc, tc in find_coarse_candidates_scored(ridx, clip_env, hop_sr=hop_sr, top_k=2):
+            all_cands.append((sc, tc, ridx))
+    if not all_cands:
+        return None, None, 0.0
+    all_cands.sort(key=lambda x: x[0], reverse=True)
+    limit = max(int(top_global), min(6, len(rec_indexes)))
+    best_meta, best_off, best_conf = None, None, 0.0
+    pad_s = 6.0
+    for _sc, tc, ridx in all_cands[:limit]:
+        if stop_fn and stop_fn():
+            return None, None, 0.0
+        win_start = max(0.0, tc - pad_s)
+        win_dur = fine_dur + 2.0 * pad_s
+        rec_pcm = extract_slice_pcm(ridx["path"], win_start, win_dur, sr=sr, ffmpeg=ffmpeg)
+        if rec_pcm is None:
+            continue
+        lag_s, conf = match_offset(rec_pcm, clip_pcm, sr=sr, max_lag_sec=pad_s + 2.0)
+        cand_off = round(win_start + lag_s, 3)
+        if cand_off < -0.5:
+            continue
+        rec_dur = ridx["dur"]
+        if rec_dur and cand_off > rec_dur - 0.5:
+            continue
+        rec_env = ridx["env"]
+        i_rec = max(0, int(round(cand_off * hop_sr)))
+        seg_r = rec_env[i_rec: i_rec + len(clip_env)]
+        if len(seg_r) < max(hop_sr, len(clip_env) // 2):
+            continue
+        seg_c = clip_env[:len(seg_r)]
+        sr_z = seg_r.astype(np.float64) - float(np.mean(seg_r))
+        sc_z = seg_c.astype(np.float64) - float(np.mean(seg_c))
+        denom_e = float(np.linalg.norm(sr_z) * np.linalg.norm(sc_z))
+        env_r = float(np.dot(sr_z, sc_z) / denom_e) if denom_e > 1e-9 else 0.0
+        if env_r < 0.30:
+            continue
+        combined = min(1.0, 0.5 * conf + 0.5 * env_r)
+        if combined > best_conf:
+            best_conf = combined
+            best_off = max(0.0, cand_off)
+            best_meta = ridx["meta"]
+            if best_conf >= early_conf:
+                break
+    if best_off is not None and best_conf >= min_conf:
+        return best_meta, best_off, round(best_conf, 2)
+    return None, None, round(best_conf, 2)
+
+
 def sync_clip_to_recorder(clip_path, rec_path, rec_env=None, rec_dur=None, clip_dur=None,
                           sr=8000, hop_sr=100, min_conf=0.32, ffmpeg=None):
     """Sync 2 tầng 1 clip video vào 1 file Recorder dài (Tascam/Zoom/Mixer).
