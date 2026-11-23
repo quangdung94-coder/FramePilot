@@ -619,13 +619,33 @@ plAttachHoverScrub($("ioBar"));
 plAttachHoverScrub($("preview"));
 plAttachHoverScrub($("plSeek"));
 
-/* Hover Scrub ngay trên lưới thumbnail Page 2 (giống DaVinci Media Pool): rê ngang qua ảnh là lướt clip không cần nhấn Space */
+/* Hover Scrub ngay trên lưới thumbnail Page 2 (giống DaVinci Media Pool): rê ngang qua ảnh nào là xem & lướt clip đó ngay
+   mà KHÔNG đổi cur/sel/anchor (giữ nguyên mốc Shift+Click chọn nhiều clip). */
 (function initGridHoverScrub() {
   const grid = $("grid");
   if (!grid) return;
-  let hoverTimer = 0, pend = false, lx = 0, curThumb = null, curCard = null;
+  let hoverTimer = 0, pend = false, lx = 0, curThumb = null, curCard = null, hoverUid = null;
   let line = document.createElement("div");
   line.className = "thumb-scrub";
+  const previewHoverClip = (c, t) => {
+    if (!c || page !== 2) return;
+    hoverUid = c.uid;
+    PL.hoverT = t;
+    if ($("curName")) $("curName").textContent = c.name;
+    const host = $("preview");
+    const bgSrc = (typeof bigs !== "undefined" && bigs[c.uid]) || (typeof thumbs !== "undefined" && thumbs[c.uid]);
+    if (host && bgSrc) {
+      const sp = host.querySelector("span"); if (sp) sp.remove();
+      let img = host.querySelector("img");
+      if (!img) { img = document.createElement("img"); img.draggable = false; host.prepend(img); }
+      img.src = bgSrc;
+    }
+    if (PL.uid !== c.uid) {
+      plStop();
+      PL.uid = c.uid;
+      plOpen(c);
+    }
+  };
   const flush = () => {
     pend = false;
     if (!curThumb || !curCard) return;
@@ -637,7 +657,7 @@ plAttachHoverScrub($("plSeek"));
     line.style.left = (pct * 100).toFixed(2) + "%";
     line.style.display = "block";
     const t = pct * c.dur;
-    if (i === cur) {
+    if (PL.uid === c.uid) {
       PL.hoverT = t;
       if (PL.vid) plSeek(t, { fast: true });
       else if (FR.url) frScrub(t);
@@ -647,11 +667,18 @@ plAttachHoverScrub($("plSeek"));
     if (page !== 2 || e.buttons || e.ctrlKey || e.metaKey || e.shiftKey) return;
     const th = e.target.closest(".thumb"), card = e.target.closest(".card");
     if (!th || !card) { line.style.display = "none"; return; }
-    // Hướng A (chuẩn DaVinci / Explorer): rê chuột trên lưới CHỈ scrub xem hình clip đang chọn,
-    // KHÔNG tự gọi moveCur() để tránh cướp mốc gốc (anchor) khi anh chuẩn bị giữ Shift chọn nhiều file.
     if (curCard !== card) {
       clearTimeout(hoverTimer);
       curCard = card; curThumb = th;
+      const idx = +card.dataset.i, c = items[idx];
+      if (c && PL.uid !== c.uid) {
+        hoverTimer = setTimeout(() => {
+          if (curCard !== card || page !== 2) return;
+          const r = th.getBoundingClientRect();
+          const pct = Math.max(0, Math.min(1, (lx - r.left) / Math.max(1, r.width)));
+          previewHoverClip(c, pct * (c.dur || 0));
+        }, 65);
+      }
     }
     lx = e.clientX;
     if (!pend) { pend = true; requestAnimationFrame(flush); }
@@ -660,6 +687,13 @@ plAttachHoverScrub($("plSeek"));
     clearTimeout(hoverTimer);
     curCard = null; curThumb = null; PL.hoverT = null;
     line.style.display = "none";
+    const selC = items[cur];
+    if (hoverUid && (!selC || hoverUid !== selC.uid)) {
+      hoverUid = null;
+      if (typeof showCur === "function") showCur();
+    } else {
+      hoverUid = null;
+    }
   });
 })();
 
