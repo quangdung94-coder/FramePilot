@@ -103,6 +103,22 @@ class TestDot1AsrAndFace(unittest.TestCase):
         self.assertIn("troly_asr_worker.py", be)
         self.assertIn("troly_face_worker.py", be)
 
+    def test_persistent_face_and_vad_workers_wired_and_cleanup(self):
+        fw = open(os.path.join(APP, "troly_face_worker.py"), encoding="utf-8").read()
+        vw = open(os.path.join(APP, "troly_vad_worker.py"), encoding="utf-8").read()
+        vio = open(os.path.join(APP, "troly_vision_io.py"), encoding="utf-8").read()
+        sp = open(os.path.join(APP, "troly_speech.py"), encoding="utf-8").read()
+        api = open(os.path.join(APP, "troly_api.py"), encoding="utf-8").read()
+        self.assertIn("--serve", fw)
+        self.assertIn('cmd == "frames"', fw)
+        self.assertIn("--serve", vw)
+        self.assertIn('cmd == "pcm"', vw)
+        self.assertIn("close_workers", vio)
+        self.assertIn("close_vad_worker", sp)
+        self.assertIn("tvio.close_workers()", api)
+        # Gọi close_workers() khi chưa có worker phải an toàn, không lỗi
+        tvio.close_workers()
+
 
 if __name__ == "__main__":
     unittest.main()

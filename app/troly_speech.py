@@ -144,8 +144,80 @@ def apply_gain(x, gain_db):
 # ---------------------------------------------------------------------------
 # LỌC KHOẢNG LẶNG (silero-vad) và ghép đoạn
 # ---------------------------------------------------------------------------
+_VAD_W_LOCK = __import__("threading").Lock()
+_VAD_W = None  # {"proc": Popen, "key": (py, worker)}
+
+
+def close_vad_worker():
+    """Tắt gọn tiến trình troly_vad_worker.py đang giữ sống (nếu có)."""
+    global _VAD_W
+    import troly_proc
+    with _VAD_W_LOCK:
+        w = _VAD_W
+        _VAD_W = None
+    if not w:
+        return
+    p = w.get("proc")
+    if p is not None and p.poll() is None:
+        try:
+            p.stdin.write(b'{"cmd":"quit"}\n')
+            p.stdin.flush()
+        except OSError:
+            pass
+    for st in (getattr(p, "stdin", None), getattr(p, "stdout", None)):
+        try:
+            if st:
+                st.close()
+        except OSError:
+            pass
+    if p is not None and p.poll() is None:
+        try:
+            p.wait(timeout=1.5)
+        except Exception:  # noqa: BLE001
+            troly_proc.kill_tree(p.pid)
+            try:
+                p.kill()
+            except OSError:
+                pass
+
+
+__import__("atexit").register(close_vad_worker)
+
+
+def _get_vad_worker(py, worker):
+    global _VAD_W
+    import troly_proc
+    key = (os.path.abspath(py), os.path.abspath(worker))
+    if _VAD_W is not None:
+        p = _VAD_W["proc"]
+        if _VAD_W["key"] == key and p.poll() is None:
+            return p
+        old = _VAD_W["proc"]
+        _VAD_W = None
+        if old.poll() is None:
+            troly_proc.kill_tree(old.pid)
+    p = troly_proc.mo_an(
+        [py, "-X", "utf8", worker, "--rate", str(RATE), "--serve"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
+    try:
+        line = p.stdout.readline()
+        if not line:
+            troly_proc.kill_tree(p.pid)
+            return None
+        hdr = json.loads(line.decode("utf-8", errors="replace"))
+        if not hdr.get("ready"):
+            troly_proc.kill_tree(p.pid)
+            return None
+    except Exception:  # noqa: BLE001
+        troly_proc.kill_tree(p.pid)
+        return None
+    _VAD_W = {"proc": p, "key": key}
+    return p
+
+
 def _load_vad_worker():
-    """Dự phòng cho bản đóng gói FramePilot.exe (loại torch): gọi troly_vad_worker.py bằng Python venv có silero-vad."""
+    """Dự phòng cho bản đóng gói FramePilot.exe / .app (loại torch): gọi troly_vad_worker.py giữ sống qua Python venv có silero-vad."""
     import tempfile
     import troly_env as te
     import troly_proc
@@ -160,10 +232,32 @@ def _load_vad_worker():
         return None, None
 
     def run(x):
+        global _VAD_W
+        raw = x.astype("<i2", copy=False).tobytes()
+        if not raw:
+            return []
+        with _VAD_W_LOCK:
+            for _attempt in range(2):
+                p = _get_vad_worker(py, worker)
+                if p is None:
+                    break
+                try:
+                    p.stdin.write((json.dumps({"cmd": "pcm", "nbytes": len(raw), "rate": RATE}) + "\n").encode("utf-8"))
+                    p.stdin.write(raw)
+                    p.stdin.flush()
+                    line = p.stdout.readline()
+                    if not line:
+                        raise OSError("vad worker EOF")
+                    return json.loads(line.decode("utf-8", errors="replace"))
+                except Exception:  # noqa: BLE001
+                    _VAD_W = None
+                    if p.poll() is None:
+                        troly_proc.kill_tree(p.pid)
+        # Dự phòng một lần nếu chế độ giữ sống không khởi động được
         fd, pcm = tempfile.mkstemp(suffix=".pcm", prefix="fp_vad_")
         try:
             with os.fdopen(fd, "wb") as f:
-                f.write(x.astype("<i2", copy=False).tobytes())
+                f.write(raw)
             r = troly_proc.chay_an(
                 [py, "-X", "utf8", worker, "--pcm", pcm, "--rate", str(RATE)],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, tag="speech",

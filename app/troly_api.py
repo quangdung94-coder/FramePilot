@@ -1750,6 +1750,7 @@ class TrolyApi(object):
             except Exception as e:                           # noqa: BLE001
                 self._emit("status", {"text": "Gợi ý In/Out lỗi: %s" % e, "kind": "error"})
             finally:
+                tvio.close_workers()
                 with self._lock:
                     self._sug_run = None
                 self._emit("inout_sug_done", {"total": len(todo), "speech": n_speech, "vision": n_vision, "rule": len(res) - n_speech - n_vision})
