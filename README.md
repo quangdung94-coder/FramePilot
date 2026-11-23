@@ -3,7 +3,12 @@
 **Trợ lý AI sắp xếp source, chọn In/Out, chép lời & dựng nháp tự động cho DaVinci Resolve** (chạy **100% offline**, tối ưu cho phim **Cưới, Mừng thọ, Sự kiện / Hội nghị / Gala**, hỗ trợ **Windows** & **macOS Apple Silicon**).
 
 > 📄 **Hướng dẫn sử dụng chi tiết (PDF 7 trang, có ảnh minh họa):** [`docs/FramePilot_Huong_Dan_Su_Dung.pdf`](docs/FramePilot_Huong_Dan_Su_Dung.pdf)
+> ## ⬇️ Tải bản cài đặt trọn bộ (Google Drive)
 
+- 💻 **Windows (10/11 · GPU NVIDIA hoặc CPU):** [Tải FramePilot cho Windows (Google Drive)](https://drive.google.com/drive/folders/10EAf58ajXnPvmtjd9aVrZyOAaU7-eFOv)
+- 🍎 **macOS Apple Silicon (M1 / M2 / M3 / M4):** [Tải FramePilot cho macOS (Google Drive)](https://drive.google.com/drive/folders/1AZtAxwH6wzPxfQTymWYuaMj9odrsdzz-)
+
+> Sau khi tải về và giải nén, chạy `CaiDat_MayMoi.bat` (Windows) hoặc `CaiDat_MayMoi.command` (macOS) để tự cài đặt.
 ---
 
 ## Tính năng nổi bật
