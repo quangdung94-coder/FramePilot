@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 2026-11-23 (10h15) – Vá 2 lỗi phát proxy bản sạch & Hover Scrub lưới Page 2 (Win + Mac), CHỜ ANH THỬ
+- **`troly_api.py` (`c0364ec`):** Sửa `play_info()` & `frames_open()` cho phép phát proxy và Hover Scrub mượt mà ngay cả khi `config.json` bản sạch để `"proxy_root": ""` (trước đó máy chủ phát từ chối với lỗi *"Không phát được file này."*).
+- **`player.js` (`f3769b3`):** Khôi phục Hover Scrub rê chuột qua bất kỳ clip nào trên lưới Page 2 sẽ tự nạp xem trước & lướt hình trên khung `Clip đang xem` sau 65ms mà không đổi `cur`/`sel`/`anchor` (vẫn giữ nguyên chọn nhiều clip bằng `Shift+Click` / `Ctrl+Click`; rời chuột khỏi lưới tự trả về clip đang chọn).
+- Đã build lại `FramePilot.exe` (`D:\VideoAI\FramePilot_EXE\` & `dist\FramePilot\`) và push lên `main` để GitHub Actions tự build lại `FramePilot_Mac_ARM64_Core.zip`.
+
 ## 2026-11-23 – Bản sạch macOS Apple Silicon (chip M: MPS + MLX-Whisper + Cài 100% Offline + GitHub Actions arm64), CHỜ ANH THỬ
 - **Tương thích macOS Apple Silicon (`troly_env.py`, `troly_thumbs.py`, `troly_proc.py`, `troly_batch.py`, `troly_speech_run.py`, `panel_troly_web.py`, `troly_frames.py`, `app.js`, `player.js`, `speech.js`, `step5.js`):**
   - Hỗ trợ đường dẫn DaVinci Resolve (`fusionscript.so`, `Developer/Scripting`), thư mục LUT macOS, khóa 1 cửa sổ/project bằng `fcntl.flock`, đưa cửa sổ lên trước / dialog lỗi / tắt máy qua `osascript`, chống ngủ máy bằng `caffeinate`, diệt trọn cây tiến trình con qua `start_new_session` + `os.killpg` + `atexit` (`huy_tat_ca()`).
