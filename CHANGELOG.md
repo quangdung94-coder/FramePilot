@@ -1,5 +1,19 @@
 # Nhật ký thay đổi
 
+## 2026-11-23 – Bản sạch macOS Apple Silicon (chip M: MPS + MLX-Whisper + Cài 100% Offline + GitHub Actions arm64), CHỜ ANH THỬ
+- **Tương thích macOS Apple Silicon (`troly_env.py`, `troly_thumbs.py`, `troly_proc.py`, `troly_batch.py`, `troly_speech_run.py`, `panel_troly_web.py`, `troly_frames.py`, `app.js`, `player.js`, `speech.js`, `step5.js`):**
+  - Hỗ trợ đường dẫn DaVinci Resolve (`fusionscript.so`, `Developer/Scripting`), thư mục LUT macOS, khóa 1 cửa sổ/project bằng `fcntl.flock`, đưa cửa sổ lên trước / dialog lỗi / tắt máy qua `osascript`, chống ngủ máy bằng `caffeinate`, diệt trọn cây tiến trình con qua `start_new_session` + `os.killpg` + `atexit` (`huy_tat_ca()`).
+  - Hỗ trợ đầy đủ phím tắt **`Cmd`** (`Cmd+Z`, `Cmd+Shift+Z`, `Cmd+A`, `Cmd+Lăn chuột`) song song `Ctrl`.
+  - Sửa lỗi trần RAM kho khung hình `FrameStore` trong `troly_frames.py` (kiểm tra `c.bytes > max_bytes // 2` ngay trong vòng lặp từng frame trên máy tốc độ cao).
+- **Tối ưu GPU chip M (`troly_ai.py`, `troly_asr_worker.py`, `troly_speech.py`, `troly_audio_events.py`, `troly_diarize_worker.py`, `troly_vision_io.py`):**
+  - Bật **PyTorch MPS** (`cuda` → `mps` kèm `PYTORCH_ENABLE_MPS_FALLBACK=1` + `torch.mps.empty_cache()` → `cpu`) cho SigLIP 2, SigLIP, OpenCLIP, DINOv2, CLAP, WavLM-SV.
+  - Bổ sung **`mlx-whisper`** tận dụng GPU Apple Silicon cho Bước 4 (tự động lùi về `faster-whisper` CPU `int8` nếu máy dùng model CT2 từ Windows; bỏ hẳn Const-me `.exe` trên macOS).
+- **Đóng gói bản sạch 100% & Bộ cài 100% Offline + Review Argon (`build_mac.py`, `build_mac.sh`, `troly_setup.py`, `requirements_mac.txt`, `requirements_ai_mac.txt`, `HUONG_DAN_CAI_DAT_MAC.txt`, `CHECKLIST_TEST_MAC.txt`):**
+  - Đóng gói `FramePilot.app` (`arm64`), `ffmpeg`/`ffprobe` static `arm64`, `CaiDat_MayMoi.command` (tự gỡ Gatekeeper `xattr -cr`, tự bỏ qua mục đã có), kiểm toán bản sạch tự động `audit_clean_bundle()`.
+  - Vá 5 lỗi góc khuất sau review Argon: chép Python standalone sang ổ đích để rút USB không đứt symlink `ai_env`, tự nhận 2 model Whisper CT2 chép từ Windows, tự cấp `chmod 0o755` cho file chép qua USB exFAT/FAT32, theo dõi toàn bộ tiến trình `mo_an()` trong `huy_tat_ca()`, và hiển thị hộp thoại xác nhận `osascript` khi không có stdin.
+- **GitHub Actions tự động trên Apple Silicon thật (`.github/workflows/build-mac-arm64.yml`, `build-mac-offline-wheels.yml`, `tests/test_macos_arm64.py`):**
+  - Tự động chạy trọn bộ **665/665 unit test** trên `macos-latest` (`arm64`), build & xuất `FramePilot_Mac_ARM64_Core.zip` và gói thư viện AI 100% offline `FramePilot_Mac_ARM64_OfflineEnv.zip` (đã verify cài offline + rút USB thành công trong 24s). Đã gộp `feat/macos-arm64` vào `main`.
+
 ## 2026-11-22 (22h01) – Rà soát & sửa 5 lỗi + Đóng gói bản sạch `FramePilot.exe` v0.4.0 (22h01) kèm Plugin/Model & Bộ cài thông minh cho máy mới, CHỜ ANH THỬ
 - **Rà soát & Sửa 5 lỗi trong code trước khi đóng gói (`troly_core.py`, `player.js`, `troly_api.py`, `troly_resolve.py`, `troly_sync.py`, `troly_speech.py`, `do_loi_noi.py`):**
   1. `troly_core.py`: Giữ nguyên nhãn quy tắc mặc định `"Decor: 3.0s ổn định"` cho bộ từ khóa Decor + Event (`không gian`, `sảnh tiệc`, `sân khấu led`) để không phá hợp đồng ADR-0018/0019 (`test_troly_rules_wave` & `test_troly_style`); ưu tiên quy tắc bin người dùng tự sửa ở Bước 3 kể cả khi đang chọn kiểu `Teaser 1:00`.
