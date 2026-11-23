@@ -49,20 +49,23 @@ jobs:
           ls -lh dist/offline_env/wheels | head -n 40
           echo "Tong so file wheel:" $(ls -1 dist/offline_env/wheels | wc -l)
 
-      - name: Verify 100% offline install & AI imports on Apple Silicon
+      - name: Verify 100% offline install & AI imports on Apple Silicon (even after USB unplugged)
         run: |
+          cp -R dist/offline_env /tmp/usb_offline_env
           python3 -c '
           import sys; sys.path.insert(0, "app")
           import troly_setup as ts
-          ok = ts._install_offline_uv_env("dist/offline_env", "/tmp/test_fp_ai_env")
+          ok = ts._install_offline_uv_env("/tmp/usb_offline_env", "/tmp/test_fp_ai_env")
           assert ok, "Offline uv install failed!"
           '
+          # Giả lập rút USB (xóa thư mục nguồn cài đặt) -> ai_env trên máy đích vẫn phải chạy độc lập 100%
+          rm -rf /tmp/usb_offline_env
           /tmp/test_fp_ai_env/bin/python3 -c '
           import torch, torchvision, mlx_whisper, faster_whisper, transformers, open_clip, mediapipe, silero_vad, cv2
           print("torch:", torch.__version__, "mps_built:", torch.backends.mps.is_built())
-          print("ALL MACOS ARM64 OFFLINE AI IMPORTS: OK")
+          print("ALL MACOS ARM64 OFFLINE AI IMPORTS (AFTER USB UNPLUGGED): OK")
           '
-          rm -rf /tmp/test_fp_ai_env
+          rm -rf /tmp/test_fp_ai_env /tmp/test_fp_ai_env_python
 
       - name: Package FramePilot_Mac_ARM64_OfflineEnv.zip
         run: |

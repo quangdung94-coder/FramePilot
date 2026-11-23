@@ -264,7 +264,11 @@ def scan_system(pkg_root, target_root=None, target_data_root=None, target_ai_dir
         "detail": ("Đã có tại %s" % target_ai_dir) if has_ai_env else ("Sẽ cài vào %s" % target_ai_dir),
     })
 
-    # 4. Từng bộ Model AI trong thư mục models/
+    # 4. Từng bộ Model AI trong thư mục models/ (trên macOS ưu tiên bản MLX, tự nhận diện bản CT2 dự phòng nếu chép từ Windows sang)
+    mac_ct2_fallbacks = {
+        "whisper_large_v3_turbo_mlx": "whisper_large_v3_turbo",
+        "phowhisper_medium_mlx": "phowhisper_medium_ct2",
+    }
     pkg_models_dir = os.path.join(pkg_root, "models")
     dst_models_dir = os.path.join(target_data_root, "models")
     for m_key, m_label in required_models_for_os(mac):
@@ -272,6 +276,18 @@ def scan_system(pkg_root, target_root=None, target_data_root=None, target_ai_dir
         m_src = os.path.join(pkg_models_dir, m_key)
         exists = _dir_has_files(m_dst)
         has_src = _dir_has_files(m_src)
+        if mac and m_key in mac_ct2_fallbacks:
+            alt_key = mac_ct2_fallbacks[m_key]
+            alt_dst = os.path.join(dst_models_dir, alt_key)
+            alt_src = os.path.join(pkg_models_dir, alt_key)
+            if not exists and _dir_has_files(alt_dst):
+                exists = True
+                m_dst = alt_dst
+            if not has_src and _dir_has_files(alt_src):
+                has_src = True
+                m_src = alt_src
+                if not exists:
+                    m_dst = alt_dst
         items.append({
             "id": "model_" + m_key,
             "kind": "model",
@@ -317,14 +333,41 @@ def scan_system(pkg_root, target_root=None, target_data_root=None, target_ai_dir
     }
 
 
+def _ensure_posix_exec_bits(dst):
+    """Đảm bảo quyền thực thi (+x) trên macOS/POSIX cho ffmpeg/ffprobe và ai_env/bin/* kể cả khi chép từ USB exFAT/FAT32."""
+    if os.name == "nt" or not dst or not os.path.exists(dst):
+        return
+    candidates = []
+    if os.path.isfile(dst):
+        candidates.append(dst)
+    else:
+        for sub in ("ffmpeg", "ffprobe"):
+            p = os.path.join(dst, sub)
+            if os.path.isfile(p):
+                candidates.append(p)
+        bin_dir = os.path.join(dst, "bin")
+        if os.path.isdir(bin_dir):
+            for f in os.listdir(bin_dir):
+                p = os.path.join(bin_dir, f)
+                if os.path.isfile(p):
+                    candidates.append(p)
+    for p in candidates:
+        try:
+            os.chmod(p, 0o755)
+        except OSError:
+            pass
+
+
 def _copy_tree_safe(src, dst):
     if not src or not dst or not os.path.exists(src):
         return False
     if os.path.normcase(os.path.abspath(src)) == os.path.normcase(os.path.abspath(dst)):
+        _ensure_posix_exec_bits(dst)
         return True
     if os.path.isfile(src):
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy2(src, dst)
+        _ensure_posix_exec_bits(dst)
         return True
     os.makedirs(dst, exist_ok=True)
     for entry in os.listdir(src):
@@ -334,6 +377,7 @@ def _copy_tree_safe(src, dst):
             shutil.copytree(s_item, d_item, dirs_exist_ok=True)
         else:
             shutil.copy2(s_item, d_item)
+    _ensure_posix_exec_bits(dst)
     return True
 
 
@@ -409,7 +453,8 @@ def _install_offline_uv_env(offline_dir, target_ai_dir, out_fn=print):
     uv_bin = os.path.join(offline_dir, "uv")
     wheels_dir = os.path.join(offline_dir, "wheels")
     req_file = os.path.join(offline_dir, "requirements_ai_mac.txt")
-    py_standalone = os.path.join(offline_dir, "python", "bin", "python3")
+    py_src_dir = os.path.join(offline_dir, "python")
+    py_standalone = os.path.join(py_src_dir, "bin", "python3")
     if not os.path.isfile(uv_bin) or not os.path.isdir(wheels_dir):
         out_fn("  [LỖI] Thiếu uv hoặc thư mục wheels/ trong offline_env.")
         return False
@@ -417,12 +462,15 @@ def _install_offline_uv_env(offline_dir, target_ai_dir, out_fn=print):
         os.chmod(uv_bin, 0o755)
     except OSError:
         pass
-    py_arg = py_standalone if os.path.isfile(py_standalone) else (shutil.which("python3") or sys.executable)
+    # Chép Python standalone sang cạnh target_ai_dir để khi rút USB hoặc xóa offline_env/ thì symlink trong ai_env vẫn sống vĩnh viễn
     if os.path.isfile(py_standalone):
-        try:
-            os.chmod(py_standalone, 0o755)
-        except OSError:
-            pass
+        local_py_dir = os.path.abspath(target_ai_dir) + "_python"
+        if not os.path.isfile(os.path.join(local_py_dir, "bin", "python3")):
+            shutil.copytree(py_src_dir, local_py_dir, symlinks=True, dirs_exist_ok=True)
+        _ensure_posix_exec_bits(local_py_dir)
+        py_arg = os.path.join(local_py_dir, "bin", "python3")
+    else:
+        py_arg = shutil.which("python3") or sys.executable
     out_fn("  -> Tạo venv AI offline tại %s ..." % target_ai_dir)
     r1 = troly_proc.chay_an([uv_bin, "venv", "--python", py_arg, target_ai_dir], capture_output=True, text=True, timeout=180)
     if r1.returncode != 0:
@@ -527,6 +575,21 @@ def _attach_console_or_gui_ask():
                 # MB_YESNO (0x04) | MB_ICONQUESTION (0x20) -> IDYES = 6
                 r = ctypes.windll.user32.MessageBoxW(None, prompt_text, "FramePilot - Cài đặt", 0x24)
                 return "y" if r == 6 else "n"
+            except Exception:
+                pass
+        elif sys.platform == "darwin":
+            try:
+                import troly_proc
+                script = (
+                    'on run argv\n'
+                    '  set r to button returned of (display dialog (item 1 of argv) with title "FramePilot - Cài đặt" '
+                    'buttons {"Huỷ", "Cài đặt"} default button 2)\n'
+                    '  return r\n'
+                    'end run'
+                )
+                p = troly_proc.chay_an(["osascript", "-e", script, str(prompt_text)], capture_output=True, text=True, timeout=120)
+                if p.returncode == 0:
+                    return "y" if "Cài đặt" in (p.stdout or "") else "n"
             except Exception:
                 pass
         return "y"

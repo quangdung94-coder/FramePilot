@@ -163,6 +163,29 @@ class TestMacOSCleanBundleAndSetup(unittest.TestCase):
         menu_it = [it for it in plan["items"] if it["id"] == "davinci_menu"][0]
         self.assertIn("FramePilot.app", menu_it["src"])
 
+    def test_scan_system_mac_accepts_ct2_whisper_fallback_from_windows_models(self):
+        pkg = os.path.join(self.tmp, "pkg_win_models")
+        os.makedirs(os.path.join(pkg, "models", "whisper_large_v3_turbo"))
+        with open(os.path.join(pkg, "models", "whisper_large_v3_turbo", "model.bin"), "wb") as f:
+            f.write(b"ct2")
+        target = os.path.join(self.tmp, "target_mac")
+        plan = ts.scan_system(pkg, target_root=target, is_mac_os=True)
+        by_id = {it["id"]: it for it in plan["items"]}
+        it = by_id["model_whisper_large_v3_turbo_mlx"]
+        self.assertTrue(it["has_source"])
+        self.assertTrue(it["src"].endswith("whisper_large_v3_turbo"))
+        self.assertTrue(it["dst"].endswith("whisper_large_v3_turbo"))
+
+    def test_mo_an_tracked_by_huy_tat_ca(self):
+        p = tp.mo_an([sys.executable, "-c", "import time; time.sleep(30)"])
+        self.assertIsNone(p.poll())
+        tp.huy_tat_ca()
+        try:
+            p.wait(timeout=3)
+        except Exception:
+            pass
+        self.assertIsNotNone(p.poll())
+
     def test_stage_clean_mac_bundle_and_audit(self):
         out = os.path.join(self.tmp, "FramePilot_Mac_ARM64")
         # Giả lập có file rác cũ cần được dọn sạch

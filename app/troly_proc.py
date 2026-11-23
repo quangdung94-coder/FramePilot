@@ -11,7 +11,8 @@ import threading
 
 CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 _ACT_LOCK = threading.Lock()
-_ACTIVE = {}  # tag -> set[Popen]
+_ACTIVE = {}      # tag -> set[Popen]
+_ALL_PROCS = set()  # mọi Popen đang sống do mo_an tạo ra (để huy_tat_ca dọn sạch trên macOS/POSIX)
 
 
 def _giau(kw, new_session=False):
@@ -76,8 +77,16 @@ def huy_tat_ca():
     """Ngắt toàn bộ tiến trình con đang theo dõi (dùng cho atexit trên macOS/POSIX thay Windows Job Object)."""
     with _ACT_LOCK:
         tags = list(_ACTIVE.keys())
+        all_p = list(_ALL_PROCS)
     for t in tags:
         huy_nhom(t)
+    for p in all_p:
+        if p.poll() is None:
+            kill_tree(p.pid)
+            try:
+                p.kill()
+            except OSError:
+                pass
 
 
 def chay_an(cmd, **kw):
@@ -108,8 +117,15 @@ def chay_an(cmd, **kw):
             s = _ACTIVE.get(tag)
             if s is not None:
                 s.discard(p)
+            _ALL_PROCS.discard(p)
 
 
 def mo_an(cmd, **kw):
-    """subprocess.Popen không hiện cửa sổ console (trên POSIX tách session riêng để kill_tree diệt sạch tiến trình con)."""
-    return subprocess.Popen(cmd, **_giau(kw, new_session=True))
+    """subprocess.Popen không hiện cửa sổ console (trên POSIX tách session riêng để kill_tree & huy_tat_ca diệt sạch tiến trình con)."""
+    p = subprocess.Popen(cmd, **_giau(kw, new_session=True))
+    with _ACT_LOCK:
+        dead = [x for x in _ALL_PROCS if x.poll() is not None]
+        for x in dead:
+            _ALL_PROCS.discard(x)
+        _ALL_PROCS.add(p)
+    return p
