@@ -1950,7 +1950,7 @@ class TrolyApi(object):
         if err:
             return {"error": err}
         srv = self._play_server()
-        if not is_p:
+        if not is_p or not self._proxy_root:
             parent = os.path.dirname(os.path.abspath(src))
             if parent and parent not in srv.roots:
                 srv.roots.append(parent)
@@ -1989,6 +1989,8 @@ class TrolyApi(object):
         if self._proxy_root and c.proxy and os.path.isfile(c.proxy):
             if not tp.inside(c.proxy, [self._proxy_root]):
                 return {"error": "Proxy nằm ngoài thư mục proxy đã cấu hình."}
+            src = c.proxy
+        elif allow_orig and c.proxy and os.path.isfile(c.proxy):
             src = c.proxy
         elif allow_orig and c.path and os.path.isfile(c.path):
             src = c.path
