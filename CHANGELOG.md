@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 2026-11-23 (20h00) – Chính thức bước sang giai đoạn Phát hành (Release) v0.4.0 & chạy ổn định (Windows + macOS Apple Silicon)
+- **Trạng thái dự án:** FramePilot v0.4.0 đã hoàn tất đóng gói, kiểm thử thực tế và đang **chạy ổn định** trên cả **Windows (`FramePilot.exe`)** và **macOS Apple Silicon (`FramePilot_Mac_ARM64`)**.
+- **Ghi chú cài đặt thực tế macOS:** Đã cài đặt và chạy thử trên máy Mac ngoài (chip M); lưu ý người dùng chỉ xoá thư mục `offline_env/` **sau khi** chạy `CaiDat_MayMoi.command` dựng xong `ai_env/` và xác nhận AI hoạt động.
+- **Đồng bộ bàn giao:** Đã cập nhật trạng thái phát hành lên Notion (`Frame Pilot 2 – Tiến độ`) và Git (`main`) để tiếp tục làm việc / bảo trì liền mạch trên Claude.
+
 ## 2026-11-23 (11h35) – Tối ưu tốc độ Sync tiếng Recorder đa file gấp ~10–20x (Win + Mac), XONG (anh đã thử OK trên Win)
 - **`troly_sync.py` & `troly_api.py`:** Bổ sung `envelope_from_pcm()`, `prepare_recorder()` (tiền tính `FFT` & tổng bình phương tích lũy `cs` đúng 1 lần cho mỗi file Recorder, đọc song song 4 luồng), `find_coarse_candidates_scored()` (dùng `np.argpartition`), và `sync_clip_to_recorders()` (mỗi clip chỉ gọi `ffmpeg` đúng **1 lần duy nhất** thay vì `2 × N` lần, lọc Top ứng viên toàn cục trên RAM và **dừng sớm** khi `conf >= 0.65`).
 - **`troly_api.py`:** Chạy đối khớp song song đa luồng (`ThreadPoolExecutor`, tới 6 luồng CPU) + tự lưu tiến độ mỗi 25 clip; bổ sung test đa Recorder trong `tests/test_event_and_recorder_sync.py`. Đã đóng gói bản sạch `dist\FramePilot\`, đồng bộ `FramePilot_EXE` (anh đã thử OK) và push `main` để GitHub Actions tự build lại `FramePilot_Mac_ARM64_Core.zip`.
