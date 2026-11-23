@@ -110,6 +110,18 @@ class TestPlanUndoRedoAndPage2Shift(unittest.TestCase):
         hs_block = pl_js[idx_hs:idx_hs + 1500]
         self.assertNotIn("moveCur(idx)", hs_block)
 
+    def test_hover_scrub_plopen_khong_bi_chan_boi_curclip(self):
+        """Hồi quy 23/11: Hover Scrub gọi plOpen(c) mà không đổi curClip(); plOpen phải kiểm PL.uid/PL.seq chứ không kiểm curClip().uid."""
+        with open(os.path.join(APP, "troly_web", "player.js"), encoding="utf-8") as f:
+            pl_js = f.read()
+        opn = pl_js[pl_js.index("async function plOpen(c)"):pl_js.index('$("plPlay").onclick')]
+        self.assertNotIn("curClip().uid !== uid", opn)
+        self.assertIn("PL.uid !== uid", opn)
+        self.assertIn("PL.seq !== seq", opn)
+        # loadedmetadata phải chỉ gọi plRenderIo(curC) khi clip đang mở đúng là curClip()
+        lm = pl_js[pl_js.index('v.addEventListener("loadedmetadata"'):pl_js.index('v.addEventListener("timeupdate"')]
+        self.assertIn("curC && curC.uid === PL.uid", lm)
+
 
 if __name__ == "__main__":
     unittest.main()

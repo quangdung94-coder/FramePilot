@@ -1297,7 +1297,7 @@ async function showCur() {
   plRenderIo(c);                                           // thanh In/Out (player.js): đặt tay > DaVinci > gợi ý
 
   const uid = c.uid;
-  if (PL.uid !== uid) { plStop(); PL.uid = uid; plOpen(c); }          // trình phát proxy (player.js); thumbnail là nền
+  if (PL.uid !== uid || (!PL.vid && !PL.opening && (typeof FR === "undefined" || !FR.url) && !$("plNote").textContent)) { plStop(); PL.uid = uid; plOpen(c); }          // trình phát proxy (player.js); thumbnail là nền
   const showImg = (src) => {
     const host = $("preview");
     const sp = host.querySelector("span"); if (sp) sp.remove();

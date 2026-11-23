@@ -3,7 +3,7 @@
    (api.set_inout), ghi vào DaVinci chỉ khi bấm nút + xác nhận. Phím đọc bằng event.code, bỏ qua khi đang gõ ô chữ. */
 "use strict";
 
-const PL = { openMs: 0, t0: 0, range: null, uid: null, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, hoverT: null, jklRate: 0, jklTimer: 0, spanIdx: 0, newSpan: false };
+const PL = { openMs: 0, t0: 0, range: null, uid: null, clip: null, seq: 0, opening: false, wantPlay: false, vid: null, el: null, open: null, kf: null, fps: 25, dur: 0, ok: false, edge: null, focus: false, drag: null, hoverT: null, jklRate: 0, jklTimer: 0, spanIdx: 0, newSpan: false };
 /* Việc 2 (ADR-0023): lướt mượt. Chỉ gửi lệnh nhảy khi lệnh trước xong (seeked), lệnh mới thay lệnh cũ chưa gửi; đang KÉO thì nhảy theo keyframe
    (giải mã 1 khung), THẢ ra thì nhảy chính xác. Dùng lại MỘT thẻ <video> cho mọi clip. Không tạo proxy mới. */
 const SK = { want: null, fast: false, busy: false, drag: false, timer: 0, sent: 0, seeks: 0, dwell: 0 };
@@ -23,7 +23,7 @@ function plSpans(c) {
 }
 /* ---- vẽ thanh In/Out + đầu phát ---- */
 function plRenderIo(c) {
-  const dur = (c && c.dur) || 0, bar = $("ioBar");
+  const dur = (c && c.dur) || (PL.vid && c && PL.uid === c.uid && PL.vid.duration) || 0, bar = $("ioBar");
   PL.dur = dur; PL.fps = (c && c.fps) || 25;
   if (!c || !(dur > 0)) {
     bar.innerHTML = '<div class="io-empty">' + (c ? "Chưa đặt In / Out" : "Chưa chọn clip") + "</div>";
@@ -421,7 +421,7 @@ async function frPoll(uid) {
 }
 function frPrefetch(uid) {                                      // nạp xong clip đang xem và đang rảnh: nạp trước clip kế + clip cùng giờ của máy quay khác (tối đa 3)
   if (FR.uid !== uid) return;
-  const c = curClip(); if (!c) return;
+  const c = curClip(); if (!c || c.uid !== uid) return;
   const want = [], nx = items[cur + 1]; if (nx) want.push(nx.uid);
   for (const o of items) { if (want.length >= 3) break; if (o.uid !== c.uid && o.camera && c.camera && o.camera !== c.camera && Math.abs((o.m0 || 0) - (c.m0 || 0)) < 0.5 && !want.includes(o.uid)) want.push(o.uid); }
   (async () => { for (const u of want) { if (FR.uid !== uid || SK.drag || FR.active) return; try { await api().frames_open(u, true); } catch (e) { return; } await new Promise((r) => setTimeout(r, 2500)); } })();
@@ -484,7 +484,13 @@ function plTime() {
 }
 function plToggle() {
   if (!PL.vid || !PL.ok) {                                       // Space không được im lặng: nói rõ vì sao chưa phát (chưa có proxy / proxy không giải mã được / đang mở)
-    const c = curClip(), n = $("plNote").textContent;
+    const c = PL.clip || curClip(), n = $("plNote").textContent;
+    const errNote = /^Chưa có proxy/.test(n) || (n && /proxy/i.test(n));
+    if (c && !errNote && (PL.opening || (PL.vid && !PL.ok))) {
+      PL.wantPlay = true;
+      status("Đang mở proxy, sẽ tự phát ngay khi sẵn sàng...", "info");
+      return;
+    }
     status(!c ? "Chưa chọn clip để phát." : /^Chưa có proxy/.test(n) ? "Chưa có proxy nên Space không phát được, chỉ xem hình tĩnh. Tạo proxy trong DaVinci rồi mở lại clip." : (n && /proxy/i.test(n)) ? n : "Clip này chưa sẵn sàng để phát (đang mở proxy), thử lại sau một lát.", "warn");
     return;
   }
@@ -508,9 +514,10 @@ function plRecSync(v, force) {
 }
 function plStop() {
   const v = PL.el;
-  plRecStop();
+  plRecStop(); frReset(); lutDetach();
   if (v) { try { v.pause(); } catch (e) { /* bỏ qua */ } v.muted = false; v.style.opacity = "0"; v.removeAttribute("src"); v.load(); }       // giữ thẻ, chỉ bỏ nguồn
-  PL.vid = null; PL.ok = false; PL.edge = null; PL.kf = null; SK.want = null; SK.busy = false; SK.drag = false; clearTimeout(SK.dwell); frReset(); lutDetach();
+  PL.seq = (PL.seq || 0) + 1; PL.opening = false; PL.wantPlay = false;
+  PL.vid = null; PL.ok = false; PL.clip = null; PL.open = null; PL.edge = null; PL.kf = null; SK.want = null; SK.busy = false; SK.drag = false; clearTimeout(SK.dwell);
   $("player").classList.add("hidden");
 }
 function plEl() {                                               // MỘT thẻ <video> dùng cho mọi clip; sự kiện gắn một lần
@@ -520,15 +527,25 @@ function plEl() {                                               // MỘT thẻ <
   const noPlay = () => {                                        // WebView2 không giải mã được hình: chỉ báo rõ, KHÔNG tạo file nào (ADR-0029)
     const o = PL.open;
     if (!o || PL.uid !== o.uid) return;
-    const c = curClip(), ten = c ? (c.name || c.rel || "này") : "này";
+    const c = PL.clip || curClip(), ten = c ? (c.name || c.rel || "này") : "này";
     $("plNote").textContent = "Không phát được proxy của clip " + ten + " (WebView2 không giải mã được định dạng, thường là HEVC hoặc ProRes). Nên tạo lại proxy H.264 trong DaVinci; tạm thời chỉ xem hình tĩnh.";
-    plStop(); PL.uid = o.uid; $("player").classList.remove("hidden"); $("plCtl").classList.add("hidden");
+    plStop(); PL.uid = o.uid; PL.clip = c; $("player").classList.remove("hidden"); $("plCtl").classList.add("hidden");
   };
   v.addEventListener("loadedmetadata", () => {
     // Đo 18/11/2026: proxy HEVC (hvc1) trong WebView2 KHÔNG báo lỗi, chỉ ra tiếng mà không có hình (videoWidth = 0).
     if (PL.vid !== v) return;
     if (!v.videoWidth) return noPlay();
-    PL.ok = true; if (v.duration) PL.dur = v.duration; plTime(); plRenderIo(curClip());
+    PL.ok = true;
+    const curC = curClip();
+    if (curC && curC.uid === PL.uid) plRenderIo(curC);
+    if (v.duration) PL.dur = v.duration;
+    plTime();
+    if (PL.wantPlay) {
+      PL.wantPlay = false;
+      v.play().catch(() => {});
+    } else if (PL.hoverT != null && PL.dur > 0) {
+      plSeek(PL.hoverT, { fast: true });
+    }
   });
   v.addEventListener("timeupdate", () => { plHead(); plTime(); plRecSync(v, false); });
   v.addEventListener("play", () => { $("plPlay").textContent = "❚❚"; plRecSync(v, true); if (PL.recOn && PL.recAud) PL.recAud.play().catch(() => {}); });
@@ -539,12 +556,17 @@ function plEl() {                                               // MỘT thẻ <
   v.addEventListener("error", () => { if (v.getAttribute("src")) noPlay(); });          // WebView2 không phát được định dạng này -> báo rõ
   PL.el = v; return v;
 }
-async function plOpen(c) {                                    // gọi từ showCur khi đổi clip
-  plStop(); PL.uid = c ? c.uid : null; PL.spanIdx = 0; PL.newSpan = false;
+async function plOpen(c) {                                    // gọi từ showCur khi đổi clip hoặc Hover Scrub trên lưới Page 2
+  plStop(); PL.uid = c ? c.uid : null; PL.clip = c || null; PL.spanIdx = 0; PL.newSpan = false;
   if (!c) return;
-  const uid = c.uid, r = await api().play_info(uid);
-  if (curClip() == null || curClip().uid !== uid) return;     // đã chuyển clip khác
+  const uid = c.uid, seq = ++PL.seq;
+  PL.opening = true;
+  let r;
+  try { r = await api().play_info(uid); } catch (e) { r = { error: String(e) }; }
+  if (PL.uid !== uid || PL.seq !== seq) return;               // đã chuyển clip khác (kể cả Hover Scrub không đổi curClip)
+  PL.opening = false;
   if (r.error) {                                              // không có proxy: nạp kho khung RAM từ file gốc (chỉ đọc) để vẫn lướt chuột mượt
+    PL.wantPlay = false;
     PL.fps = c.fps || PL.fps || 25; PL.dur = c.dur || 0;
     $("plNote").textContent = r.error === "Chưa có proxy" ? "Chưa có proxy (rê chuột để lướt nhanh)" : r.error;
     $("player").classList.remove("hidden"); $("plCtl").classList.add("hidden");
@@ -593,7 +615,7 @@ function plAttachHoverScrub(box) {
   if (!box) return;
   let pend = false, lx = 0;
   const tAt = (x) => {
-    const c = curClip(), dur = PL.dur || (c && c.dur) || 0, r = box.getBoundingClientRect();
+    const c = PL.clip || curClip(), dur = PL.dur || (c && c.dur) || 0, r = box.getBoundingClientRect();
     return dur > 0 && r.width > 0 ? Math.max(0, Math.min(dur, (x - r.left) / r.width * dur)) : null;
   };
   const flush = () => {
@@ -641,8 +663,6 @@ plAttachHoverScrub($("plSeek"));
       img.src = bgSrc;
     }
     if (PL.uid !== c.uid) {
-      plStop();
-      PL.uid = c.uid;
       plOpen(c);
     }
   };
@@ -666,7 +686,7 @@ plAttachHoverScrub($("plSeek"));
   grid.addEventListener("mousemove", (e) => {
     if (page !== 2 || e.buttons || e.ctrlKey || e.metaKey || e.shiftKey) return;
     const th = e.target.closest(".thumb"), card = e.target.closest(".card");
-    if (!th || !card) { line.style.display = "none"; return; }
+    if (!th || !card) { clearTimeout(hoverTimer); curCard = null; curThumb = null; line.style.display = "none"; return; }
     if (curCard !== card) {
       clearTimeout(hoverTimer);
       curCard = card; curThumb = th;
