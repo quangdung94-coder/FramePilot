@@ -141,12 +141,54 @@ def stage_portable_bundle(dist_dir):
     if os.path.isdir(ai_src):
         _ensure_junction(ai_dst, ai_src)
 
-    # 6. Tạo file bấm đúp CaiDat_MayMoi.bat (quét mục trùng -> hỏi xác nhận -> bỏ qua mục đã có)
+    # 5b. Đóng gói kèm Python 3.10 portable base (python_base/) để ai_env chạy được trên máy mới chưa cài Python
+    py_base_src = ""
+    ai_cfg = os.path.join(ai_src, "pyvenv.cfg")
+    if os.path.isfile(ai_cfg):
+        try:
+            with open(ai_cfg, "r", encoding="utf-8-sig", errors="replace") as f:
+                for line in f:
+                    s = line.strip()
+                    if s.lower().startswith("home") and "=" in s:
+                        cand = s.split("=", 1)[1].strip().strip('"')
+                        if os.path.isfile(os.path.join(cand, "python.exe")):
+                            py_base_src = cand
+                        break
+        except OSError:
+            pass
+    if not py_base_src and os.path.isfile(os.path.join(sys.base_prefix, "python.exe")):
+        py_base_src = sys.base_prefix
+    py_base_dst = os.path.join(dist_dir, "python_base")
+    if py_base_src and not os.path.isfile(os.path.join(py_base_dst, "python.exe")):
+        os.makedirs(py_base_dst, exist_ok=True)
+        for fname in ("python.exe", "pythonw.exe", "python3.dll", "python310.dll", "vcruntime140.dll", "vcruntime140_1.dll", "LICENSE.txt"):
+            fp = os.path.join(py_base_src, fname)
+            if os.path.isfile(fp):
+                shutil.copy2(fp, os.path.join(py_base_dst, fname))
+        for dname in ("DLLs", "include", "libs"):
+            dp = os.path.join(py_base_src, dname)
+            if os.path.isdir(dp):
+                shutil.copytree(dp, os.path.join(py_base_dst, dname), dirs_exist_ok=True)
+        lib_src = os.path.join(py_base_src, "Lib")
+        if os.path.isdir(lib_src):
+            shutil.copytree(
+                lib_src,
+                os.path.join(py_base_dst, "Lib"),
+                ignore=shutil.ignore_patterns("site-packages", "test", "__pycache__"),
+                dirs_exist_ok=True,
+            )
+            os.makedirs(os.path.join(py_base_dst, "Lib", "site-packages"), exist_ok=True)
+
+    # 6. Tạo file bấm đúp CaiDat_MayMoi.bat (tự sửa pyvenv.cfg portable -> quét mục trùng -> hỏi xác nhận -> bỏ qua mục đã có)
     bat_path = os.path.join(dist_dir, "CaiDat_MayMoi.bat")
     bat_content = """@echo off
+setlocal EnableExtensions
 chcp 65001 >nul
-title FramePilot v0.4.0 (22h01) - Cai Dat & Kiem Tra Phu Thuoc
+title FramePilot v0.4.0 (22h01) - Cai Dat ^& Kiem Tra Phu Thuoc
 cd /d "%~dp0"
+
+set "PKG_ROOT=%~dp0"
+if "%PKG_ROOT:~-1%"=="\\" set "PKG_ROOT=%PKG_ROOT:~0,-1%"
 
 echo ====================================================================
 echo   FRAMEPILOT v0.4.0 (22h01) - BO CAI DAT THONG MINH CHO MAY MOI
@@ -154,14 +196,40 @@ echo   (Tu dong phat hien plugin/model da co san tren may de BO QUA)
 echo ====================================================================
 echo.
 
-if exist "%~dp0ai_env\\Scripts\\python.exe" (
-    "%~dp0ai_env\\Scripts\\python.exe" -X utf8 "%~dp0_internal\\troly_setup.py" --pkg-root "%~dp0"
-) else if exist "C:\\VideoAI_ai_venv\\Scripts\\python.exe" (
-    "C:\\VideoAI_ai_venv\\Scripts\\python.exe" -X utf8 "%~dp0_internal\\troly_setup.py" --pkg-root "%~dp0"
-) else if exist "C:\\VideoAI_venv\\Scripts\\python.exe" (
-    "C:\\VideoAI_venv\\Scripts\\python.exe" -X utf8 "%~dp0_internal\\troly_setup.py" --pkg-root "%~dp0"
+REM Tu dong va pyvenv.cfg neu ai_env dang tro ve duong dan Python may cu
+if exist "%PKG_ROOT%\\ai_env\\Scripts\\python.exe" (
+    "%PKG_ROOT%\\ai_env\\Scripts\\python.exe" -c "import sys" >nul 2>&1
+    if errorlevel 1 (
+        if exist "%PKG_ROOT%\\python_base\\python.exe" (
+            echo [Sua tu dong] Dang cap nhat duong dan Python portable cho ai_env...
+            "%PKG_ROOT%\\python_base\\python.exe" -X utf8 -c "import os, sys; p=sys.argv[1]; cfg=os.path.join(p,'ai_env','pyvenv.cfg'); open(cfg,'w',encoding='utf-8').write('home = '+os.path.join(p,'python_base')+'\\ninclude-system-site-packages = false\\nversion = 3.10.11\\n')" "%PKG_ROOT%"
+        )
+    )
+)
+
+REM Chon Python hoat dong duoc de chay trinh cai dat
+set "SETUP_PY="
+if exist "%PKG_ROOT%\\ai_env\\Scripts\\python.exe" (
+    "%PKG_ROOT%\\ai_env\\Scripts\\python.exe" -c "import sys" >nul 2>&1
+    if not errorlevel 1 set "SETUP_PY=%PKG_ROOT%\\ai_env\\Scripts\\python.exe"
+)
+if not defined SETUP_PY if exist "%PKG_ROOT%\\python_base\\python.exe" (
+    "%PKG_ROOT%\\python_base\\python.exe" -c "import sys" >nul 2>&1
+    if not errorlevel 1 set "SETUP_PY=%PKG_ROOT%\\python_base\\python.exe"
+)
+if not defined SETUP_PY if exist "C:\\VideoAI_ai_venv\\Scripts\\python.exe" (
+    "C:\\VideoAI_ai_venv\\Scripts\\python.exe" -c "import sys" >nul 2>&1
+    if not errorlevel 1 set "SETUP_PY=C:\\VideoAI_ai_venv\\Scripts\\python.exe"
+)
+if not defined SETUP_PY if exist "C:\\VideoAI_venv\\Scripts\\python.exe" (
+    "C:\\VideoAI_venv\\Scripts\\python.exe" -c "import sys" >nul 2>&1
+    if not errorlevel 1 set "SETUP_PY=C:\\VideoAI_venv\\Scripts\\python.exe"
+)
+
+if defined SETUP_PY (
+    "%SETUP_PY%" -X utf8 "%PKG_ROOT%\\_internal\\troly_setup.py" --pkg-root "%PKG_ROOT%"
 ) else (
-    "%~dp0FramePilot.exe" --setup --pkg-root "%~dp0"
+    "%PKG_ROOT%\\FramePilot.exe" --setup --pkg-root "%PKG_ROOT%"
 )
 
 echo.

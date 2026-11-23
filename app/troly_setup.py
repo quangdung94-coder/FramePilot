@@ -114,7 +114,7 @@ def audit_clean_bundle(bundle_dir, is_mac_os=None):
     # Quét tên file/thư mục cấp trên xem có lọt dữ liệu project cũ không
     for root, dirs, files in os.walk(bundle_dir):
         # Không đi sâu vào thư mục nhị phân lớn / wheels / models
-        dirs[:] = [d for d in dirs if d not in ("models", "wheels", "ai_env", "python", "_internal", "FramePilot.app")]
+        dirs[:] = [d for d in dirs if d not in ("models", "wheels", "ai_env", "python", "python_base", "_internal", "FramePilot.app")]
         for name in dirs + files:
             if any(re.search(p, name, re.IGNORECASE) for p in FORBIDDEN_PATTERNS):
                 issues.append("Phát hiện tên nhạy cảm trong gói: %s" % os.path.join(root, name))
@@ -494,6 +494,79 @@ def _install_offline_uv_env(offline_dir, target_ai_dir, out_fn=print):
     return True
 
 
+def _repair_windows_venv_cfg(target_ai_dir, pkg_root, target_root=None, out_fn=print):
+    """Tự động sửa ai_env/pyvenv.cfg trên Windows nếu đường dẫn home cũ (từ máy đóng gói) không tồn tại trên máy đích."""
+    if os.name != "nt" or not target_ai_dir:
+        return False
+    cfg_path = os.path.join(target_ai_dir, "pyvenv.cfg")
+    if not os.path.isfile(cfg_path):
+        return False
+    cur_home = ""
+    version_line = "version = 3.10.11"
+    include_line = "include-system-site-packages = false"
+    try:
+        with open(cfg_path, "r", encoding="utf-8-sig", errors="replace") as f:
+            for line in f:
+                s = line.strip()
+                if s.lower().startswith("home") and "=" in s:
+                    cur_home = s.split("=", 1)[1].strip().strip('"')
+                elif s.lower().startswith("version") and "=" in s:
+                    version_line = s
+                elif s.lower().startswith("include-system-site-packages") and "=" in s:
+                    include_line = s
+    except OSError:
+        return False
+
+    if cur_home and os.path.isfile(os.path.join(cur_home, "python.exe")):
+        return True
+
+    new_home = ""
+    t_root = os.path.abspath(target_root or pkg_root or os.path.dirname(target_ai_dir))
+    p_root = os.path.abspath(pkg_root) if pkg_root else t_root
+    dst_base = os.path.join(t_root, "python_base")
+    src_base = os.path.join(p_root, "python_base")
+    if os.path.isfile(os.path.join(dst_base, "python.exe")):
+        new_home = dst_base
+    elif os.path.isfile(os.path.join(src_base, "python.exe")):
+        if os.path.normcase(src_base) != os.path.normcase(dst_base):
+            if out_fn:
+                out_fn("-> Đang chép Python 3.10 portable sang %s ..." % dst_base)
+            _copy_tree_safe(src_base, dst_base)
+            new_home = dst_base
+        else:
+            new_home = src_base
+    else:
+        # Dự phòng: tự tìm Python 3.10 có sẵn trên máy đích
+        local_app = os.environ.get("LOCALAPPDATA") or ""
+        candidates = [
+            os.path.join(local_app, "Programs", "Python", "Python310") if local_app else "",
+            r"C:\Python310",
+            r"C:\Program Files\Python310",
+        ]
+        for c in candidates:
+            if c and os.path.isfile(os.path.join(c, "python.exe")):
+                new_home = c
+                break
+
+    if not new_home:
+        if out_fn:
+            out_fn("  [CẢNH BÁO] Không tìm thấy python_base hoặc Python 3.10 để sửa %s" % cfg_path)
+        return False
+
+    try:
+        tmp = cfg_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write("home = %s\n%s\n%s\n" % (new_home, include_line, version_line))
+        os.replace(tmp, cfg_path)
+        if out_fn:
+            out_fn("-> Đã cập nhật pyvenv.cfg trỏ tới Python portable: %s" % new_home)
+        return True
+    except OSError as e:
+        if out_fn:
+            out_fn("  [CẢNH BÁO] Không ghi được %s: %s" % (cfg_path, e))
+        return False
+
+
 def run_setup(plan, ask_fn=None, out_fn=print, dry_run=False):
     """Hiển thị danh sách kiểm tra trùng lặp, hỏi người dùng xác nhận trước khi cài, bỏ qua mọi mục đã có."""
     mac = _is_mac_flag(plan.get("is_mac"))
@@ -542,6 +615,9 @@ def run_setup(plan, ask_fn=None, out_fn=print, dry_run=False):
         else:
             if _copy_tree_safe(it["src"], it["dst"]):
                 installed.append(it["id"])
+
+    if not mac:
+        _repair_windows_venv_cfg(plan["target_ai_dir"], plan["pkg_root"], target_root=plan["target_root"], out_fn=out_fn)
 
     os.makedirs(plan["target_data_root"], exist_ok=True)
     cfg_p = ensure_clean_config_file(plan["target_root"], plan["target_data_root"], plan["target_ai_dir"], is_mac_os=mac)

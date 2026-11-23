@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 2026-11-23 (21h05) – Vá bộ cài Windows cho máy mới chưa cài Python (`python_base` portable + tự sửa `pyvenv.cfg`), XONG (đã test OK trên máy ngoài)
+- **`build_exe.py` & `CaiDat_MayMoi.bat`:** Đóng gói kèm runtime Python 3.10.11 portable sạch (`python_base/`, ~35 MB, không chứa `site-packages` hay đường dẫn user cũ); sửa lỗi dấu `&` (`^&`) ở dòng `title` trong `CaiDat_MayMoi.bat`; tự động phát hiện & cập nhật `ai_env\pyvenv.cfg` trỏ sang `python_base` khi mang sang máy khác không có user `QuangDung` (xử lý an toàn cả đường dẫn tiếng Việt có dấu).
+- **`app/troly_setup.py`:** Bổ sung `_repair_windows_venv_cfg()` tự vá `pyvenv.cfg` (ưu tiên `python_base` portable, tự copy theo `target_root` nếu cài sang thư mục khác, hoặc tìm Python 3.10 sẵn có trên máy đích); bỏ qua `python_base` trong `audit_clean_bundle()`.
+- **Kiểm thử thực tế:** Đã cài đặt thành công trên máy Windows ngoài (đường dẫn có dấu `D:\SOFT\Davinci\Tài Nguyên\FramePilot\FramePilot`), tự nhận đủ `ffmpeg`, `constme`, `ai_env`, cài trọn 9 bộ Model AI & gắn menu DaVinci Resolve; đã đồng bộ bản vá sang `dist\FramePilot` và `FramePilot_EXE`.
+
 ## 2026-11-23 (20h00) – Chính thức bước sang giai đoạn Phát hành (Release) v0.4.0 & chạy ổn định (Windows + macOS Apple Silicon)
 - **Trạng thái dự án:** FramePilot v0.4.0 đã hoàn tất đóng gói, kiểm thử thực tế và đang **chạy ổn định** trên cả **Windows (`FramePilot.exe`)** và **macOS Apple Silicon (`FramePilot_Mac_ARM64`)**.
 - **Ghi chú cài đặt thực tế macOS:** Đã cài đặt và chạy thử trên máy Mac ngoài (chip M); lưu ý người dùng chỉ xoá thư mục `offline_env/` **sau khi** chạy `CaiDat_MayMoi.command` dựng xong `ai_env/` và xác nhận AI hoạt động.
