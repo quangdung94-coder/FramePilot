@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 2026-11-23 (10h30) – Sửa lỗi kẹt phát video Page 2 sau Hover Scrub (Win + Mac), XONG (anh đã thử OK trên Win)
+- **`player.js` & `app.js` (`dfea37e`):** Đổi điều kiện kiểm tra trong `plOpen(c)` từ `curClip().uid !== uid` sang `PL.uid !== uid || PL.seq !== seq` (kèm `try/catch` cho `play_info`), khắc phục triệt để lỗi rê chuột Hover Scrub trên lưới Page 2 làm thoát ngang `plOpen()` khiến khi click chọn clip bị kẹt ở thông báo *"Clip này chưa sẵn sàng để phát (đang mở proxy)"*.
+- **`player.js`:** Sửa `loadedmetadata` chỉ gọi `plRenderIo(curC)` khi đúng là `curClip()` (tránh ghi đè `PL.dur` của clip đang hover), tự nhảy tới `PL.hoverT`, tự phát ngay (`PL.wantPlay`) khi bấm `Space` lúc proxy đang mở, và hủy `hoverTimer` khi rời khỏi `.thumb`. Thêm chốt phòng vệ trong `showCur()` (`app.js`) và test hồi quy (`tests/test_undo_and_p2_shift.py`).
+- Đã đồng bộ sang `D:\VideoAI\FramePilot_EXE\` & `dist\FramePilot\` (anh đã test OK trên Windows) và push lên `main` để GitHub Actions tự build lại `FramePilot_Mac_ARM64_Core.zip`.
+
 ## 2026-11-23 (10h15) – Vá 2 lỗi phát proxy bản sạch & Hover Scrub lưới Page 2 (Win + Mac), CHỜ ANH THỬ
 - **`troly_api.py` (`c0364ec`):** Sửa `play_info()` & `frames_open()` cho phép phát proxy và Hover Scrub mượt mà ngay cả khi `config.json` bản sạch để `"proxy_root": ""` (trước đó máy chủ phát từ chối với lỗi *"Không phát được file này."*).
 - **`player.js` (`f3769b3`):** Khôi phục Hover Scrub rê chuột qua bất kỳ clip nào trên lưới Page 2 sẽ tự nạp xem trước & lướt hình trên khung `Clip đang xem` sau 65ms mà không đổi `cur`/`sel`/`anchor` (vẫn giữ nguyên chọn nhiều clip bằng `Shift+Click` / `Ctrl+Click`; rời chuột khỏi lưới tự trả về clip đang chọn).
