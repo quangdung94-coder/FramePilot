@@ -124,10 +124,13 @@ def stage_portable_bundle(dist_dir):
             if os.path.isdir(s_sub) and not os.path.isdir(d_sub):
                 shutil.copytree(s_sub, d_sub, dirs_exist_ok=True)
 
-    # 4. Nối thư mục 9 bộ Model AI (D:\VideoAI\data\models -> dist\FramePilot\models)
-    models_src = r"D:\VideoAI\data\models"
+    # 4. Nối thư mục 9 bộ Model AI (ưu tiên D:\Antigravity\04_FramePilot\data\models, dự phòng D:\VideoAI\data\models)
+    models_src = next(
+        (p for p in (r"D:\Antigravity\04_FramePilot\data\models", r"D:\VideoAI\data\models") if os.path.isdir(p)),
+        "",
+    )
     models_dst = os.path.join(dist_dir, "models")
-    if os.path.isdir(models_src) and not os.path.exists(models_dst):
+    if models_src and os.path.isdir(models_src) and not os.path.exists(models_dst):
         os.makedirs(models_dst, exist_ok=True)
         for m_key, _m_lbl in tset.REQUIRED_MODELS:
             s_m = os.path.join(models_src, m_key)
