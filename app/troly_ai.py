@@ -34,6 +34,8 @@ SIGLIP2_DIR_NAME = "siglip2_vitb16"
 SIGLIP2_ARCH = "ViT-B-16-SigLIP2"
 DINOV2_DIR_NAME = "dinov2_small"
 TEMPERATURE = 100.0                 # CLIP: logit_scale ~100
+SIGLIP2_TEMP = 35.0                 # SigLIP2: nhiệt độ softmax theo từng giai đoạn trên điểm cosine thô
+KHAC_COSINE_PENALTY = 0.055         # giảm thiên lệch khiến mục 'Khác' hút nhầm clip quay thật
 BATCH = 32
 THUMB_WIDTH = 320
 
@@ -66,9 +68,9 @@ def strip_accents(s):
 CONCEPTS = (
     {"id": "cap_doi", "label": "Cô dâu chú rể", "group": "Chung", "default": "Cô dâu chú rể",
      "keys": ("co dau chu re", "co dau va chu re", "co dau & chu re", "cdcr", "cd cr", "cap doi", "couple", "first look", "chup doi", "portrait doi"),
-     "prompts": ["a bride and groom together, a wedding couple",
-                 "the newlyweds holding hands and smiling at each other",
-                 "a couple in wedding clothes posing together"]},
+     "prompts": ["the bride and groom standing together holding hands or hugging",
+                 "a romantic portrait of the wedding couple smiling together",
+                 "a newlywed bride and groom walking side by side"]},
     {"id": "cu_ong_cu_ba", "label": "Cụ ông cụ bà", "group": "Mừng thọ", "default": "Cụ ông cụ bà",
      "keys": ("cu ong cu ba", "cu ong va cu ba", "cu ong & cu ba", "ong ba", "hai cu", "thuong tho", "dai tho"),
      "prompts": ["an elderly Vietnamese couple in red or gold traditional ao dai smiling together at a longevity celebration",
@@ -136,9 +138,9 @@ CONCEPTS = (
                  "an interview shot of one person sitting and talking at a wedding"]},
     {"id": "nghi_le_san_khau", "label": "Nghi lễ sân khấu", "group": "Nhà hàng", "default": "Nghi lễ sân khấu",
      "keys": ("nghi le san khau", "nghi le nha hang", "lam le san khau", "san khau", "rot ruou", "cat banh", "vows", "loi the", "trao nhan", "le duong", "khai tiec", "tung hoa", "tien vao le duong"),
-     "prompts": ["a wedding stage with lights, screen and flower arch in a banquet hall",
+     "prompts": ["a wedding stage with lights, screen and flower arch during the ceremony",
                  "the bride and groom pouring champagne tower or cutting wedding cake on stage",
-                 "a bride and groom exchanging rings and vows on a wedding stage with a master of ceremonies"]},
+                 "a bride and groom walking down the aisle or exchanging rings and vows on stage"]},
     {"id": "nghi_le_tai_gia", "label": "Nghi lễ tại gia", "group": "Gia tiên", "default": "Nghi lễ tại gia",
      "keys": ("nghi le tai gia", "lam le tai gia", "nghi le gia tien", "gia tien", "ban tho", "nhang", "vu quy", "tan hon", "thanh hon", "dang tra", "len den", "trao vang", "trao qua", "lay ong ba", "an hoi", "dam ngo", "tai gia"),
      "prompts": ["a traditional Vietnamese wedding ceremony at home with an ancestral altar, red backdrop, incense and offerings",
@@ -158,21 +160,35 @@ CONCEPTS = (
      "prompts": ["relatives carrying red gift trays with offerings for a Vietnamese wedding",
                  "people in ao dai holding trays covered with red cloth",
                  "exchanging wedding gift trays between two families"]},
-    {"id": "ruoc_dau", "label": "Rước dâu / Nhà trai đến", "group": "Gia tiên", "default": "Rước dâu",
+    {"id": "nha_trai_den", "label": "Nhà trai đến", "group": "Gia tiên", "default": "Nhà trai đến",
+     "keys": ("nha trai den", "nha gai den", "don doan"),
+     "prompts": ["groom and family arriving outside the house gate carrying red gift trays",
+                 "wedding procession walking into the bride house entrance"]},
+    {"id": "ruoc_dau", "label": "Rước dâu / Xe hoa", "group": "Gia tiên", "default": "Rước dâu",
      "keys": ("ruoc dau", "don dau", "nha trai", "nha gai", "xe hoa", "doan ruoc", "ruoc", "di chuyen"),
-     "prompts": ["a group of people in formal clothes arriving in a procession at a house",
-                 "the groom's family walking in a line carrying wedding gifts",
-                 "a wedding procession arriving with decorated wedding cars and people"]},
-    {"id": "don_khach", "label": "Đón khách", "group": "Nhà hàng", "default": "Đón khách",
-     "keys": ("don khach", "chup cong", "chup hinh", "ky ten", "tiep tan", "check in", "khach"),
-     "prompts": ["wedding guests arriving, greeting and taking photos at the entrance arch",
-                 "guests signing the guest book at a wedding reception desk",
-                 "a crowd of wedding guests sitting and mingling in a hall"]},
+     "prompts": ["bride and groom walking out to a decorated wedding car with flowers",
+                 "decorated wedding car and family departing after the home ceremony",
+                 "a wedding procession with decorated cars and people"]},
+    {"id": "chup_hinh", "label": "Chụp hình / Backdrop", "group": "Nhà hàng", "default": "Chụp hình",
+     "keys": ("chup hinh", "chup cong"),
+     "prompts": ["bride and groom posing with a group of family and friends for a photo at a flower backdrop",
+                 "posed group photo of people standing in a row smiling at the camera at a wedding backdrop"]},
+    {"id": "don_khach", "label": "Đón khách / Khách", "group": "Nhà hàng", "default": "Đón khách",
+     "keys": ("don khach", "ky ten", "tiep tan", "khach"),
+     "prompts": ["wedding guests arriving at the hall entrance, greeting or signing the guest book",
+                 "crowd of wedding guests standing, chatting, clapping or watching a wedding stage",
+                 "guests dancing, singing or celebrating at a wedding party at night"]},
     {"id": "gia_dinh", "label": "Gia đình", "group": "Chung", "default": "Gia đình",
      "keys": ("gia dinh", "ho hang", "nguoi than", "bo me", "ba me", "cha me", "family", "tap the", "phu dau", "phu re", "ban be"),
-     "prompts": ["family members standing together at a wedding",
-                 "a group of relatives posing for a group photo at a wedding",
-                 "parents and relatives with the bride and groom"]},
+     "prompts": ["family members and parents sitting and chatting casually at home before a wedding",
+                 "relatives smiling and helping prepare at home in formal ao dai or suits",
+                 "portrait of parents and relatives at home"]},
+    {"id": "get_ready", "label": "Get ready / Sửa soạn", "group": "Chuẩn bị", "default": "get ready",
+     "keys": ("get ready", "sua soan", "chuan bi do"),
+     "prompts": ["bride getting hair and makeup done in a room before the wedding",
+                 "groom putting on suit, tie or getting ready in a bedroom",
+                 "bride putting on wedding dress, veil, shoes or jewelry in dressing room",
+                 "close-up of wedding dress hanging, bridal shoes, bouquet or groom details while preparing"]},
     {"id": "chu_re", "label": "Chú rể", "group": "Chuẩn bị", "default": "Chú rể",
      "keys": ("chu re", "groom", "vest", "thay do chu re", "cr"),
      "prompts": ["a groom in a black suit posing for a portrait",
@@ -185,15 +201,14 @@ CONCEPTS = (
                  "a beautiful bride close-up, bridal portrait",
                  "a bride putting on her wedding dress and veil"]},
     {"id": "decor", "label": "Decor / Chi tiết", "group": "Chung", "default": "Decor",
-     "keys": ("decor", "trang tri", "chi tiet", "detail", "broll", "b roll", "gallery", "cong hoa", "backdrop", "khong gian", "venue", "flycam", "drone", "nhan cuoi", "hoa cuoi"),
-     "prompts": ["wedding decoration with flowers, candles and floral arch",
-                 "a close-up of wedding details such as table setting, backdrop, bouquet and rings",
-                 "an empty wedding venue with decorations and no people"]},
+     "keys": ("decor", "trang tri", "chi tiet", "detail", "broll", "b roll", "gallery", "cong hoa", "backdrop", "khong gian", "khong gian decor", "venue", "flycam", "drone", "nhan cuoi", "hoa cuoi"),
+     "prompts": ["empty decorated wedding room, floral arch, stage or red wedding backdrop with no people",
+                 "close-up of wedding rings, bridal bouquet, table flowers, candles or tea set without people",
+                 "wide establishing shot of wedding hall decoration and tables before guests arrive"]},
     {"id": "chao_ban", "label": "Chào bàn / Tiệc", "group": "Nhà hàng", "default": "Chào bàn",
      "keys": ("chao ban", "nang ly", "cung ly", "moi ruou", "di ban", "tiec man", "tiec toi", "an tiec", "banquet", "tiec", "nha hang"),
-     "prompts": ["a wedding reception in a restaurant with guests at round dining tables",
-                 "the bride and groom toasting glasses with guests at banquet tables",
-                 "a wedding banquet hall with round tables and lights"]},
+     "prompts": ["bride and groom holding glasses toasting with guests at round dining tables",
+                 "people clinking beer or wine glasses at a round wedding banquet table with dishes"]},
     {"id": "choi_game", "label": "Chơi game / Tiệc vui", "group": "Đặc thù", "default": "Chơi game",
      "keys": ("choi game", "game", "tro choi", "after party", "party", "nhay", "ca hat", "van nghe", "quay", "karaoke"),
      "prompts": ["wedding guests playing fun party games on stage and laughing",
@@ -206,14 +221,15 @@ CONCEPTS = (
                  "a live stage performance or dancers at a wedding reception"]},
     {"id": "khac", "label": "Khác", "group": "Chung", "default": "Khác",
      "keys": ("khac", "other", "rac", "loi", "out net", "nhap"),
-     "prompts": ["a blurry or dark frame of the floor, ceiling or camera equipment",
-                 "people walking around, a random behind-the-scenes moment",
-                 "an out-of-focus or unclear photo"]},
+     "prompts": ["a blurry out-of-focus shot of the floor, ceiling, or lens cap",
+                 "completely dark black screen or accidental camera movement"]},
 )
 
 CONCEPT_BY_ID = {c["id"]: c for c in CONCEPTS}
 _STAGE_HALL_HINTS = ("nha hang", "tiec", "toi", "gala", "san khau", "le duong", "reception", "banquet", "mung tho")
 _STAGE_CHURCH_HINTS = ("nha tho", "thanh le", "church")
+_STAGE_EVENT_HINTS = ("event", "hoi nghi", "khai truong", "khai giang", "gala", "truong", "setup", "hoat dong", "check in", "khai mac")
+_EVENT_SHARED_KEYS = ("khong gian decor", "flycam", "toan canh", "setup", "mat tien", "chup hinh", "van nghe", "bieu dien")
 _GENERIC_CEREMONY = ("nghi le", "lam le", "le cuoi", "le", "nl")
 
 
@@ -304,10 +320,15 @@ def infer_concept(bin_name, stage_name="", custom_map=None):
             return "le_nha_tho"
         return "nghi_le_tai_gia"
     # 3. Khớp theo cụm từ khóa chuẩn (ưu tiên cụm dài trước, theo ranh giới từ)
+    is_event_stage = any(_has_phrase(ns, h) for h in _STAGE_EVENT_HINTS)
     best = None
     best_len = 0
     for c in CONCEPTS:
+        if c["id"] == "ev_khong_gian" and not is_event_stage and _has_phrase(nb, "khong gian decor"):
+            continue
         for kw in c["keys"]:
+            if c["id"].startswith("ev_") and not is_event_stage and kw in _EVENT_SHARED_KEYS:
+                continue
             if _has_phrase(nb, kw) and len(kw) > best_len:
                 best = c["id"]
                 best_len = len(kw)
@@ -510,6 +531,17 @@ def embed_dir(data_root, project):
     return os.path.join(data_root, "cache", sub, tc._safe(project))
 
 
+def _load_npz_kv(path):
+    """Đọc file .npz (keys, vecs) an toàn; tự cứu đọc file cũ bị lưu nhầm dtype=object."""
+    import numpy as np
+    try:
+        with np.load(path, allow_pickle=False) as z:
+            return [str(k) for k in z["keys"]], z["vecs"].copy(), False
+    except ValueError:
+        with np.load(path, allow_pickle=True) as z:
+            return [str(k) for k in z["keys"]], z["vecs"].copy(), True
+
+
 def run_embed_dino(project, data_root, proxy_root):
     """Nhúng thêm vector DINOv2-small (384 chiều) cho 'Tìm góc tương tự' & học mẫu 2-3 clip. Lưu cạnh vectors.npz."""
     if not has_dinov2(data_root):
@@ -524,13 +556,16 @@ def run_embed_dino(project, data_root, proxy_root):
     clips, _ = match_thumbs(project, data_root, proxy_root)
     todo_all = [c for c in clips if c["thumb"]]
     npz = os.path.join(d, "dino_vectors.npz")
-    keys, vecs = [], None
+    keys, vecs, was_pickled = [], None, False
     if os.path.isfile(npz):
-        with np.load(npz, allow_pickle=False) as z:
-            keys, vecs = list(z["keys"]), z["vecs"].copy()
+        keys, vecs, was_pickled = _load_npz_kv(npz)
     done = set(keys)
     todo = [c for c in todo_all if c["key"] not in done]
     if not todo:
+        if was_pickled and keys and vecs is not None:
+            tmp = npz + ".tmp.npz"
+            np.savez(tmp, keys=np.array(keys), vecs=vecs)
+            os.replace(tmp, npz)
         return {"embedded": len(done), "new": 0}
     import troly_env
     dev = troly_env.torch_device(torch)
@@ -560,13 +595,17 @@ def run_embed_dino(project, data_root, proxy_root):
             for k_it, row in zip(ok_k, v.float().cpu().numpy()):
                 new_k.append(k_it)
                 new_v.append(row)
-    if new_k:
-        mat = np.stack(new_v).astype(np.float32)
+    if new_k or was_pickled:
+        mat = np.stack(new_v).astype(np.float32) if new_v else None
         all_k = keys + new_k
-        all_v = mat if vecs is None else np.concatenate([vecs, mat], axis=0)
-        tmp = npz + ".tmp.npz"
-        np.savez(tmp, keys=np.array(all_k, dtype=object), vecs=all_v)
-        os.replace(tmp, npz)
+        if vecs is not None and mat is not None:
+            all_v = np.concatenate([vecs, mat], axis=0)
+        else:
+            all_v = mat if mat is not None else vecs
+        if all_k and all_v is not None:
+            tmp = npz + ".tmp.npz"
+            np.savez(tmp, keys=np.array(all_k), vecs=all_v)
+            os.replace(tmp, npz)
     del model
     troly_env.torch_empty_cache(torch)
     return {"embedded": len(done) + len(new_k), "new": len(new_k)}
@@ -574,12 +613,10 @@ def run_embed_dino(project, data_root, proxy_root):
 
 def load_dino_vectors(data_root, project):
     """{ck: vector DINOv2} từ cache nhúng, hoặc {} nếu chưa có."""
-    import numpy as np
     f = os.path.join(embed_dir(data_root, project), "dino_vectors.npz")
     if not os.path.isfile(f):
         return {}
-    with np.load(f, allow_pickle=False) as z:
-        keys, vecs = list(z["keys"]), z["vecs"].copy()
+    keys, vecs, _ = _load_npz_kv(f)
     out = {}
     for k, v in zip(keys, vecs):
         stem, _, parent = str(k).partition("|")
@@ -697,7 +734,8 @@ def run_suggest(project, data_root, proxy_root):
     e = np.exp(logits - logits.max(1, keepdims=True))
     prob = e / e.sum(1, keepdims=True)
     TC = np.stack(cvecs)                                    # [concepts, 512]
-    clogits = TEMPERATURE * vecs @ TC.T
+    csims = vecs @ TC.T
+    clogits = TEMPERATURE * csims
     ce = np.exp(clogits - clogits.max(1, keepdims=True))
     cprob = ce / ce.sum(1, keepdims=True)
     c_ids = [c["id"] for c in CONCEPTS]
@@ -705,7 +743,7 @@ def run_suggest(project, data_root, proxy_root):
     by_key = {c["key"]: c for c in clips}
     lab = labels_by_stem(plan)
     items = []
-    for k, p, cp in zip(keys, prob, cprob):
+    for k, p, cp, cs in zip(keys, prob, cprob, csims):
         c = by_key.get(k)
         if not c:
             continue
@@ -715,6 +753,7 @@ def run_suggest(project, data_root, proxy_root):
                       "top": [{"bin": bins[j], "score": round(float(p[j]), 4)} for j in order],
                       "scores": [round(float(x), 4) for x in p],
                       "c_scores": [round(float(x), 4) for x in cp],
+                      "c_sims": [round(float(x), 5) for x in cs],
                       "label": lab.get(stem_key)})
     out = {"project_tag": project[:10], "model": ("SigLIP2 %s" % SIGLIP2_ARCH if has_siglip2(data_root) else ("SigLIP %s" % SIGLIP_ARCH if has_siglip(data_root) else "OpenCLIP %s laion2b_s34b_b79k" % MODEL_ARCH)), "bins": bins,
            "concepts": c_ids,
@@ -829,12 +868,10 @@ def is_orphan_key(k):
 
 def load_vectors(data_root, project):
     """{ck: vector} từ cache nhúng, hoặc {} nếu chưa có. Cần numpy."""
-    import numpy as np
     f = os.path.join(embed_dir(data_root, project), "vectors.npz")
     if not os.path.isfile(f):
         return {}
-    with np.load(f, allow_pickle=False) as z:
-        keys, vecs = list(z["keys"]), z["vecs"].copy()
+    keys, vecs, _ = _load_npz_kv(f)
     out = {}
     for k, v in zip(keys, vecs):
         stem, _, parent = str(k).partition("|")
@@ -875,48 +912,81 @@ def load_concept_scores(data_root, project):
     return (c_ids, out) if out else None
 
 
+def load_concept_sims(data_root, project):
+    """(concept_ids, {ck: c_sims cosine thô}) từ file ai_suggest, hoặc None nếu bản cũ chưa có."""
+    p = os.path.join(data_root, "troly", "ai_suggest", tc._safe(project) + ".json")
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return None
+    c_ids = d.get("concepts")
+    if not isinstance(c_ids, list) or not c_ids:
+        return None
+    out = {}
+    for it in d.get("items", []):
+        if it.get("c_sims"):
+            out[ck(it["clip"])] = it["c_sims"]
+    return (c_ids, out) if out else None
+
+
 def _top3(pairs, skip=()):
     pairs = [(b, s) for b, s in pairs if b not in skip]
     pairs.sort(key=lambda x: -x[1])
     return [{"bin": b, "score": round(float(s), 3)} for b, s in pairs[:3]]
 
 
-MIN_STAGE_SEED = 2                  # chỉ cần 2 clip mẫu xếp tay trong giai đoạn là học nhanh (Ý 3: Chơi game, Múa lân...)
+MIN_STAGE_SEED = 2                  # chỉ cần 2 clip mẫu xếp tay (ở >= 2 bin) trong giai đoạn là học nhanh
 
 
-def _knn_rank(v, pool, vectors, k, temp):
+def _knn_probs(v, pool, vectors, k, temp, dino_v=None, dino_vectors=None):
     import numpy as np
     M = np.stack([vectors[kk] for kk, _ in pool])
     sims = M @ v
+    if dino_v is not None and dino_vectors:
+        d_sims = np.array([
+            float(dino_vectors[kk] @ dino_v) if kk in dino_vectors else float(sims[j])
+            for j, (kk, _) in enumerate(pool)
+        ], dtype=sims.dtype)
+        sims = 0.65 * sims + 0.35 * d_sims
     idx = np.argsort(-sims)[:k]
     w = np.exp(temp * (sims[idx] - sims[idx].max()))
     sc = {}
     for j, wi in zip(idx, w):
         sc[pool[j][1]] = sc.get(pool[j][1], 0.0) + float(wi)
     tot = sum(sc.values()) or 1.0
-    return _top3([(b, x / tot) for b, x in sc.items()])
+    return {b: x / tot for b, x in sc.items()}
 
 
-def rank_for_clip(key, cand_bins, vectors, labeled, desc, k=KNN_K, temp=KNN_TEMP,
-                  stage_name="", bin_tags=None, synonyms=None, concept_scores=None, stage_labeled=None):
-    """Gợi ý hạng 1-3 cho một clip trong các bin cand_bins (bin của giai đoạn clip đang ở).
-    1) Học nhanh theo 2-3 clip mẫu ngay trong giai đoạn (stage_labeled, Ý 3) hoặc >=20 nhãn tay toàn project.
-    2) Điểm theo Thẻ cảnh chuẩn (concept_scores, Phương án B: đổi tên bin cập nhật tức thì 0 giây).
-    3) Dự phòng: bảng mô tả cũ (desc), có đối chiếu đồng nghĩa qua infer_concept nếu bin vừa đổi tên."""
-    v = vectors.get(key)
-    if v is not None:
-        # 1a. Học nhanh từ 2+ clip mẫu ngay trong giai đoạn đang xét (cân được Chơi game, Múa lân, bin lạ...)
-        if stage_labeled:
-            spool = [(kk, b) for kk, b in stage_labeled.items() if b in cand_bins and kk != key and kk in vectors]
-            n_bins_seeded = len({b for _, b in spool})
-            if len(spool) >= MIN_STAGE_SEED and (n_bins_seeded >= 2 or len(spool) >= MIN_FEWSHOT_IN_STAGE):
-                return "nhan", _knn_rank(v, spool, vectors, k, temp)
-        # 1b. Học từ nhãn tay toàn project (>= 20 nhãn)
-        if len(labeled) >= MIN_FEWSHOT_LABELS:
-            pool = [(kk, b) for kk, b in labeled.items() if b in cand_bins and kk != key and kk in vectors]
-            if len(pool) >= MIN_FEWSHOT_IN_STAGE:
-                return "nhan", _knn_rank(v, pool, vectors, k, temp)
-    # 2. Chấm điểm tức thì qua bộ Thẻ cảnh chuẩn (c_scores): đổi tên bin không bao giờ mất điểm
+def _knn_rank(v, pool, vectors, k, temp, dino_v=None, dino_vectors=None):
+    return _top3(list(_knn_probs(v, pool, vectors, k, temp, dino_v=dino_v, dino_vectors=dino_vectors).items()))
+
+
+def _zero_shot_probs(key, cand_bins, desc, stage_name="", bin_tags=None, synonyms=None,
+                     concept_scores=None, concept_sims=None, temp=None):
+    import math
+    if not cand_bins:
+        return {}
+    # 2a. Softmax CHỈ trên các bin của giai đoạn hiện tại từ cosine thô (không bị Mừng thọ / Event / Khác cướp điểm)
+    if concept_sims and key in concept_sims[1]:
+        c_ids, c_table = concept_sims
+        c_idx = {cid: idx for idx, cid in enumerate(c_ids)}
+        row = c_table[key]
+        raw = []
+        for b in cand_bins:
+            cid = (bin_tags or {}).get(b) or infer_concept(b, stage_name=stage_name, custom_map=synonyms)
+            if cid and cid in c_idx and c_idx[cid] < len(row):
+                s = float(row[c_idx[cid]])
+                if cid == "khac":
+                    s -= KHAC_COSINE_PENALTY
+                raw.append((b, s))
+        if raw:
+            t_val = SIGLIP2_TEMP if temp is None else float(temp)
+            mx = max(s for _, s in raw)
+            exps = [(b, math.exp(t_val * (s - mx))) for b, s in raw]
+            tot = sum(x for _, x in exps) or 1.0
+            return {b: x / tot for b, x in exps}
+    # 2b. Fallback c_scores (bản ai_suggest cũ chưa có c_sims)
     if concept_scores and key in concept_scores[1]:
         c_ids, c_table = concept_scores
         c_idx = {cid: idx for idx, cid in enumerate(c_ids)}
@@ -928,8 +998,8 @@ def rank_for_clip(key, cand_bins, vectors, labeled, desc, k=KNN_K, temp=KNN_TEMP
                 sc.append((b, float(row[c_idx[cid]])))
         tot = sum(x for _, x in sc)
         if sc and tot > 0:
-            return "mo_ta", _top3([(b, x / tot) for b, x in sc])
-    # 3. Dự phòng file ai_suggest.json bản cũ: khớp trực tiếp hoặc khớp đồng nghĩa theo thẻ cảnh
+            return {b: x / tot for b, x in sc}
+    # 3. Dự phòng file ai_suggest.json bản rất cũ: khớp trực tiếp hoặc khớp đồng nghĩa theo thẻ cảnh
     if desc and key in desc[1]:
         bins, table = desc
         row = table[key]
@@ -949,7 +1019,72 @@ def rank_for_clip(key, cand_bins, vectors, labeled, desc, k=KNN_K, temp=KNN_TEMP
                     sc.append((b, by_cid[cid]))
         tot = sum(x for _, x in sc)
         if sc and tot > 0:
-            return "mo_ta", _top3([(b, x / tot) for b, x in sc])
+            return {b: x / tot for b, x in sc}
+    return {}
+
+
+def _match_cand_bin(b_label, cand_bins, stage_name="", bin_tags=None, synonyms=None):
+    """Khớp nhãn tay sang bin ứng viên (khớp nguyên văn, khớp bỏ dấu tiếng Việt, hoặc khớp Thẻ cảnh chuẩn duy nhất)."""
+    if b_label in cand_bins:
+        return b_label
+    nb = strip_accents(b_label)
+    for cb in cand_bins:
+        if strip_accents(cb) == nb and nb:
+            return cb
+    cid = infer_concept(b_label, stage_name=stage_name, custom_map=synonyms)
+    if cid:
+        hits = [cb for cb in cand_bins if ((bin_tags or {}).get(cb) or infer_concept(cb, stage_name=stage_name, custom_map=synonyms)) == cid]
+        if len(hits) == 1:
+            return hits[0]
+    return None
+
+
+def rank_for_clip(key, cand_bins, vectors, labeled, desc, k=KNN_K, temp=KNN_TEMP,
+                  stage_name="", bin_tags=None, synonyms=None, concept_scores=None, stage_labeled=None,
+                  concept_sims=None, dino_vectors=None):
+    """Gợi ý hạng 1-3 cho một clip trong các bin cand_bins (bin của giai đoạn clip đang ở).
+    1) Học nhanh theo >=2 clip mẫu ở >=2 bin trong giai đoạn (pha trộn với zero-shot nếu chưa phủ hết bin) hoặc >=20 nhãn tay toàn project.
+    2) Điểm theo Thẻ cảnh chuẩn per-stage trên cosine thô (c_sims) hoặc c_scores (bản cũ).
+    3) Dự phòng: bảng mô tả cũ (desc)."""
+    zs_probs = _zero_shot_probs(
+        key, cand_bins, desc, stage_name=stage_name, bin_tags=bin_tags, synonyms=synonyms,
+        concept_scores=concept_scores, concept_sims=concept_sims,
+    )
+    v = vectors.get(key)
+    dino_v = dino_vectors.get(key) if dino_vectors else None
+
+    def _blend(knn_p, n_seeded, n_samples):
+        if not zs_probs:
+            return _top3(list(knn_p.items()))
+        w_knn = min(0.75, 0.25 + 0.50 * min(1.0, n_samples / max(1, 3 * len(cand_bins))))
+        all_bins = set(knn_p) | set(zs_probs)
+        merged = {b: w_knn * knn_p.get(b, 0.0) + (1.0 - w_knn) * zs_probs.get(b, 0.0) for b in all_bins}
+        tot = sum(merged.values()) or 1.0
+        return _top3([(b, x / tot) for b, x in merged.items()])
+
+    if v is not None:
+        # 1a. Học nhanh từ mẫu ngay trong giai đoạn (bắt buộc có ít nhất 2 bin đã có mẫu để tránh dồn 100% vào 1 bin)
+        if stage_labeled:
+            spool = [(kk, b) for kk, b in stage_labeled.items() if b in cand_bins and kk != key and kk in vectors]
+            n_bins_seeded = len({b for _, b in spool})
+            if len(spool) >= MIN_STAGE_SEED and n_bins_seeded >= 2:
+                kp = _knn_probs(v, spool, vectors, k, temp, dino_v=dino_v, dino_vectors=dino_vectors)
+                return "nhan", _blend(kp, n_bins_seeded, len(spool))
+        # 1b. Học từ nhãn tay toàn project (>= 20 nhãn), khớp chéo giai đoạn không phân biệt dấu / theo concept duy nhất
+        if len(labeled) >= MIN_FEWSHOT_LABELS:
+            pool = []
+            for kk, b in labeled.items():
+                if kk == key or kk not in vectors:
+                    continue
+                mb = _match_cand_bin(b, cand_bins, stage_name=stage_name, bin_tags=bin_tags, synonyms=synonyms)
+                if mb:
+                    pool.append((kk, mb))
+            n_bins_pooled = len({b for _, b in pool})
+            if len(pool) >= MIN_FEWSHOT_IN_STAGE and n_bins_pooled >= 2:
+                kp = _knn_probs(v, pool, vectors, k, temp, dino_v=dino_v, dino_vectors=dino_vectors)
+                return "nhan", _blend(kp, n_bins_pooled, len(pool))
+    if zs_probs:
+        return "mo_ta", _top3(list(zs_probs.items()))
     return None, []
 
 

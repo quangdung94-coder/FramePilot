@@ -94,5 +94,68 @@ class AiSafe(unittest.TestCase):
         self.assertIn("load_plan", src)                           # chỉ ĐỌC kế hoạch
 
 
+class AiFixesRegression(unittest.TestCase):
+    def test_load_dino_vectors_recovers_legacy_object_dtype(self):
+        import numpy as np
+        with tempfile.TemporaryDirectory() as t:
+            d = ai.embed_dir(t, "P_OBJ")
+            os.makedirs(d, exist_ok=True)
+            npz = os.path.join(d, "dino_vectors.npz")
+            np.savez(npz, keys=np.array(["A1|01", "A2|01"], dtype=object),
+                     vecs=np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32))
+            got = ai.load_dino_vectors(t, "P_OBJ")
+            self.assertEqual(len(got), 2)
+            self.assertIn(("01", "a1"), got)
+
+    def test_ai_data_isolates_corrupt_dino_file_without_wiping_siglip(self):
+        import numpy as np
+        import troly_api as ta
+        with tempfile.TemporaryDirectory() as t:
+            d = ai.embed_dir(t, "P_ISO")
+            os.makedirs(d, exist_ok=True)
+            np.savez(os.path.join(d, "vectors.npz"), keys=np.array(["A1|01"]),
+                     vecs=np.array([[1.0, 0.0]], dtype=np.float32))
+            with open(os.path.join(d, "dino_vectors.npz"), "wb") as f:
+                f.write(b"not a valid npz")
+            sd = os.path.join(t, "troly", "ai_suggest")
+            os.makedirs(sd, exist_ok=True)
+            with open(os.path.join(sd, "P_ISO.json"), "w", encoding="utf-8") as f:
+                json.dump({"bins": ["Decor", "Khác"], "items": [{"clip": "01/A1.MP4", "scores": [0.9, 0.1]}]}, f)
+            api = ta.TrolyApi("P_ISO", t, emit=lambda *a: None, start_worker=False)
+            vec, desc = api._ai_data()
+            self.assertIn(("01", "a1"), vec)
+            self.assertIsNotNone(desc)
+            self.assertEqual(api._ai_cache["dino"], {})
+
+    def test_wedding_concepts_mapping_and_per_stage_softmax(self):
+        self.assertEqual(ai.infer_concept("Không gian · Decor", stage_name="Lễ nhà hàng"), "decor")
+        self.assertEqual(ai.infer_concept("Không gian · Decor", stage_name="Không gian · Setup Event"), "ev_khong_gian")
+        self.assertEqual(ai.infer_concept("get ready", stage_name="Lễ nhà hàng"), "get_ready")
+        self.assertEqual(ai.infer_concept("Chụp hình", stage_name="Lễ nhà hàng"), "chup_hinh")
+        self.assertEqual(ai.infer_concept("Nhà trai đến", stage_name="Rước dâu"), "nha_trai_den")
+        c_ids = [c["id"] for c in ai.CONCEPTS]
+        row = [0.01] * len(c_ids)
+        row[c_ids.index("chuc_tho")] = 0.90     # thẻ ngoài giai đoạn không được phép cướp điểm
+        row[c_ids.index("decor")] = 0.12
+        row[c_ids.index("chu_re")] = 0.04
+        row[c_ids.index("khac")] = 0.13         # 'khac' bị trừ KHAC_COSINE_PENALTY nên thua decor (0.12 > 0.13 - 0.045)
+        src, top = ai.rank_for_clip(("01", "a1"), ["Decor", "Chú rể", "Khác"], {}, {}, None,
+                                    stage_name="Chuẩn bị nhà trai", concept_sims=(c_ids, {("01", "a1"): row}))
+        self.assertEqual(src, "mo_ta")
+        self.assertEqual(top[0]["bin"], "Decor")
+
+    def test_single_bin_seed_does_not_collapse_to_100_percent(self):
+        import numpy as np
+        v1 = np.array([1.0, 0.0], dtype=np.float32)
+        v2 = np.array([0.0, 1.0], dtype=np.float32)
+        vecs = {("01", "d1"): v1, ("01", "d2"): v1, ("01", "d3"): v1, ("01", "q"): v2}
+        desc = (["Decor", "Chú rể"], {("01", "q"): [0.1, 0.9]})
+        # 3 clip mẫu đều chỉ nằm trong 1 bin 'Decor' -> chưa đủ 2 bin khác nhau -> không được ép toàn bộ giai đoạn thành Decor
+        stage_lab = {("01", "d1"): "Decor", ("01", "d2"): "Decor", ("01", "d3"): "Decor"}
+        src, top = ai.rank_for_clip(("01", "q"), ["Decor", "Chú rể"], vecs, stage_lab, desc, stage_labeled=stage_lab)
+        self.assertEqual(src, "mo_ta")
+        self.assertEqual(top[0]["bin"], "Chú rể")
+
+
 if __name__ == "__main__":
     unittest.main()

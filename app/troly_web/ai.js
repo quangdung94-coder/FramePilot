@@ -55,9 +55,20 @@ function aiButtons(list) {                                      // list: [[id, c
   $("aiActs").innerHTML = list.map(([id, t, off, tip]) => `<button class="btn" id="${id}"${off ? " disabled" : ""}${tip ? ` title="${esc(tip)}"` : ""}>${esc(t)}</button>`).join("");
 }
 
+function aiTargetUids() {                                         // Kiểu 1: đứng trong 1 bin con đã xếp -> tự gom clip Chưa xếp/AI xếp của cả giai đoạn đó
+  if (S && gStage !== null && gStage >= 0 && S.stages[gStage] && gSub !== null && gSub !== NONE) {
+    const s = S.stages[gStage];
+    const autoUids = S.clips.filter((c) => c.stage === gStage && c.label_by === "ai_auto").map((c) => c.uid);
+    const out = new Set([...(s.none || []), ...autoUids]);
+    return [...out];
+  }
+  return items.map((c) => c.uid);
+}
+
 function aiRunPaint(info) {                                     // nút Tự phân loại + thanh tiến độ "đã chạy a / b"
-  const n = items.length, run = !!(info && info.running);
-  const g = (S && gStage !== null && gStage >= 0 && S.stages[gStage]) ? (gSub === null ? S.stages[gStage].bin : gSub === NONE ? "Chưa xếp" : gSub) : "";
+  const targets = aiTargetUids(), n = targets.length, run = !!(info && info.running);
+  const inSub = (S && gStage !== null && gStage >= 0 && S.stages[gStage] && gSub !== null && gSub !== NONE);
+  const g = (S && gStage !== null && gStage >= 0 && S.stages[gStage]) ? (inSub ? `${S.stages[gStage].bin} (Chưa xếp)` : (gSub === NONE ? "Chưa xếp" : S.stages[gStage].bin)) : "";
   $("aiRunT").textContent = run ? "AI đang chạy…" : `Tự phân loại · ${n} clip${g ? " nhóm " + g : ""}`;
   $("aiRun").disabled = run || AI.busy || !n;
   $("aiRun").classList.toggle("run", run || AI.busy);
@@ -67,7 +78,7 @@ function aiRunPaint(info) {                                     // nút Tự ph�
     const m = /(\d+)\/(\d+)/.exec(info.log || "");
     if (m && +m[2]) { w = +m[1] / +m[2] * 100; $("aiRunN").textContent = `AI nhúng ảnh ${m[1]} / ${m[2]}`; } else $("aiRunN").textContent = "AI đang chuẩn bị…";
   } else if (AI.scores && aiLive()) {
-    const a = Object.keys(AI.scores).length + items.filter((c) => c.label && c.label_by !== "ai_auto").length;
+    const a = Object.keys(AI.scores).length + (inSub ? 0 : items.filter((c) => c.label && c.label_by !== "ai_auto").length);
     w = n ? Math.min(100, a / n * 100) : 0; $("aiRunN").textContent = `đã chạy ${a} / ${n}`;
   } else $("aiRunN").textContent = n ? `chưa chạy · ${n} clip` : "";
   $("aiRunBar").style.width = w + "%";
@@ -76,10 +87,11 @@ function aiRunPaint(info) {                                     // nút Tự ph�
 
 async function aiScoresSync() {                                // điểm hạng 1 của nhóm đang mở (cho biểu đồ); chỉ đọc, không gọi AI chạy lại
   const info = AI.info; if (!info || !info.has_data || info.running) return;
-  const sig = groupKey() + "#" + items.map((c) => c.uid + (c.label || "") + (c.label_by || "")).join(",");
+  const targets = aiTargetUids();
+  const sig = groupKey() + "#" + targets.join(",") + "|" + items.map((c) => c.uid + (c.label || "") + (c.label_by || "")).join(",");
   if (sig === AI.scoreSig) return;
   AI.scoreSig = sig;
-  const r = await api().ai_group_scores(items.map((c) => c.uid));
+  const r = await api().ai_group_scores(targets);
   if (AI.scoreSig !== sig) return;
   AI.scores = r || {};
   aiHistPaint(); patchGrid(); aiRunPaint(AI.info);
@@ -162,15 +174,27 @@ async function aiTake(pairs) {                                  // pairs: [[uid,
 /* ---- nút Tự phân loại (gộp hai nút cũ): chạy AI nếu cần, rồi gán nhãn cả nhóm theo ngưỡng. KHÔNG chuyển clip trong DaVinci ---- */
 async function aiRunGroup() {
   if (AI.busy) return;
-  if (!items.length) return status("Nhóm này chưa có clip.", "warn");
-  const uids = items.map((c) => c.uid), info = await aiRefreshInfo();
+  const uids = aiTargetUids();
+  if (!uids.length) return status("Nhóm hoặc giai đoạn này chưa có clip cần phân loại.", "warn");
+  const info = await aiRefreshInfo();
   if (info && info.running) return;
   AI.busy = true; aiRunPaint(info);
   try {
-    if (info && info.can_run) {                                // AI nhúng ảnh nền (làm tiếp phần chưa có), xong thì tự gán nhãn cho nhóm này
+    const ready = !!(info && info.has_data && (info.missing_vectors || 0) === 0 && !info.needs_suggest);
+    if (!ready && info && info.can_run) {                       // AI nhúng ảnh nền (hoặc làm mới điểm gợi ý nếu thiếu), xong thì tự gán nhãn cho nhóm này
       const r = await api().ai_run();
       if (r.error) { if (!info.has_data) return status(r.error, "warn"); }
-      else { AI.info = r; AI.cache = {}; AI.after = uids; await aiRefreshInfo(); return; }
+      else {
+        AI.info = r; AI.cache = {}; AI.after = uids;
+        const fresh = await aiRefreshInfo();
+        if (fresh && !fresh.running) {
+          AI.after = null;
+          if (fresh.has_data && !fresh.no_match) { await aiApplyGroup(uids); return; }
+          if (fresh.no_match) return status(fresh.no_match, "warn");
+          if (fresh.log && fresh.log.startsWith("LỖI AI:")) return status(fresh.log, "warn");
+        }
+        return;
+      }
     }
     if (!info || !info.has_data) return status("Chưa có dữ liệu AI và chưa chạy được AI trên máy này (xem docs/adr/0020).", "warn");
     await aiApplyGroup(uids);
@@ -245,7 +269,7 @@ async function aiThrApply() {
   try {
     const v = aiThrNow(), live = aiLive() && AI.info && AI.info.has_data && !AI.busy;
     if (!live) { const r = await api().ai_auto_set(v); if (r && !r.error) AI.auto = r; return; }   // chưa Tự phân loại nhóm này: chỉ nhớ ngưỡng
-    const r = await api().ai_auto_apply(v, items.map((c) => c.uid));
+    const r = await api().ai_auto_apply(v, aiTargetUids());
     if (r.error) { status(r.error, "warn"); AI.thrPending = false; return aiAutoRefresh().then(() => aiBoxRender()); }
     AI.cache = {}; AI.scoreSig = ""; if (AI.auto) AI.auto.threshold = r.ai_auto.threshold; setState(r); await aiAutoRefresh();
     const x = r.ai_auto;

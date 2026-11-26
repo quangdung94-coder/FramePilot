@@ -1277,17 +1277,31 @@ class TrolyApi(object):
         return ai.load_synonyms(self._root)
 
     def _ai_data(self):
-        """(vectors, desc) nạp lại khi file đổi; đồng thời cache c_scores và vector DINOv2."""
+        """(vectors, desc) nạp lại khi file đổi; cô lập lỗi từng file để 1 file hỏng (vd DINOv2) không làm mất SigLIP2/gợi ý."""
         vf, sf = self._ai_files()
+        df = os.path.join(ai.embed_dir(self._root, self._project), "dino_vectors.npz")
         sig = tuple((os.path.getmtime(f) if os.path.isfile(f) else 0) for f in (vf, sf))
-        if self._ai_cache.get("sig") != sig:
+        dsig = os.path.getmtime(df) if os.path.isfile(df) else 0
+
+        def _safe(fn, default):
             try:
-                self._ai_cache = {"sig": sig, "vec": ai.load_vectors(self._root, self._project),
-                                  "dino": ai.load_dino_vectors(self._root, self._project),
-                                  "desc": ai.load_suggest(self._root, self._project),
-                                  "c_scores": ai.load_concept_scores(self._root, self._project)}
-            except Exception:                                 # noqa: BLE001  numpy thiếu / file hỏng: coi như chưa có
-                self._ai_cache = {"sig": sig, "vec": {}, "dino": {}, "desc": None, "c_scores": None}
+                return fn(self._root, self._project)
+            except Exception:                                 # noqa: BLE001
+                return default
+
+        if self._ai_cache.get("sig") != sig:
+            self._ai_cache = {
+                "sig": sig,
+                "dino_sig": dsig,
+                "vec": _safe(ai.load_vectors, {}),
+                "dino": _safe(ai.load_dino_vectors, {}),
+                "desc": _safe(ai.load_suggest, None),
+                "c_scores": _safe(ai.load_concept_scores, None),
+                "c_sims": _safe(ai.load_concept_sims, None),
+            }
+        elif dsig and self._ai_cache.get("dino_sig") != dsig:
+            self._ai_cache["dino"] = _safe(ai.load_dino_vectors, {})
+            self._ai_cache["dino_sig"] = dsig
         return self._ai_cache["vec"], self._ai_cache["desc"]
 
     def ai_set_bin_concept(self, stage_i, bin_name, concept_id):
@@ -1346,12 +1360,24 @@ class TrolyApi(object):
     def ai_info(self):
         with self._lock:
             vec, desc = self._ai_data()
+            c_scores = self._ai_cache.get("c_scores")
+            c_sims = self._ai_cache.get("c_sims")
             job = self._ai_jobobj()
             lab = self._ai_labeled()
             n_lab = sum(1 for k in lab if k in vec)
-            return {"has_data": bool(desc and desc[1]), "no_match": self._ai_nomatch(vec, desc),
+            has_data = bool((desc and desc[1]) or c_scores or c_sims)
+            if self._clips and vec:
+                missing_vectors = sum(1 for c in self._clips if ai.ck(c.rel or c.name) not in vec)
+            elif self._clips and not vec:
+                missing_vectors = len(self._clips)
+            else:
+                missing_vectors = 0
+            needs_suggest = bool(vec) and (not c_sims or set(c_sims[0]) != {c["id"] for c in ai.CONCEPTS})
+            return {"has_data": has_data, "no_match": self._ai_nomatch(vec, desc),
                     "running": job.running(), "can_run": job.available(), "log": job.last_log(),
-                    "n_vectors": len(vec), "n_labeled": n_lab, "mode": "nhan" if n_lab >= ai.MIN_FEWSHOT_LABELS else "mo_ta",
+                    "n_vectors": len(vec), "n_clips": len(self._clips),
+                    "missing_vectors": missing_vectors, "needs_suggest": needs_suggest,
+                    "n_labeled": n_lab, "mode": "nhan" if n_lab >= ai.MIN_FEWSHOT_LABELS else "mo_ta",
                     "min_labels": ai.MIN_FEWSHOT_LABELS}
 
     def ai_run(self):
@@ -1388,7 +1414,9 @@ class TrolyApi(object):
         with self._lock:
             vec, desc = self._ai_data()
             c_scores = self._ai_cache.get("c_scores")
-            if not vec and not desc and not c_scores:
+            c_sims = self._ai_cache.get("c_sims")
+            dino = self._ai_cache.get("dino") or {}
+            if not vec and not desc and not c_scores and not c_sims:
                 return {}
             lab = self._ai_labeled()
             syn = self._ai_synonyms()
@@ -1425,6 +1453,8 @@ class TrolyApi(object):
                     synonyms=syn,
                     concept_scores=c_scores,
                     stage_labeled=s_train,
+                    concept_sims=c_sims,
+                    dino_vectors=dino,
                 )
                 if top:
                     out[u] = {"src": src, "top": top}
