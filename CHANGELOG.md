@@ -1,5 +1,15 @@
 # Nhật ký thay đổi
 
+## 2026-11-27 (11h25) – v0.4.2: Sửa lỗi thiếu source khi đưa Page 5 lên Timeline & nút “Lấy hết ★” (Win + Mac), CHỜ ANH THỬ
+- **`app/troly_dur.py` & `app/troly_api.py`:**
+  - Nâng giới hạn `TARGET_LIMITS_MIN` lên `(0.5, 300.0)` phút (hỗ trợ phim cưới truyền thống tới 5 giờ).
+  - Tính và trả thêm `n_dropped`, `total_natural_s`, cảnh báo `clips_dropped` mỗi khi Video mục tiêu nhỏ hơn tổng clip sao khiến có clip bị bỏ; thêm `plan_take_all()` và API `dur_take_all()` để nâng mục tiêu bằng tổng toàn bộ clip sao và bỏ chặn cụm/bin trong 1 cú bấm (giữ nguyên bố cục kéo thả `tl`).
+  - Trong `advise()`: khi `state == "ok"` nhưng vẫn đang bỏ clip sao, đổi tiêu đề sang *"Đạt mục tiêu (đang bỏ X clip sao)"*, hiện lý do rõ ràng và gợi ý 1 chạm *"Lấy hết X/Y clip sao"*.
+- **`app/troly_web/index.html` & `app/troly_web/step5.js`:**
+  - Thêm nút 1 chạm **`Lấy hết ★`** trên thanh mục tiêu và nút gợi ý **`Lấy hết X/Y clip sao`** ở cột phải.
+  - Hiện thẻ cảnh báo màu cam **`bỏ X clip sao`** ngay cạnh `Hiện Tại`, cảnh báo ở thanh trên, cột `CÓ` ghi rõ `giữ/tổng clip (bỏ X)`, và hiện khung **⚠ CẢNH BÁO** nổi bật trong hộp xác nhận *"Tạo timeline mới?"* khi có clip sao bị bỏ.
+- **`tests/test_troly_dur_api.py`:** Bổ sung unit test `test_canh_bao_bo_clip_sao_va_nut_lay_het` (672/672 test đạt).
+
 ## 2026-11-23 (21h05) – Vá bộ cài Windows cho máy mới chưa cài Python (`python_base` portable + tự sửa `pyvenv.cfg`), XONG (đã test OK trên máy ngoài)
 - **`build_exe.py` & `CaiDat_MayMoi.bat`:** Đóng gói kèm runtime Python 3.10.11 portable sạch (`python_base/`, ~35 MB, không chứa `site-packages` hay đường dẫn user cũ); sửa lỗi dấu `&` (`^&`) ở dòng `title` trong `CaiDat_MayMoi.bat`; tự động phát hiện & cập nhật `ai_env\pyvenv.cfg` trỏ sang `python_base` khi mang sang máy khác không có user `QuangDung` (xử lý an toàn cả đường dẫn tiếng Việt có dấu).
 - **`app/troly_setup.py`:** Bổ sung `_repair_windows_venv_cfg()` tự vá `pyvenv.cfg` (ưu tiên `python_base` portable, tự copy theo `target_root` nếu cài sang thư mục khác, hoặc tìm Python 3.10 sẵn có trên máy đích); bỏ qua `python_base` trong `audit_clean_bundle()`.

@@ -2728,6 +2728,14 @@ class TrolyApi(object):
                 return {"error": "Chưa có clip sao nào để hạ mục tiêu theo."}
             return self._dur_apply(res[0])
 
+    def dur_take_all(self):
+        """Nút "Lấy hết ★": nâng mục tiêu bằng tổng tất cả clip sao để đưa đủ 100% lên timeline."""
+        with self._lock:
+            res = td.plan_take_all(self._plan, self._clips, self._assign, self._stages, tl_fps=self._tl_fps)
+            if not res:
+                return {"error": "Chưa có clip sao nào để lấy hết."}
+            return self._dur_apply(res[0])
+
     def dur_reset(self):
         """Về số đề xuất: xóa mọi chỉnh sửa Bước 5 khỏi kế hoạch (mục tiêu, số giai đoạn, khóa, Min-Max)."""
         with self._lock:

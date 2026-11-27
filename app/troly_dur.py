@@ -23,7 +23,7 @@ import math
 import troly_core as tc
 
 TARGET_DEFAULT_MIN = 12.0
-TARGET_LIMITS_MIN = (0.5, 120.0)          # giới hạn nhập (phút)
+TARGET_LIMITS_MIN = (0.5, 300.0)          # giới hạn nhập (phút, hỗ trợ phim truyền thống tới 5 giờ)
 SUGGEST_RANGE_MIN = (10.0, 15.0)          # khoảng gợi ý mặc định khi chưa chọn kiểu quay
 STYLE_TARGET_MIN = {
     "teaser": (1.0, (0.5, 2.0)),
@@ -415,10 +415,16 @@ def build(plan, clips, assign, stages, tl_fps=None):
         it["t_ts"] = it["t"].timestamp() if it["t"] is not None else None
         it["t_ord"] = idx_t
         it.pop("t", None)
+    n_dropped = sum(r["dropped_n"] for r in stage_rows)
+    total_natural_s = round(sum(r["natural_s"] for r in stage_rows), 1)
     if not starred:
         warnings.append({"kind": "no_star", "text": "Chưa có clip nào gắn sao ★. Gắn sao (phím P) ở Bước 2 trước."})
     if excluded:
         warnings.append({"kind": "excluded", "text": "%d clip có sao nằm ngoài mọi giai đoạn nên không đưa lên timeline." % excluded})
+    if n_dropped > 0:
+        warnings.append({"kind": "clips_dropped", "n_dropped": n_dropped, "n_starred": len(starred),
+                         "text": "Đang bỏ %d/%d clip sao vì Video mục tiêu (%s) ngắn hơn tổng clip sao (%s). Bấm “Lấy hết ★” hoặc tăng mục tiêu để đưa đủ lên timeline." % (
+                             n_dropped, len(starred), mmss(target), mmss(total_natural_s))})
     lo, hi = sug_rng
     if not (lo <= tmin <= hi):
         warnings.append({"kind": "target_range", "text": "Mục tiêu %g phút nằm ngoài khoảng gợi ý %g–%g phút." % (tmin, lo, hi)})
@@ -431,12 +437,12 @@ def build(plan, clips, assign, stages, tl_fps=None):
     for r in stage_rows:
         for b in r["bins"]:
             b.pop("hard_max", None)
-    return {"target_min": tmin, "target_s": target, "total_s": round(total, 1), "delta_s": round(delta, 1),
+    return {"target_min": tmin, "target_s": target, "total_s": round(total, 1), "total_natural_s": total_natural_s, "delta_s": round(delta, 1),
             "short_s": round(max(0.0, target - total), 1) if state == "short" else 0.0,
             "v2_s": round(sum(r["v2_s"] for r in stage_rows), 1), "tl_fps": tl_fps,
             "shares": [round(sp["budget"] / target, 4) if target else 0.0 for sp in sparts],
             "stages": [{k: r[k] for k in keys} for r in stage_rows], "state": state, "tol_s": TOL_S,
-            "items": items, "warnings": warnings, "n_starred": len(starred), "n_used": len(items), "n_excluded": excluded,
+            "items": items, "warnings": warnings, "n_starred": len(starred), "n_used": len(items), "n_dropped": n_dropped, "n_excluded": excluded,
             "n_clips": len(clips)}
 
 
@@ -525,6 +531,21 @@ def plan_lower_target(plan, clips, assign, stages, r=None, tl_fps=None):
     return d, build(_with_durations(plan, d), clips, assign, stages, r["tl_fps"])
 
 
+def plan_take_all(plan, clips, assign, stages, r=None, tl_fps=None):
+    """Nút "Lấy hết ★": nâng mục tiêu bằng tổng toàn bộ clip sao (V1) và bỏ chốt/khóa cụm/bin để không bỏ sót clip nào. Giữ nguyên bố cục tl."""
+    r = r or build(plan, clips, assign, stages, tl_fps)
+    nat_s = sum(s["natural_s"] for s in r["stages"])
+    if r["n_starred"] <= 0 or nat_s <= 0:
+        return None
+    d = copy.deepcopy(plan.get("durations") or {})
+    d.pop("stage_s", None)
+    d.pop("bin_s", None)
+    d.pop("locked", None)
+    target_min = max(TARGET_LIMITS_MIN[0], math.ceil(nat_s) / 60.0)
+    d["target_min"] = round(min(TARGET_LIMITS_MIN[1], target_min), 4)
+    return d, build(_with_durations(plan, d), clips, assign, stages, r["tl_fps"])
+
+
 def best_unslow(plan, clips, assign, stages, r=None, tl_fps=None):
     """Khối Slow đưa về 100% bớt được nhiều thời gian trên V1 nhất. Trả (khóa khối, giây bớt được) hoặc None. Chỉ tính, không ghi."""
     r = r or build(plan, clips, assign, stages, tl_fps)
@@ -587,13 +608,27 @@ def advise(plan, clips, assign, stages, r):
     """Cột phải "Chưa đạt mục tiêu": vì sao thiếu/dư và ba gợi ý một chạm. Trả dict:
     {state, title, reasons[str], rebalance: {title, text} | None, lower: {title, text, target_min} | None, step3: {stage, bin, title, text} | None}."""
     titles = {"ok": "Đạt mục tiêu", "short": "Chưa đạt mục tiêu", "over": "Đang dài hơn mục tiêu", "no_star": "Chưa có clip sao"}
-    out = {"state": r["state"], "reasons": [], "rebalance": None, "lower": None, "step3": None, "unslow": None, "fit": None, "title": titles[r["state"]]}
+    out = {"state": r["state"], "reasons": [], "rebalance": None, "lower": None, "step3": None, "unslow": None, "fit": None, "take_all": None, "title": titles[r["state"]]}
     st = r["state"]
     if st == "no_star":
         out["reasons"].append("Chưa có clip sao ★. Gắn sao (phím P) ở Bước 2 hoặc Bước 3 rồi quay lại.")
         return out
+    n_drop = int(r.get("n_dropped") or 0)
+    if n_drop > 0:
+        ta = plan_take_all(plan, clips, assign, stages, r, r["tl_fps"])
+        if ta:
+            r_all = ta[1]
+            out["take_all"] = {
+                "title": "Lấy hết %d/%d clip sao (%s)" % (r_all["n_used"], r["n_starred"], mmss(r_all["total_s"])),
+                "text": "Nâng mục tiêu lên %s để đưa đủ toàn bộ clip đã gắn sao lên timeline, không bỏ sót clip nào." % mmss(r_all["target_s"]),
+            }
     if st == "ok":
-        out["reasons"].append("Hiện Tại %s trên mục tiêu %s. Có thể đưa lên Timeline mới." % (mmss(r["total_s"]), mmss(r["target_s"])))
+        if n_drop > 0:
+            out["title"] = "Đạt mục tiêu (đang bỏ %d clip sao)" % n_drop
+            out["reasons"].append("Đang bỏ %d/%d clip đã gắn sao vì Video mục tiêu (%s) ngắn hơn tổng clip sao (%s). Bấm “Lấy hết ★” nếu muốn đưa đủ tất cả lên timeline." % (
+                n_drop, r["n_starred"], mmss(r["target_s"]), mmss(r.get("total_natural_s", r["total_s"]))))
+        else:
+            out["reasons"].append("Hiện Tại %s trên mục tiêu %s. Có thể đưa lên Timeline mới." % (mmss(r["total_s"]), mmss(r["target_s"])))
         return out
     if st in ("over", "short"):
         bu = best_unslow(plan, clips, assign, stages, r, r["tl_fps"])

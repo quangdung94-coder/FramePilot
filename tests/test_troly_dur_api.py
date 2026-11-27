@@ -396,6 +396,19 @@ class DurApi(unittest.TestCase):
         self.assertTrue(self.api._worker.jobs.empty())
         self.assertEqual(self.pool.calls, [])
 
+    def test_canh_bao_bo_clip_sao_va_nut_lay_het(self):
+        self.api.set_shoot_style("traditional")
+        self.star_all()
+        self.api.dur_set_stage(0, 18)                                                    # ép nhỏ hơn tổng 3 clip (3 x 17s = 51s) -> bỏ bớt clip sao
+        v = self.api.dur_state()
+        self.assertGreater(v["n_dropped"], 0)
+        self.assertIn("clips_dropped", [w["kind"] for w in v["warnings"]])
+        self.assertIsNotNone(v["advice"]["take_all"])
+        v2 = self.api.dur_take_all()
+        self.assertEqual(v2["n_dropped"], 0)
+        self.assertEqual(v2["n_used"], v2["n_starred"])
+        self.assertNotIn("clips_dropped", [w["kind"] for w in v2["warnings"]])
+
 
 class Pure(unittest.TestCase):
     def test_cut_frames_tu_dau_file_va_ke_kep(self):
